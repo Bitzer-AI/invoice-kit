@@ -5,6 +5,7 @@ import { TaxService } from "./domains/taxes/service";
 import { PaymentMethodService } from "./domains/payment-methods/service";
 import { QuoteService } from "./domains/quotes/service";
 import { InvoiceService } from "./domains/invoices/service";
+import { PaymentService } from "./domains/payments/service";
 
 export interface Services {
   clients: ClientService;
@@ -13,6 +14,7 @@ export interface Services {
   paymentMethods: PaymentMethodService;
   quotes: QuoteService;
   invoices: InvoiceService;
+  payments: PaymentService;
 }
 
 export function buildServices(repos: Repositories): Services {
@@ -23,5 +25,6 @@ export function buildServices(repos: Repositories): Services {
     paymentMethods: new PaymentMethodService(repos),
     quotes: new QuoteService(repos),
     invoices: new InvoiceService(repos),
+    payments: new PaymentService(repos),
   };
 }
