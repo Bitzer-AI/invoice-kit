@@ -2,11 +2,23 @@
 // Each mapper converts Prisma's generated row shape into the package's plain TS types.
 //
 // Conventions:
-// - Prisma `Decimal` → `string` (via `.toString()`).
+// - Prisma `Decimal` → `string` (via `.toFixed(N)`).
 // - Prisma `BigInt` → `bigint` (already correct, just narrow).
 // - `Json` → `unknown`.
 
-import type { Client, DocumentNumberSequence, DocumentType, Product, Tax, TaxType } from "../../types";
+import type {
+  Client,
+  Document,
+  DocumentLineItem,
+  DocumentLineItemTax,
+  DocumentNumberSequence,
+  DocumentPaymentMethod,
+  DocumentType,
+  Product,
+  Tax,
+  TaxType,
+} from "../../types";
+import type { DocumentWithRelations } from "../types";
 
 export function clientRowToDomain(row: any): Client {
   return {
@@ -60,5 +72,72 @@ export function documentSequenceRowToDomain(row: any): DocumentNumberSequence {
     prefix: row.prefix ?? null,
     nextNumber: row.nextNumber,
     updatedAt: row.updatedAt,
+  };
+}
+
+export function documentRowToDomain(row: any): Document {
+  return {
+    id: row.id,
+    type: row.type as DocumentType,
+    organizationId: row.organizationId,
+    clientId: row.clientId,
+    documentNumberPrefix: row.documentNumberPrefix ?? null,
+    documentNumber: row.documentNumber,
+    issueDate: row.issueDate,
+    dueDate: row.dueDate ?? null,
+    notes: row.notes ?? null,
+    subtotal: row.subtotal ?? null,
+    tax: row.tax ?? null,
+    total: row.total ?? null,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+}
+
+export function documentLineItemRowToDomain(row: any): DocumentLineItem {
+  return {
+    id: row.id,
+    documentId: row.documentId,
+    productId: row.productId,
+    // Prisma Decimal(10,4): use toString() so "2" round-trips as "2" (not "2.0000").
+    // Callers that need "1.0000" form should store with trailing zeros.
+    quantity: row.quantity.toString(),
+    price: row.price,
+    taxAmount: row.taxAmount ?? 0n,
+    total: row.total,
+    description: row.description ?? null,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+}
+
+export function documentLineItemTaxRowToDomain(row: any): DocumentLineItemTax {
+  return {
+    id: row.id,
+    lineItemId: row.lineItemId,
+    taxId: row.taxId,
+    taxAmount: row.taxAmount,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+}
+
+export function documentPaymentMethodRowToDomain(row: any): DocumentPaymentMethod {
+  return {
+    id: row.id,
+    documentId: row.documentId,
+    paymentMethodId: row.paymentMethodId,
+    createdAt: row.createdAt,
+  };
+}
+
+export function documentWithRelationsRowToDomain(row: any): DocumentWithRelations {
+  return {
+    ...documentRowToDomain(row),
+    lineItems: (row.lineItems ?? []).map((li: any) => ({
+      ...documentLineItemRowToDomain(li),
+      taxes: (li.taxes ?? []).map(documentLineItemTaxRowToDomain),
+    })),
+    paymentMethods: (row.paymentMethods ?? []).map(documentPaymentMethodRowToDomain),
   };
 }

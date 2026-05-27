@@ -3,6 +3,7 @@ import { createInMemoryClientRepository } from "./clients";
 import { createInMemoryProductRepository } from "./products";
 import { createInMemoryTaxRepository } from "./taxes";
 import { createInMemoryDocumentSequenceRepository } from "./sequences";
+import { createInMemoryDocumentRepository } from "./documents";
 
 function notImpl(name: string): never {
   throw new Error(`inMemoryAdapter: ${name} not implemented yet`);
@@ -14,19 +15,13 @@ export function inMemoryAdapter(): Repositories {
   const products = createInMemoryProductRepository();
   const taxes = createInMemoryTaxRepository();
   const documentSequences = createInMemoryDocumentSequenceRepository();
+  const documents = createInMemoryDocumentRepository();
   const repos: Repositories = {
     clients,
     products,
     taxes,
     documentSequences,
-    documents: {
-      create: () => notImpl("documents.create"),
-      findById: () => notImpl("documents.findById"),
-      update: () => notImpl("documents.update"),
-      replaceLineItems: () => notImpl("documents.replaceLineItems"),
-      setPaymentMethods: () => notImpl("documents.setPaymentMethods"),
-      delete: () => notImpl("documents.delete"),
-    },
+    documents,
     invoices: {
       create: () => notImpl("invoices.create"),
       findById: () => notImpl("invoices.findById"),
