@@ -6,7 +6,7 @@
 // - Prisma `BigInt` → `bigint` (already correct, just narrow).
 // - `Json` → `unknown`.
 
-import type { Client, Product, Tax, TaxType } from "../../types";
+import type { Client, DocumentNumberSequence, DocumentType, Product, Tax, TaxType } from "../../types";
 
 export function clientRowToDomain(row: any): Client {
   return {
@@ -48,6 +48,17 @@ export function taxRowToDomain(row: any): Tax {
     isActive: row.isActive,
     isDefault: row.isDefault,
     createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+}
+
+export function documentSequenceRowToDomain(row: any): DocumentNumberSequence {
+  return {
+    id: row.id,
+    organizationId: row.organizationId,
+    documentType: row.documentType as DocumentType,
+    prefix: row.prefix ?? null,
+    nextNumber: row.nextNumber,
     updatedAt: row.updatedAt,
   };
 }
