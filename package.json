@@ -1,0 +1,15 @@
+{
+  "name": "invoicing-kit-workspace",
+  "version": "0.0.0",
+  "private": true,
+  "workspaces": ["packages/*", "examples/*"],
+  "scripts": {
+    "build": "bun run --filter '*' build",
+    "test": "bun run --filter '*' test",
+    "typecheck": "bun run --filter '*' typecheck"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "@types/node": "^25.0.9"
+  }
+}

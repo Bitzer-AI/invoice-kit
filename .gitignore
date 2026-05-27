@@ -6,3 +6,8 @@ dist/
 .env.*
 !.env.example
 
+/packages/*/dist/
+/packages/*/node_modules/
+/examples/*/node_modules/
+/packages/invoicing-kit/src/generated/
+**/.prisma/
