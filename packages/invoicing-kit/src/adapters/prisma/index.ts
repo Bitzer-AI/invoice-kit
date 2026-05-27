@@ -1,6 +1,7 @@
 import type { AnyPrismaClient } from "./client-type";
 import type { Repositories } from "../types";
 import { createPrismaClientRepository } from "./clients";
+import { createPrismaProductRepository } from "./products";
 
 function notImpl(name: string): never {
   throw new Error(`prismaAdapter: ${name} not implemented yet`);
@@ -8,15 +9,10 @@ function notImpl(name: string): never {
 
 export function prismaAdapter(prisma: AnyPrismaClient): Repositories {
   const clients = createPrismaClientRepository(prisma);
+  const products = createPrismaProductRepository(prisma);
   const repos: Repositories = {
     clients,
-    products: {
-      create: () => notImpl("products.create"),
-      findById: () => notImpl("products.findById"),
-      list: () => notImpl("products.list"),
-      update: () => notImpl("products.update"),
-      delete: () => notImpl("products.delete"),
-    },
+    products,
     taxes: {
       create: () => notImpl("taxes.create"),
       findById: () => notImpl("taxes.findById"),

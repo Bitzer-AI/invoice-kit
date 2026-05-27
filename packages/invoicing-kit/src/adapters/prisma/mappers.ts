@@ -6,7 +6,7 @@
 // - Prisma `BigInt` → `bigint` (already correct, just narrow).
 // - `Json` → `unknown`.
 
-import type { Client } from "../../types";
+import type { Client, Product } from "../../types";
 
 export function clientRowToDomain(row: any): Client {
   return {
@@ -20,6 +20,18 @@ export function clientRowToDomain(row: any): Client {
     city: row.city ?? null,
     state: row.state ?? null,
     postalCode: row.postalCode ?? null,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+}
+
+export function productRowToDomain(row: any): Product {
+  return {
+    id: row.id,
+    organizationId: row.organizationId,
+    name: row.name,
+    description: row.description ?? null,
+    price: row.price.toFixed(2), // Prisma Decimal -> string, preserve 2dp from Decimal(10,2) column
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
