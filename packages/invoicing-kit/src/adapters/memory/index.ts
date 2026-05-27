@@ -1,6 +1,7 @@
 import type { Repositories } from "../types";
 import { createInMemoryClientRepository } from "./clients";
 import { createInMemoryProductRepository } from "./products";
+import { createInMemoryTaxRepository } from "./taxes";
 
 function notImpl(name: string): never {
   throw new Error(`inMemoryAdapter: ${name} not implemented yet`);
@@ -10,18 +11,11 @@ export function inMemoryAdapter(): Repositories {
   // Filled in per-domain across Phase C. For now, every method throws.
   const clients = createInMemoryClientRepository();
   const products = createInMemoryProductRepository();
+  const taxes = createInMemoryTaxRepository();
   const repos: Repositories = {
     clients,
     products,
-    taxes: {
-      create: () => notImpl("taxes.create"),
-      findById: () => notImpl("taxes.findById"),
-      findManyById: () => notImpl("taxes.findManyById"),
-      list: () => notImpl("taxes.list"),
-      update: () => notImpl("taxes.update"),
-      delete: () => notImpl("taxes.delete"),
-      clearDefaultExcept: () => notImpl("taxes.clearDefaultExcept"),
-    },
+    taxes,
     documentSequences: {
       incrementAndGet: () => notImpl("documentSequences.incrementAndGet"),
       ensure: () => notImpl("documentSequences.ensure"),
