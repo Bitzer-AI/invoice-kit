@@ -7,13 +7,13 @@ import { createInMemoryDocumentRepository } from "./documents";
 import { createInMemoryInvoiceRepository } from "./invoices";
 import { createInMemoryQuoteRepository } from "./quotes";
 import { createInMemoryPaymentMethodRepository } from "./payment-methods";
+import { createInMemoryPaymentRepository } from "./payments";
 
 function notImpl(name: string): never {
   throw new Error(`inMemoryAdapter: ${name} not implemented yet`);
 }
 
 export function inMemoryAdapter(): Repositories {
-  // Filled in per-domain across Phase C. For now, every method throws.
   const clients = createInMemoryClientRepository();
   const products = createInMemoryProductRepository();
   const taxes = createInMemoryTaxRepository();
@@ -22,6 +22,7 @@ export function inMemoryAdapter(): Repositories {
   const invoices = createInMemoryInvoiceRepository(documents);
   const quotes = createInMemoryQuoteRepository(documents);
   const paymentMethods = createInMemoryPaymentMethodRepository();
+  const payments = createInMemoryPaymentRepository(invoices);
   const repos: Repositories = {
     clients,
     products,
@@ -31,14 +32,7 @@ export function inMemoryAdapter(): Repositories {
     invoices,
     quotes,
     paymentMethods,
-    payments: {
-      create: () => notImpl("payments.create"),
-      findById: () => notImpl("payments.findById"),
-      list: () => notImpl("payments.list"),
-      update: () => notImpl("payments.update"),
-      delete: () => notImpl("payments.delete"),
-      totalPaidForInvoice: () => notImpl("payments.totalPaidForInvoice"),
-    },
+    payments,
     tx: () => notImpl("tx"),
   };
   return repos;

@@ -8,6 +8,7 @@ import { createPrismaDocumentRepository } from "./documents";
 import { createPrismaInvoiceRepository } from "./invoices";
 import { createPrismaQuoteRepository } from "./quotes";
 import { createPrismaPaymentMethodRepository } from "./payment-methods";
+import { createPrismaPaymentRepository } from "./payments";
 
 function notImpl(name: string): never {
   throw new Error(`prismaAdapter: ${name} not implemented yet`);
@@ -22,6 +23,7 @@ export function prismaAdapter(prisma: AnyPrismaClient): Repositories {
   const invoices = createPrismaInvoiceRepository(prisma);
   const quotes = createPrismaQuoteRepository(prisma);
   const paymentMethods = createPrismaPaymentMethodRepository(prisma);
+  const payments = createPrismaPaymentRepository(prisma);
   const repos: Repositories = {
     clients,
     products,
@@ -31,14 +33,7 @@ export function prismaAdapter(prisma: AnyPrismaClient): Repositories {
     invoices,
     quotes,
     paymentMethods,
-    payments: {
-      create: () => notImpl("payments.create"),
-      findById: () => notImpl("payments.findById"),
-      list: () => notImpl("payments.list"),
-      update: () => notImpl("payments.update"),
-      delete: () => notImpl("payments.delete"),
-      totalPaidForInvoice: () => notImpl("payments.totalPaidForInvoice"),
-    },
+    payments,
     tx: () => notImpl("tx"),
   };
   (repos as unknown as { __prisma: AnyPrismaClient }).__prisma = prisma;

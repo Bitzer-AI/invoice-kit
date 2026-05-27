@@ -16,8 +16,11 @@ import type {
   DocumentType,
   Invoice,
   InvoiceStatus,
+  Payment,
   PaymentMethod,
   PaymentMethodType,
+  PaymentProvider,
+  PaymentStatus,
   Product,
   Quote,
   QuoteStatus,
@@ -193,5 +196,29 @@ export function quoteWithDocumentRowToDomain(row: any): QuoteWithDocument {
   return {
     ...quoteRowToDomain(row),
     document: documentWithRelationsRowToDomain(row.document),
+  };
+}
+
+export function paymentRowToDomain(row: any): Payment {
+  return {
+    id: row.id,
+    invoiceId: row.invoiceId,
+    paymentMethodId: row.paymentMethodId ?? null,
+    amount: row.amount,
+    currency: row.currency,
+    status: row.status as PaymentStatus,
+    provider: row.provider as PaymentProvider,
+    stripePaymentIntentId: row.stripePaymentIntentId ?? null,
+    stripeCheckoutSessionId: row.stripeCheckoutSessionId ?? null,
+    stripeChargeId: row.stripeChargeId ?? null,
+    paidAt: row.paidAt ?? null,
+    failedAt: row.failedAt ?? null,
+    failureReason: row.failureReason ?? null,
+    reference: row.reference ?? null,
+    notes: row.notes ?? null,
+    recordedBy: row.recordedBy ?? null,
+    metadata: row.metadata ?? null,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
   };
 }
