@@ -8,7 +8,18 @@ import type { Repositories } from "../../src/adapters/types";
 async function loadPrismaClient() {
   // @ts-expect-error — file generated at test setup
   const mod = await import("../../src/generated/test-prisma/client.ts");
-  return mod.PrismaClient as new () => any;
+  return mod.PrismaClient as new (opts: any) => any;
+}
+
+async function createPrismaInstance(): Promise<any> {
+  const PrismaClient = await loadPrismaClient();
+  const connectionString =
+    process.env["INVOICING_KIT_TEST_DATABASE_URL"] ??
+    "postgresql://test:test@localhost:5544/invoicing_kit_test";
+  // Prisma 7 requires a driver adapter — use @prisma/adapter-pg.
+  const { PrismaPg } = await import("@prisma/adapter-pg");
+  const adapter = new PrismaPg({ connectionString });
+  return new PrismaClient({ adapter });
 }
 
 let sharedPrisma: any;
@@ -27,8 +38,7 @@ export const prismaFactory: AdapterFactory = {
   name: "prisma",
   async create(): Promise<Repositories> {
     if (!sharedPrisma) {
-      const PrismaClient = await loadPrismaClient();
-      sharedPrisma = new PrismaClient();
+      sharedPrisma = await createPrismaInstance();
     }
     // Truncate all billing tables before each test.
     await sharedPrisma.$executeRawUnsafe(`
