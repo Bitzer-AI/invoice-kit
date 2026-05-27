@@ -6,9 +6,10 @@ import type {
   TaxRepository,
   TaxUpdate,
 } from "../types";
+import type { MemoryStore } from "./store";
 
-export function createInMemoryTaxRepository(): TaxRepository {
-  const rows = new Map<string, Tax>();
+export function createInMemoryTaxRepository(store: MemoryStore): TaxRepository {
+  const rows = store.taxes;
 
   const repo: TaxRepository = {
     async create(data: NewTax): Promise<Tax> {

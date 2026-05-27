@@ -7,9 +7,10 @@ import type {
   NewClient,
   Page,
 } from "../types";
+import type { MemoryStore } from "./store";
 
-export function createInMemoryClientRepository(): ClientRepository {
-  const rows = new Map<string, Client>();
+export function createInMemoryClientRepository(store: MemoryStore): ClientRepository {
+  const rows = store.clients;
 
   const repo: ClientRepository = {
     async create(data: NewClient): Promise<Client> {

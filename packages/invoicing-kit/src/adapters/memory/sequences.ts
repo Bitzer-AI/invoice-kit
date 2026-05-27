@@ -1,13 +1,17 @@
 // src/adapters/memory/sequences.ts
 import { randomUUID } from "node:crypto";
-import type { DocumentNumberSequence, DocumentType } from "../../types";
+import type { DocumentType } from "../../types";
 import type { DocumentSequenceRepository } from "../types";
+import type { MemoryStore } from "./store";
 
 type Key = `${string}:${DocumentType}`;
 const key = (org: string, t: DocumentType): Key => `${org}:${t}`;
 
-export function createInMemoryDocumentSequenceRepository(): DocumentSequenceRepository {
-  const rows = new Map<Key, DocumentNumberSequence>();
+export function createInMemoryDocumentSequenceRepository(
+  store: MemoryStore,
+): DocumentSequenceRepository {
+  // documentSequences map uses Key (org:type) as key
+  const rows = store.documentSequences as Map<string, import("../../types").DocumentNumberSequence>;
 
   return {
     async ensure({ organizationId, documentType, prefix }) {
@@ -27,8 +31,7 @@ export function createInMemoryDocumentSequenceRepository(): DocumentSequenceRepo
       const row = rows.get(k);
       if (!row) throw new Error("sequence not initialized; call ensure() first");
       const value = row.nextNumber;
-      row.nextNumber += 1;
-      row.updatedAt = new Date();
+      rows.set(k, { ...row, nextNumber: row.nextNumber + 1, updatedAt: new Date() });
       return value;
     },
     async find({ organizationId, documentType }) {

@@ -7,9 +7,10 @@ import type {
   ProductRepository,
   ProductUpdate,
 } from "../types";
+import type { MemoryStore } from "./store";
 
-export function createInMemoryProductRepository(): ProductRepository {
-  const rows = new Map<string, Product>();
+export function createInMemoryProductRepository(store: MemoryStore): ProductRepository {
+  const rows = store.products;
 
   const repo: ProductRepository = {
     async create(data: NewProduct): Promise<Product> {

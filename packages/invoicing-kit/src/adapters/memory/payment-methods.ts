@@ -6,9 +6,10 @@ import type {
   PaymentMethodRepository,
   PaymentMethodUpdate,
 } from "../types";
+import type { MemoryStore } from "./store";
 
-export function createInMemoryPaymentMethodRepository(): PaymentMethodRepository {
-  const rows = new Map<string, PaymentMethod>();
+export function createInMemoryPaymentMethodRepository(store: MemoryStore): PaymentMethodRepository {
+  const rows = store.paymentMethods;
 
   const repo: PaymentMethodRepository = {
     async create(data: NewPaymentMethod): Promise<PaymentMethod> {

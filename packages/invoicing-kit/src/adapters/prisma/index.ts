@@ -10,32 +10,30 @@ import { createPrismaQuoteRepository } from "./quotes";
 import { createPrismaPaymentMethodRepository } from "./payment-methods";
 import { createPrismaPaymentRepository } from "./payments";
 
-function notImpl(name: string): never {
-  throw new Error(`prismaAdapter: ${name} not implemented yet`);
-}
-
 export function prismaAdapter(prisma: AnyPrismaClient): Repositories {
-  const clients = createPrismaClientRepository(prisma);
-  const products = createPrismaProductRepository(prisma);
-  const taxes = createPrismaTaxRepository(prisma);
-  const documentSequences = createPrismaDocumentSequenceRepository(prisma);
-  const documents = createPrismaDocumentRepository(prisma);
-  const invoices = createPrismaInvoiceRepository(prisma);
-  const quotes = createPrismaQuoteRepository(prisma);
-  const paymentMethods = createPrismaPaymentMethodRepository(prisma);
-  const payments = createPrismaPaymentRepository(prisma);
-  const repos: Repositories = {
-    clients,
-    products,
-    taxes,
-    documentSequences,
-    documents,
-    invoices,
-    quotes,
-    paymentMethods,
-    payments,
-    tx: () => notImpl("tx"),
-  };
+  function buildRepos(client: AnyPrismaClient, depth: number): Repositories {
+    return {
+      clients: createPrismaClientRepository(client),
+      products: createPrismaProductRepository(client),
+      taxes: createPrismaTaxRepository(client),
+      documentSequences: createPrismaDocumentSequenceRepository(client),
+      documents: createPrismaDocumentRepository(client),
+      invoices: createPrismaInvoiceRepository(client),
+      quotes: createPrismaQuoteRepository(client),
+      paymentMethods: createPrismaPaymentMethodRepository(client),
+      payments: createPrismaPaymentRepository(client),
+      tx: async (fn) => {
+        if (depth > 0) {
+          // Already inside a transaction; reuse same client.
+          return fn(buildRepos(client, depth + 1));
+        }
+        return (prisma as any).$transaction(async (tx: any) => {
+          return fn(buildRepos(tx, 1));
+        });
+      },
+    };
+  }
+  const repos = buildRepos(prisma, 0);
   (repos as unknown as { __prisma: AnyPrismaClient }).__prisma = prisma;
   return repos;
 }

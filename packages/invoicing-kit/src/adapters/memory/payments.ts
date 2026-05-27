@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { Payment } from "../../types";
 import type {
-  InvoiceRepository,
   ListPaymentsArgs,
   NewPayment,
   Page,
@@ -9,11 +8,15 @@ import type {
   PaymentUpdate,
 } from "../types";
 import type { BigintMinor } from "../../types";
+import type { MemoryStore } from "./store";
+import { createInMemoryInvoiceRepository } from "./invoices";
 
 export function createInMemoryPaymentRepository(
-  invoices: InvoiceRepository,
+  store: MemoryStore,
 ): PaymentRepository {
-  const rows = new Map<string, Payment>();
+  const rows = store.payments;
+  // Use invoices from the same store
+  const invoices = createInMemoryInvoiceRepository(store);
 
   const repo: PaymentRepository = {
     async create(data: NewPayment): Promise<Payment> {

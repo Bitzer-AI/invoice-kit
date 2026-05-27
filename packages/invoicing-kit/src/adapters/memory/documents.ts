@@ -12,12 +12,13 @@ import type {
   NewDocument,
   NewDocumentLineItem,
 } from "../types";
+import type { MemoryStore } from "./store";
 
-export function createInMemoryDocumentRepository(): DocumentRepository {
-  const docs = new Map<string, Document>();
-  const lineItems = new Map<string, DocumentLineItem>();
-  const lineItemTaxes = new Map<string, DocumentLineItemTax>();
-  const paymentMethodLinks = new Map<string, DocumentPaymentMethod>();
+export function createInMemoryDocumentRepository(store: MemoryStore): DocumentRepository {
+  const docs = store.documents;
+  const lineItems = store.documentLineItems;
+  const lineItemTaxes = store.documentLineItemTaxes;
+  const paymentMethodLinks = store.documentPaymentMethods;
 
   function composeWithRelations(doc: Document): DocumentWithRelations {
     const docLineItems = Array.from(lineItems.values()).filter(

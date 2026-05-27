@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { Quote } from "../../types";
 import type {
-  DocumentRepository,
   ListQuotesArgs,
   NewQuote,
   Page,
@@ -9,11 +8,15 @@ import type {
   QuoteUpdate,
   QuoteWithDocument,
 } from "../types";
+import type { MemoryStore } from "./store";
+import { createInMemoryDocumentRepository } from "./documents";
 
 export function createInMemoryQuoteRepository(
-  documents: DocumentRepository,
+  store: MemoryStore,
 ): QuoteRepository {
-  const rows = new Map<string, Quote>();
+  const rows = store.quotes;
+  // Use documents from the same store
+  const documents = createInMemoryDocumentRepository(store);
 
   return {
     async create(data: NewQuote): Promise<Quote> {

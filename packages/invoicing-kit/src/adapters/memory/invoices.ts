@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { Invoice } from "../../types";
 import type {
-  DocumentRepository,
   InvoiceRepository,
   InvoiceUpdate,
   InvoiceWithDocument,
@@ -9,11 +8,15 @@ import type {
   NewInvoice,
   Page,
 } from "../types";
+import type { MemoryStore } from "./store";
+import { createInMemoryDocumentRepository } from "./documents";
 
 export function createInMemoryInvoiceRepository(
-  documents: DocumentRepository,
+  store: MemoryStore,
 ): InvoiceRepository {
-  const rows = new Map<string, Invoice>();
+  const rows = store.invoices;
+  // Use documents from the same store
+  const documents = createInMemoryDocumentRepository(store);
 
   return {
     async create(data: NewInvoice): Promise<Invoice> {
