@@ -1,0 +1,10 @@
+{
+  "name": "@invoicing-kit/cli",
+  "version": "0.0.0",
+  "description": "Schema generator CLI for invoicing-kit",
+  "type": "module",
+  "files": ["dist", "templates", "README.md"],
+  "scripts": {
+    "typecheck": "echo 'no source in Plan 1'"
+  }
+}

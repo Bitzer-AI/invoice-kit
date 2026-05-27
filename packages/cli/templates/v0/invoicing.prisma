@@ -1,0 +1,144 @@
+enum DocumentType {
+  QUOTE
+  INVOICE
+}
+
+enum InvoiceStatus {
+  draft
+  sent
+  paid
+  partially_paid
+}
+
+enum QuoteStatus {
+  draft
+  sent
+  accepted
+  rejected
+  converted
+}
+
+enum TaxType {
+  PERCENTAGE
+  FIXED
+}
+
+model DocumentNumberSequence {
+  id             String       @id @default(uuid(7))
+  organizationId String       @map("organization_id")
+  documentType   DocumentType
+  prefix         String?      @db.VarChar(20)
+  nextNumber     Int          @map("next_number")
+  updatedAt      DateTime     @default(now()) @updatedAt @map("updated_at")
+
+  @@unique([organizationId, documentType])
+  @@map("document_number_sequences")
+}
+
+model Tax {
+  id             String   @id @default(uuid(7))
+  organizationId String   @map("organization_id")
+  name           String   @db.VarChar(100)
+  description    String?  @db.Text
+  type           TaxType  @default(PERCENTAGE)
+  rate           Decimal  @db.Decimal(10, 4)
+  isActive       Boolean  @default(true) @map("is_active")
+  isDefault      Boolean  @default(false) @map("is_default")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at")
+
+  organization  Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  lineItemTaxes DocumentLineItemTax[]
+
+  @@index([organizationId, isActive])
+  @@map("taxes")
+}
+
+model Document {
+  id                   String       @id @default(uuid(7))
+  type                 DocumentType
+  organizationId       String       @map("organization_id")
+  clientId             String       @map("client_id")
+  documentNumberPrefix String?      @map("document_number_prefix") @db.VarChar(20)
+  documentNumber       Int          @map("document_number")
+  issueDate            DateTime     @map("issue_date") @db.Date
+  dueDate              DateTime?    @map("due_date") @db.Date
+  notes                String?      @db.Text
+  subtotal             BigInt? // Amount in minor units (cents)
+  tax                  BigInt? // Amount in minor units (cents)
+  total                BigInt? // Amount in minor units (cents)
+  createdAt            DateTime     @default(now()) @map("created_at")
+  updatedAt            DateTime     @default(now()) @updatedAt @map("updated_at")
+
+  organization   Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  client         Client                  @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  quote          Quote?
+  invoice        Invoice?
+  lineItems      DocumentLineItem[]
+  paymentMethods DocumentPaymentMethod[]
+
+  @@unique([organizationId, type, documentNumber, documentNumberPrefix])
+  @@index([documentNumber])
+  @@map("documents")
+}
+
+model Quote {
+  id         String      @id @default(uuid(7))
+  documentId String      @unique @map("document_id")
+  status     QuoteStatus
+  validUntil DateTime?   @map("valid_until") @db.Date
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  convertedInvoice Invoice?
+
+  @@map("quotes")
+}
+
+model Invoice {
+  id                   String        @id @default(uuid(7))
+  documentId           String        @unique @map("document_id")
+  status               InvoiceStatus
+  paidDate             DateTime?     @map("paid_date") @db.Date
+  convertedFromQuoteId String?       @unique @map("converted_from_quote_id")
+
+  convertedFromQuote Quote?     @relation(fields: [convertedFromQuoteId], references: [id], onDelete: SetNull)
+  document           Document   @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  payments           Payment[]
+
+  @@map("invoices")
+}
+
+model DocumentLineItem {
+  id          String   @id @default(uuid(7))
+  documentId  String   @map("document_id")
+  productId   String   @map("product_id")
+  quantity    Decimal  @db.Decimal(10, 4)
+  price       BigInt // Unit price in minor units (cents)
+  taxAmount   BigInt?  @default(0) @map("tax_amount") // Amount in minor units (cents)
+  total       BigInt // Amount in minor units (cents)
+  description String?  @map("description") @db.VarChar(255)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+
+  document Document              @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  product  Product               @relation(fields: [productId], references: [id], onDelete: Restrict)
+  taxes    DocumentLineItemTax[]
+
+  @@map("document_line_items")
+}
+
+model DocumentLineItemTax {
+  id         String   @id @default(uuid(7))
+  lineItemId String   @map("line_item_id")
+  taxId      String   @map("tax_id")
+  taxAmount  BigInt   @map("tax_amount") // Amount in minor units (cents)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at")
+
+  lineItem DocumentLineItem @relation(fields: [lineItemId], references: [id], onDelete: Cascade)
+  tax      Tax              @relation(fields: [taxId], references: [id], onDelete: Restrict)
+
+  @@unique([lineItemId, taxId])
+  @@map("document_line_item_taxes")
+}
