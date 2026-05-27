@@ -1,0 +1,20 @@
+model Client {
+  id             String   @id @default(uuid(7))
+  organizationId String   @map("organization_id")
+  name           String   @map("name")
+  email          String?  @map("email")
+  phone          String?  @map("phone")
+  country        String?  @map("country") @db.VarChar(2) // ISO 3166-1 alpha-2
+  addressLine1   String?  @map("address_line_1")
+  city           String?  @map("city")
+  state          String?  @map("state")
+  postalCode     String?  @map("postal_code")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at")
+
+  documents    Document[]
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@map("clients")
+}

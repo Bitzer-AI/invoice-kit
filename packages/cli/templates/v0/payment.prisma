@@ -1,0 +1,89 @@
+enum PaymentMethodType {
+  STRIPE
+  MANUAL
+}
+
+enum PaymentStatus {
+  pending
+  processing
+  succeeded
+  failed
+  canceled
+}
+
+enum PaymentProvider {
+  STRIPE
+  MANUAL
+}
+
+model PaymentMethod {
+  id             String            @id @default(uuid(7))
+  organizationId String            @map("organization_id")
+  name           String            @db.VarChar(100)
+  type           PaymentMethodType @default(MANUAL)
+  instructions   String?           @db.Text
+  metadata       Json? // Provider-specific configuration
+  isActive       Boolean           @default(true) @map("is_active")
+  isDefault      Boolean           @default(false) @map("is_default")
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @default(now()) @updatedAt @map("updated_at")
+
+  organization           Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  documentPaymentMethods DocumentPaymentMethod[]
+  payments               Payment[]
+
+  @@index([organizationId, isActive])
+  @@map("payment_methods")
+}
+
+model DocumentPaymentMethod {
+  id              String   @id @default(uuid(7))
+  documentId      String   @map("document_id")
+  paymentMethodId String   @map("payment_method_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  document      Document      @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  paymentMethod PaymentMethod @relation(fields: [paymentMethodId], references: [id], onDelete: Restrict)
+
+  @@unique([documentId, paymentMethodId])
+  @@map("document_payment_methods")
+}
+
+model Payment {
+  id                      String          @id @default(uuid(7))
+  invoiceId               String          @map("invoice_id")
+  paymentMethodId         String?         @map("payment_method_id")
+  amount                  BigInt // Amount in minor units (cents)
+  currency                String          @default("usd") @db.VarChar(3)
+  status                  PaymentStatus
+  provider                PaymentProvider
+
+  // Stripe-specific fields
+  stripePaymentIntentId   String?         @unique @map("stripe_payment_intent_id")
+  stripeCheckoutSessionId String?         @unique @map("stripe_checkout_session_id")
+  stripeChargeId          String?         @map("stripe_charge_id")
+
+  // Payment metadata
+  paidAt                  DateTime?       @map("paid_at")
+  failedAt                DateTime?       @map("failed_at")
+  failureReason           String?         @map("failure_reason") @db.Text
+
+  // Manual payment details
+  reference               String?         @db.VarChar(255) // Check number, transaction ID
+  notes                   String?         @db.Text
+  recordedBy              String?         @map("recorded_by") // User ID who recorded manual payment
+
+  // Audit
+  metadata                Json? // Store Stripe event data or additional details
+  createdAt               DateTime        @default(now()) @map("created_at")
+  updatedAt               DateTime        @default(now()) @updatedAt @map("updated_at")
+
+  invoice       Invoice        @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  paymentMethod PaymentMethod? @relation(fields: [paymentMethodId], references: [id], onDelete: SetNull)
+
+  @@index([invoiceId])
+  @@index([stripePaymentIntentId])
+  @@index([stripeCheckoutSessionId])
+  @@index([status])
+  @@map("payments")
+}
