@@ -5,6 +5,7 @@ import { buildClientsRouter } from "./domains/clients/routes";
 import { buildProductsRouter } from "./domains/products/routes";
 import { buildTaxesRouter } from "./domains/taxes/routes";
 import { buildPaymentMethodsRouter } from "./domains/payment-methods/routes";
+import { buildQuotesRouter } from "./domains/quotes/routes";
 
 interface BuildRouterArgs {
   services: Services;
@@ -18,5 +19,6 @@ export function buildRouter({ services, auth, basePath }: BuildRouterArgs) {
   root.route(basePath, buildProductsRouter(services.products, auth));
   root.route(basePath, buildTaxesRouter(services.taxes, auth));
   root.route(basePath, buildPaymentMethodsRouter(services.paymentMethods, auth));
+  root.route(basePath, buildQuotesRouter(services.quotes, auth));
   return root;
 }
