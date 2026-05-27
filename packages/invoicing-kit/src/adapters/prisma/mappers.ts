@@ -17,10 +17,12 @@ import type {
   Invoice,
   InvoiceStatus,
   Product,
+  Quote,
+  QuoteStatus,
   Tax,
   TaxType,
 } from "../../types";
-import type { DocumentWithRelations, InvoiceWithDocument } from "../types";
+import type { DocumentWithRelations, InvoiceWithDocument, QuoteWithDocument } from "../types";
 
 export function clientRowToDomain(row: any): Client {
   return {
@@ -157,6 +159,22 @@ export function invoiceRowToDomain(row: any): Invoice {
 export function invoiceWithDocumentRowToDomain(row: any): InvoiceWithDocument {
   return {
     ...invoiceRowToDomain(row),
+    document: documentWithRelationsRowToDomain(row.document),
+  };
+}
+
+export function quoteRowToDomain(row: any): Quote {
+  return {
+    id: row.id,
+    documentId: row.documentId,
+    status: row.status as QuoteStatus,
+    validUntil: row.validUntil ?? null,
+  };
+}
+
+export function quoteWithDocumentRowToDomain(row: any): QuoteWithDocument {
+  return {
+    ...quoteRowToDomain(row),
     document: documentWithRelationsRowToDomain(row.document),
   };
 }
