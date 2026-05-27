@@ -1,0 +1,49 @@
+{
+  "name": "invoicing-kit",
+  "version": "0.0.0",
+  "description": "Reusable invoicing API for Hono + better-auth apps",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./testing": {
+      "types": "./dist/testing.d.ts",
+      "import": "./dist/testing.js",
+      "require": "./dist/testing.cjs"
+    }
+  },
+  "files": ["dist", "README.md", "LICENSE"],
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "peerDependencies": {
+    "@hono/zod-openapi": "^1.0.0",
+    "@prisma/client": ">=7.0.0",
+    "better-auth": ">=1.4.0",
+    "hono": "^4.0.0",
+    "zod": "^4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@prisma/client": { "optional": true }
+  },
+  "devDependencies": {
+    "@hono/zod-openapi": "^1.2.0",
+    "@prisma/client": "^7.2.0",
+    "@prisma/adapter-pg": "^7.2.0",
+    "better-auth": "^1.4.13",
+    "hono": "^4.11.4",
+    "prisma": "^7.2.0",
+    "tsup": "^8.0.0",
+    "vitest": "^2.0.0",
+    "zod": "^4.3.5"
+  }
+}
