@@ -1,2 +1,1 @@
-// Test-only adapter exports filled in during Phase C.
-export {};
+export { inMemoryAdapter } from "./adapters/memory";
