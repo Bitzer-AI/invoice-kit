@@ -1,0 +1,11 @@
+services:
+  postgres-test:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: test
+      POSTGRES_PASSWORD: test
+      POSTGRES_DB: invoicing_kit_test
+    ports:
+      - "5544:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
