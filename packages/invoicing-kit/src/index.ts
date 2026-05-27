@@ -71,3 +71,7 @@ export type {
 
 // Default adapter
 export { prismaAdapter } from "./adapters/prisma";
+
+// Error handling
+export { ErrorCode, httpError } from "./lib/errors";
+export type { ErrorCodeKey, ErrorCodeValue } from "./lib/errors";
