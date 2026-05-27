@@ -1,5 +1,9 @@
 // Public API of invoicing-kit (Plan 1 surface).
-// Plan 2 will add `createInvoicingKit`, services, and routes.
+// Plan 2 adds `createInvoicingKit`, services, and routes.
+
+export { createInvoicingKit } from "./create";
+export type { InvoicingKitConfig } from "./config";
+export type { AuthContext } from "./auth/types";
 
 // Domain types
 export type {
