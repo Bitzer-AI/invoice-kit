@@ -14,11 +14,13 @@ import type {
   DocumentNumberSequence,
   DocumentPaymentMethod,
   DocumentType,
+  Invoice,
+  InvoiceStatus,
   Product,
   Tax,
   TaxType,
 } from "../../types";
-import type { DocumentWithRelations } from "../types";
+import type { DocumentWithRelations, InvoiceWithDocument } from "../types";
 
 export function clientRowToDomain(row: any): Client {
   return {
@@ -139,5 +141,22 @@ export function documentWithRelationsRowToDomain(row: any): DocumentWithRelation
       taxes: (li.taxes ?? []).map(documentLineItemTaxRowToDomain),
     })),
     paymentMethods: (row.paymentMethods ?? []).map(documentPaymentMethodRowToDomain),
+  };
+}
+
+export function invoiceRowToDomain(row: any): Invoice {
+  return {
+    id: row.id,
+    documentId: row.documentId,
+    status: row.status as InvoiceStatus,
+    paidDate: row.paidDate ?? null,
+    convertedFromQuoteId: row.convertedFromQuoteId ?? null,
+  };
+}
+
+export function invoiceWithDocumentRowToDomain(row: any): InvoiceWithDocument {
+  return {
+    ...invoiceRowToDomain(row),
+    document: documentWithRelationsRowToDomain(row.document),
   };
 }
