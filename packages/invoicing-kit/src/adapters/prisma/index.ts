@@ -6,7 +6,6 @@ function notImpl(name: string): never {
 }
 
 export function prismaAdapter(prisma: AnyPrismaClient): Repositories {
-  void prisma; // silence unused until Phase C fills in implementations
   const repos: Repositories = {
     clients: {
       create: () => notImpl("clients.create"),
@@ -78,5 +77,6 @@ export function prismaAdapter(prisma: AnyPrismaClient): Repositories {
     },
     tx: () => notImpl("tx"),
   };
+  (repos as unknown as { __prisma: AnyPrismaClient }).__prisma = prisma;
   return repos;
 }
