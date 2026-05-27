@@ -16,6 +16,8 @@ import type {
   DocumentType,
   Invoice,
   InvoiceStatus,
+  PaymentMethod,
+  PaymentMethodType,
   Product,
   Quote,
   QuoteStatus,
@@ -61,6 +63,21 @@ export function taxRowToDomain(row: any): Tax {
     description: row.description ?? null,
     type: row.type as TaxType,
     rate: row.rate.toFixed(4), // Decimal(10,4); preserve trailing zeros
+    isActive: row.isActive,
+    isDefault: row.isDefault,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+}
+
+export function paymentMethodRowToDomain(row: any): PaymentMethod {
+  return {
+    id: row.id,
+    organizationId: row.organizationId,
+    name: row.name,
+    type: row.type as PaymentMethodType,
+    instructions: row.instructions ?? null,
+    metadata: row.metadata ?? null,
     isActive: row.isActive,
     isDefault: row.isDefault,
     createdAt: row.createdAt,
