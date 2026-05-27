@@ -1,0 +1,14 @@
+// We can't import `@prisma/client` directly because the generated client lives
+// in the consumer's project, not in our package. Use a minimal structural type
+// covering only the model namespaces we need.
+//
+// At call sites inside the adapter we'll cast through `any` at the point we use
+// model-specific operations, since each consumer's generated client has a
+// different concrete shape. The boundary is typed; the inside is dynamic.
+//
+// In production this is fine: consumers pass `new PrismaClient()` and the
+// `Repositories` shape we return is fully typed.
+
+export type AnyPrismaClient = {
+  $transaction: <T>(fn: (tx: AnyPrismaClient) => Promise<T>) => Promise<T>;
+} & Record<string, unknown>;

@@ -1,10 +1,11 @@
+import type { AnyPrismaClient } from "./client-type";
 import type { Repositories } from "../types";
 
 function notImpl(name: string): never {
   throw new Error(`prismaAdapter: ${name} not implemented yet`);
 }
 
-export function prismaAdapter(prisma: any): Repositories {
+export function prismaAdapter(prisma: AnyPrismaClient): Repositories {
   void prisma; // silence unused until Phase C fills in implementations
   const repos: Repositories = {
     clients: {
