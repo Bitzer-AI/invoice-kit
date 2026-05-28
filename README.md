@@ -2,12 +2,45 @@
 
 Reusable invoicing API for Hono apps using better-auth — modeled on better-auth's extensibility patterns: bring your own data adapter.
 
-**Status:** v0 in development.
+**Status:** v0.1.0 — all three plans complete (foundation, domains/routes, CLI).
 
 ## Packages
 
-- [`invoicing-kit`](./packages/invoicing-kit/) — core package: domain types, repository interfaces, default Prisma adapter, in-memory test adapter. **Plan 2 complete:** ships full HTTP API with 7 domains (clients, products, taxes, payment-methods, quotes, invoices, payments), `createInvoicingKit` factory, and auth middleware.
-- [`@invoicing-kit/cli`](./packages/cli/) — schema generator CLI (Plan 3).
+- [`invoicing-kit`](./packages/invoicing-kit/) — core package: domain types, repository interfaces, default Prisma adapter, in-memory test adapter, full HTTP API with 7 domains (clients, products, taxes, payment-methods, quotes, invoices, payments), `createInvoicingKit` factory, and auth middleware.
+- [`@invoicing-kit/cli`](./packages/cli/) — schema generator CLI. Writes the default adapter's Prisma model files into your project.
+
+## Quick start
+
+```bash
+# 1. Install
+npm install invoicing-kit
+npm install --save-dev @invoicing-kit/cli
+
+# 2. Generate the Prisma models into your project
+npx invoicing-kit generate
+
+# 3. Wire the models into your schema.prisma, then push them
+npx prisma db push
+```
+
+```ts
+import { Hono } from "hono";
+import { PrismaClient } from "@prisma/client";
+import { createInvoicingKit, prismaAdapter } from "invoicing-kit";
+import { auth } from "./auth"; // your better-auth instance (with organization plugin)
+
+const prisma = new PrismaClient();
+const kit = createInvoicingKit({
+  adapter: prismaAdapter(prisma),
+  auth,
+  basePath: "/api/bills",
+});
+
+const app = new Hono();
+app.route("/", kit.router);
+
+export default app;
+```
 
 ## Design docs
 

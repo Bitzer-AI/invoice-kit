@@ -1,10 +1,35 @@
 {
   "name": "@invoicing-kit/cli",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Schema generator CLI for invoicing-kit",
   "type": "module",
-  "files": ["dist", "templates", "README.md"],
+  "bin": {
+    "invoicing-kit": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./generate": {
+      "types": "./dist/commands/generate.d.ts",
+      "import": "./dist/commands/generate.js"
+    }
+  },
+  "files": ["dist", "templates", "README.md", "LICENSE"],
   "scripts": {
-    "typecheck": "echo 'no source in Plan 1'"
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "commander": "^12.1.0"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "vitest": "^2.0.0"
   }
 }
