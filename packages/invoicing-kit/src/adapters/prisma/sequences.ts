@@ -1,15 +1,16 @@
 // src/adapters/prisma/sequences.ts
 import type { DocumentSequenceRepository } from "../types";
-import type { AnyPrismaClient } from "./client-type";
+import type { AnyPrismaClient, PrismaModelNames } from "./client-type";
 import { documentSequenceRowToDomain } from "./mappers";
 
 export function createPrismaDocumentSequenceRepository(
   prisma: AnyPrismaClient,
+  modelNames: PrismaModelNames,
 ): DocumentSequenceRepository {
-  const db = prisma as any;
+  const db = (prisma as any)[modelNames.documentNumberSequence];
   return {
     async ensure({ organizationId, documentType, prefix }) {
-      await db.documentNumberSequence.upsert({
+      await db.upsert({
         where: {
           organizationId_documentType: { organizationId, documentType },
         },
@@ -26,7 +27,7 @@ export function createPrismaDocumentSequenceRepository(
       // Atomic: Postgres locks the row during this update.
       // `update` returns the row with the POST-increment value.
       // Return the PRE-increment value by subtracting 1.
-      const row = await db.documentNumberSequence.update({
+      const row = await db.update({
         where: {
           organizationId_documentType: { organizationId, documentType },
         },
@@ -35,7 +36,7 @@ export function createPrismaDocumentSequenceRepository(
       return row.nextNumber - 1;
     },
     async find({ organizationId, documentType }) {
-      const row = await db.documentNumberSequence.findUnique({
+      const row = await db.findUnique({
         where: {
           organizationId_documentType: { organizationId, documentType },
         },

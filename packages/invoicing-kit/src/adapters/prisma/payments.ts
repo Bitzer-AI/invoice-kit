@@ -6,16 +6,17 @@ import type {
   PaymentUpdate,
 } from "../types";
 import type { BigintMinor, Payment } from "../../types";
-import type { AnyPrismaClient } from "./client-type";
+import type { AnyPrismaClient, PrismaModelNames } from "./client-type";
 import { paymentRowToDomain } from "./mappers";
 
 export function createPrismaPaymentRepository(
   prisma: AnyPrismaClient,
+  modelNames: PrismaModelNames,
 ): PaymentRepository {
-  const db = prisma as any;
+  const db = (prisma as any)[modelNames.payment];
   return {
     async create(data: NewPayment): Promise<Payment> {
-      const row = await db.payment.create({
+      const row = await db.create({
         data: {
           invoiceId: data.invoiceId,
           paymentMethodId: data.paymentMethodId ?? null,
@@ -39,7 +40,7 @@ export function createPrismaPaymentRepository(
     },
 
     async findById(id: string, organizationId: string): Promise<Payment | null> {
-      const row = await db.payment.findFirst({
+      const row = await db.findFirst({
         where: { id, invoice: { document: { organizationId } } },
       });
       return row ? paymentRowToDomain(row) : null;
@@ -54,13 +55,13 @@ export function createPrismaPaymentRepository(
       if (args.invoiceId) where.invoiceId = args.invoiceId;
       if (args.status) where.status = args.status;
       const [rows, totalCount] = await Promise.all([
-        db.payment.findMany({
+        db.findMany({
           where,
           skip: (page - 1) * perPage,
           take: perPage,
           orderBy: { createdAt: "desc" },
         }),
-        db.payment.count({ where }),
+        db.count({ where }),
       ]);
       return {
         data: rows.map(paymentRowToDomain),
@@ -78,7 +79,7 @@ export function createPrismaPaymentRepository(
       organizationId: string,
       patch: PaymentUpdate,
     ): Promise<Payment> {
-      const { count } = await db.payment.updateMany({
+      const { count } = await db.updateMany({
         where: { id, invoice: { document: { organizationId } } },
         data: {
           ...patch,
@@ -86,12 +87,12 @@ export function createPrismaPaymentRepository(
         },
       });
       if (count === 0) throw new Error("payment not found");
-      const row = await db.payment.findUnique({ where: { id } });
+      const row = await db.findUnique({ where: { id } });
       return paymentRowToDomain(row);
     },
 
     async delete(id: string, organizationId: string): Promise<void> {
-      await db.payment.deleteMany({
+      await db.deleteMany({
         where: { id, invoice: { document: { organizationId } } },
       });
     },
@@ -100,7 +101,7 @@ export function createPrismaPaymentRepository(
       invoiceId: string,
       organizationId: string,
     ): Promise<BigintMinor> {
-      const result = await db.payment.aggregate({
+      const result = await db.aggregate({
         where: {
           invoiceId,
           status: "succeeded",

@@ -6,7 +6,7 @@ import type {
   NewDocumentLineItem,
 } from "../types";
 import type { Document } from "../../types";
-import type { AnyPrismaClient } from "./client-type";
+import type { AnyPrismaClient, PrismaModelNames } from "./client-type";
 import {
   documentRowToDomain,
   documentWithRelationsRowToDomain,
@@ -19,11 +19,14 @@ const FULL_INCLUDE = {
 
 export function createPrismaDocumentRepository(
   prisma: AnyPrismaClient,
+  modelNames: PrismaModelNames,
 ): DocumentRepository {
-  const db = prisma as any;
+  const documentDb = (prisma as any)[modelNames.document];
+  const lineItemDb = (prisma as any)[modelNames.documentLineItem];
+  const documentPaymentMethodDb = (prisma as any)[modelNames.documentPaymentMethod];
   return {
     async create(data: NewDocument): Promise<DocumentWithRelations> {
-      const row = await db.document.create({
+      const row = await documentDb.create({
         data: {
           type: data.type,
           organizationId: data.organizationId,
@@ -70,7 +73,7 @@ export function createPrismaDocumentRepository(
       id: string,
       organizationId: string,
     ): Promise<DocumentWithRelations | null> {
-      const row = await db.document.findFirst({
+      const row = await documentDb.findFirst({
         where: { id, organizationId },
         include: FULL_INCLUDE,
       });
@@ -82,12 +85,12 @@ export function createPrismaDocumentRepository(
       organizationId: string,
       patch: DocumentUpdate,
     ): Promise<Document> {
-      const { count } = await db.document.updateMany({
+      const { count } = await documentDb.updateMany({
         where: { id, organizationId },
         data: patch,
       });
       if (count === 0) throw new Error("document not found");
-      const row = await db.document.findUnique({ where: { id } });
+      const row = await documentDb.findUnique({ where: { id } });
       return documentRowToDomain(row);
     },
 
@@ -96,14 +99,14 @@ export function createPrismaDocumentRepository(
       organizationId: string,
       lineItems: NewDocumentLineItem[],
     ): Promise<void> {
-      const owns = await db.document.findFirst({
+      const owns = await documentDb.findFirst({
         where: { id: documentId, organizationId },
         select: { id: true },
       });
       if (!owns) throw new Error("document not found");
-      await db.documentLineItem.deleteMany({ where: { documentId } });
+      await lineItemDb.deleteMany({ where: { documentId } });
       for (const li of lineItems) {
-        await db.documentLineItem.create({
+        await lineItemDb.create({
           data: {
             documentId,
             productId: li.productId,
@@ -128,14 +131,14 @@ export function createPrismaDocumentRepository(
       organizationId: string,
       paymentMethodIds: string[],
     ): Promise<void> {
-      const owns = await db.document.findFirst({
+      const owns = await documentDb.findFirst({
         where: { id: documentId, organizationId },
         select: { id: true },
       });
       if (!owns) throw new Error("document not found");
-      await db.documentPaymentMethod.deleteMany({ where: { documentId } });
+      await documentPaymentMethodDb.deleteMany({ where: { documentId } });
       if (paymentMethodIds.length === 0) return;
-      await db.documentPaymentMethod.createMany({
+      await documentPaymentMethodDb.createMany({
         data: paymentMethodIds.map((paymentMethodId) => ({
           documentId,
           paymentMethodId,
@@ -145,7 +148,7 @@ export function createPrismaDocumentRepository(
     },
 
     async delete(id: string, organizationId: string): Promise<void> {
-      await db.document.deleteMany({ where: { id, organizationId } });
+      await documentDb.deleteMany({ where: { id, organizationId } });
     },
   };
 }

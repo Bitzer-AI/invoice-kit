@@ -6,16 +6,17 @@ import type {
   ProductRepository,
   ProductUpdate,
 } from "../types";
-import type { AnyPrismaClient } from "./client-type";
+import type { AnyPrismaClient, PrismaModelNames } from "./client-type";
 import { productRowToDomain } from "./mappers";
 
 export function createPrismaProductRepository(
   prisma: AnyPrismaClient,
+  modelNames: PrismaModelNames,
 ): ProductRepository {
-  const db = prisma as any;
+  const db = (prisma as any)[modelNames.product];
   return {
     async create(data: NewProduct): Promise<Product> {
-      const row = await db.product.create({
+      const row = await db.create({
         data: {
           organizationId: data.organizationId,
           name: data.name,
@@ -26,7 +27,7 @@ export function createPrismaProductRepository(
       return productRowToDomain(row);
     },
     async findById(id, organizationId) {
-      const row = await db.product.findFirst({ where: { id, organizationId } });
+      const row = await db.findFirst({ where: { id, organizationId } });
       return row ? productRowToDomain(row) : null;
     },
     async list(args: ListProductsArgs): Promise<Page<Product>> {
@@ -37,13 +38,13 @@ export function createPrismaProductRepository(
         where.name = { contains: args.query, mode: "insensitive" };
       }
       const [rows, totalCount] = await Promise.all([
-        db.product.findMany({
+        db.findMany({
           where,
           skip: (page - 1) * perPage,
           take: perPage,
           orderBy: { createdAt: "desc" },
         }),
-        db.product.count({ where }),
+        db.count({ where }),
       ]);
       return {
         data: rows.map(productRowToDomain),
@@ -59,16 +60,16 @@ export function createPrismaProductRepository(
       // Prisma's `update` needs a unique `where`; `(id, organizationId)` isn't a
       // declared compound unique on this table, so use `updateMany` to apply the
       // org-scoped filter and re-fetch by id.
-      const { count } = await db.product.updateMany({
+      const { count } = await db.updateMany({
         where: { id, organizationId },
         data: patch,
       });
       if (count === 0) throw new Error("product not found");
-      const row = await db.product.findUnique({ where: { id } });
+      const row = await db.findUnique({ where: { id } });
       return productRowToDomain(row);
     },
     async delete(id, organizationId) {
-      await db.product.deleteMany({ where: { id, organizationId } });
+      await db.deleteMany({ where: { id, organizationId } });
     },
   };
 }

@@ -5,14 +5,17 @@ import type {
   PaymentMethodRepository,
   PaymentMethodUpdate,
 } from "../types";
-import type { AnyPrismaClient } from "./client-type";
+import type { AnyPrismaClient, PrismaModelNames } from "./client-type";
 import { paymentMethodRowToDomain } from "./mappers";
 
-export function createPrismaPaymentMethodRepository(prisma: AnyPrismaClient): PaymentMethodRepository {
-  const db = prisma as any;
+export function createPrismaPaymentMethodRepository(
+  prisma: AnyPrismaClient,
+  modelNames: PrismaModelNames,
+): PaymentMethodRepository {
+  const db = (prisma as any)[modelNames.paymentMethod];
   return {
     async create(data: NewPaymentMethod): Promise<PaymentMethod> {
-      const row = await db.paymentMethod.create({
+      const row = await db.create({
         data: {
           organizationId: data.organizationId,
           name: data.name,
@@ -27,7 +30,7 @@ export function createPrismaPaymentMethodRepository(prisma: AnyPrismaClient): Pa
     },
 
     async findById(id: string, organizationId: string): Promise<PaymentMethod | null> {
-      const row = await db.paymentMethod.findFirst({ where: { id, organizationId } });
+      const row = await db.findFirst({ where: { id, organizationId } });
       return row ? paymentMethodRowToDomain(row) : null;
     },
 
@@ -36,7 +39,7 @@ export function createPrismaPaymentMethodRepository(prisma: AnyPrismaClient): Pa
       if (args.isActive !== undefined) {
         where.isActive = args.isActive;
       }
-      const rows = await db.paymentMethod.findMany({
+      const rows = await db.findMany({
         where,
         orderBy: { createdAt: "desc" },
       });
@@ -48,21 +51,21 @@ export function createPrismaPaymentMethodRepository(prisma: AnyPrismaClient): Pa
       organizationId: string,
       patch: PaymentMethodUpdate,
     ): Promise<PaymentMethod> {
-      const { count } = await db.paymentMethod.updateMany({
+      const { count } = await db.updateMany({
         where: { id, organizationId },
         data: patch,
       });
       if (count === 0) throw new Error("payment method not found");
-      const row = await db.paymentMethod.findUnique({ where: { id } });
+      const row = await db.findUnique({ where: { id } });
       return paymentMethodRowToDomain(row);
     },
 
     async delete(id: string, organizationId: string): Promise<void> {
-      await db.paymentMethod.deleteMany({ where: { id, organizationId } });
+      await db.deleteMany({ where: { id, organizationId } });
     },
 
     async clearDefaultExcept(organizationId: string, keepId: string | null): Promise<void> {
-      await db.paymentMethod.updateMany({
+      await db.updateMany({
         where: {
           organizationId,
           isDefault: true,

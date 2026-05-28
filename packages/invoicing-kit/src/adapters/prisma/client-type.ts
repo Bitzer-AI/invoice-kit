@@ -12,3 +12,41 @@
 export type AnyPrismaClient = {
   $transaction: <T>(fn: (tx: AnyPrismaClient) => Promise<T>) => Promise<T>;
 } & Record<string, unknown>;
+
+// ---------------------------------------------------------------------------
+// Model name configuration
+// ---------------------------------------------------------------------------
+
+export interface PrismaModelNames {
+  client: string;
+  product: string;
+  tax: string;
+  paymentMethod: string;
+  document: string;
+  documentLineItem: string;
+  documentLineItemTax: string;
+  documentNumberSequence: string;
+  documentPaymentMethod: string;
+  quote: string;
+  invoice: string;
+  payment: string;
+}
+
+export const DEFAULT_PRISMA_MODEL_NAMES: PrismaModelNames = {
+  client: "client",
+  product: "product",
+  tax: "tax",
+  paymentMethod: "paymentMethod",
+  document: "document",
+  documentLineItem: "documentLineItem",
+  documentLineItemTax: "documentLineItemTax",
+  documentNumberSequence: "documentNumberSequence",
+  documentPaymentMethod: "documentPaymentMethod",
+  quote: "quote",
+  invoice: "invoice",
+  payment: "payment",
+};
+
+export interface PrismaAdapterConfig {
+  modelNames?: Partial<PrismaModelNames>;
+}

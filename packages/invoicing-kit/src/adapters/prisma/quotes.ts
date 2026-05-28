@@ -7,7 +7,7 @@ import type {
   QuoteWithDocument,
 } from "../types";
 import type { Quote } from "../../types";
-import type { AnyPrismaClient } from "./client-type";
+import type { AnyPrismaClient, PrismaModelNames } from "./client-type";
 import { quoteRowToDomain, quoteWithDocumentRowToDomain } from "./mappers";
 
 const FULL_INCLUDE = {
@@ -21,11 +21,12 @@ const FULL_INCLUDE = {
 
 export function createPrismaQuoteRepository(
   prisma: AnyPrismaClient,
+  modelNames: PrismaModelNames,
 ): QuoteRepository {
-  const db = prisma as any;
+  const db = (prisma as any)[modelNames.quote];
   return {
     async create(data: NewQuote): Promise<Quote> {
-      const row = await db.quote.create({
+      const row = await db.create({
         data: {
           documentId: data.documentId,
           status: data.status,
@@ -35,14 +36,14 @@ export function createPrismaQuoteRepository(
       return quoteRowToDomain(row);
     },
     async findById(id, organizationId) {
-      const row = await db.quote.findFirst({
+      const row = await db.findFirst({
         where: { id, document: { organizationId } },
         include: FULL_INCLUDE,
       });
       return row ? quoteWithDocumentRowToDomain(row) : null;
     },
     async findByDocumentNumber({ organizationId, prefix, documentNumber }) {
-      const row = await db.quote.findFirst({
+      const row = await db.findFirst({
         where: {
           document: {
             type: "QUOTE",
@@ -66,14 +67,14 @@ export function createPrismaQuoteRepository(
           : args.status;
       }
       const [rows, totalCount] = await Promise.all([
-        db.quote.findMany({
+        db.findMany({
           where,
           include: FULL_INCLUDE,
           skip: (page - 1) * perPage,
           take: perPage,
           orderBy: { document: { createdAt: "desc" } },
         }),
-        db.quote.count({ where }),
+        db.count({ where }),
       ]);
       return {
         data: rows.map(quoteWithDocumentRowToDomain),
@@ -86,16 +87,16 @@ export function createPrismaQuoteRepository(
       };
     },
     async update(id, organizationId, patch: QuoteUpdate) {
-      const { count } = await db.quote.updateMany({
+      const { count } = await db.updateMany({
         where: { id, document: { organizationId } },
         data: patch,
       });
       if (count === 0) throw new Error("quote not found");
-      const row = await db.quote.findUnique({ where: { id } });
+      const row = await db.findUnique({ where: { id } });
       return quoteRowToDomain(row);
     },
     async delete(id, organizationId) {
-      await db.quote.deleteMany({
+      await db.deleteMany({
         where: { id, document: { organizationId } },
       });
     },

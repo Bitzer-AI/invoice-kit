@@ -75,6 +75,8 @@ export type {
 
 // Default adapter
 export { prismaAdapter } from "./adapters/prisma";
+export type { PrismaAdapterConfig, PrismaModelNames } from "./adapters/prisma/client-type";
+export { DEFAULT_PRISMA_MODEL_NAMES } from "./adapters/prisma/client-type";
 
 // Error handling
 export { ErrorCode, httpError } from "./lib/errors";

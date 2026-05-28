@@ -7,7 +7,7 @@ import type {
   Page,
 } from "../types";
 import type { Invoice } from "../../types";
-import type { AnyPrismaClient } from "./client-type";
+import type { AnyPrismaClient, PrismaModelNames } from "./client-type";
 import {
   invoiceRowToDomain,
   invoiceWithDocumentRowToDomain,
@@ -24,11 +24,12 @@ const FULL_INCLUDE = {
 
 export function createPrismaInvoiceRepository(
   prisma: AnyPrismaClient,
+  modelNames: PrismaModelNames,
 ): InvoiceRepository {
-  const db = prisma as any;
+  const db = (prisma as any)[modelNames.invoice];
   return {
     async create(data: NewInvoice): Promise<Invoice> {
-      const row = await db.invoice.create({
+      const row = await db.create({
         data: {
           documentId: data.documentId,
           status: data.status,
@@ -40,7 +41,7 @@ export function createPrismaInvoiceRepository(
     },
 
     async findById(id: string, organizationId: string): Promise<InvoiceWithDocument | null> {
-      const row = await db.invoice.findFirst({
+      const row = await db.findFirst({
         where: { id, document: { organizationId } },
         include: FULL_INCLUDE,
       });
@@ -56,7 +57,7 @@ export function createPrismaInvoiceRepository(
       prefix: string | null;
       documentNumber: number;
     }): Promise<Invoice | null> {
-      const row = await db.invoice.findFirst({
+      const row = await db.findFirst({
         where: {
           document: {
             type: "INVOICE",
@@ -86,14 +87,14 @@ export function createPrismaInvoiceRepository(
           : args.status;
       }
       const [rows, totalCount] = await Promise.all([
-        db.invoice.findMany({
+        db.findMany({
           where,
           include: FULL_INCLUDE,
           skip: (page - 1) * perPage,
           take: perPage,
           orderBy: { document: { createdAt: "desc" } },
         }),
-        db.invoice.count({ where }),
+        db.count({ where }),
       ]);
       return {
         data: rows.map(invoiceWithDocumentRowToDomain),
@@ -107,17 +108,17 @@ export function createPrismaInvoiceRepository(
     },
 
     async update(id: string, organizationId: string, patch: InvoiceUpdate): Promise<Invoice> {
-      const { count } = await db.invoice.updateMany({
+      const { count } = await db.updateMany({
         where: { id, document: { organizationId } },
         data: patch,
       });
       if (count === 0) throw new Error("invoice not found");
-      const row = await db.invoice.findUnique({ where: { id } });
+      const row = await db.findUnique({ where: { id } });
       return invoiceRowToDomain(row);
     },
 
     async delete(id: string, organizationId: string): Promise<void> {
-      await db.invoice.deleteMany({
+      await db.deleteMany({
         where: { id, document: { organizationId } },
       });
     },
