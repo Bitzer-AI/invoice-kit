@@ -46,6 +46,10 @@ export default app;
 
 See [`docs/superpowers/specs/`](./docs/superpowers/specs/) for design specs and [`docs/superpowers/plans/`](./docs/superpowers/plans/) for implementation plans.
 
+## Releasing
+
+See [`RELEASING.md`](./RELEASING.md) for the release process. TL;DR: bump versions in both `packages/*/package.json`, push, then create a GitHub Release with tag `vX.Y.Z` — the `Publish` workflow handles the rest.
+
 ## Development
 
 ```bash
