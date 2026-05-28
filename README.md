@@ -6,7 +6,7 @@ Reusable invoicing API for Hono apps using better-auth — modeled on better-aut
 
 ## Packages
 
-- [`invoicing-kit`](./packages/invoicing-kit/) — core package: domain types, repository interfaces, default Prisma adapter, in-memory test adapter.
+- [`invoicing-kit`](./packages/invoicing-kit/) — core package: domain types, repository interfaces, default Prisma adapter, in-memory test adapter. **Plan 2 complete:** ships full HTTP API with 7 domains (clients, products, taxes, payment-methods, quotes, invoices, payments), `createInvoicingKit` factory, and auth middleware.
 - [`@invoicing-kit/cli`](./packages/cli/) — schema generator CLI (Plan 3).
 
 ## Design docs
