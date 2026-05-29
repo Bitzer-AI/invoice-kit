@@ -63,6 +63,28 @@ The package mounts these routes (under `basePath`):
 - `POST/GET /invoices/:invoiceId/payments` — record / list payments
 - `GET/DELETE /payments/:id`
 
+## Linking products to your domain objects
+
+A line item normally references an existing product by `productId`. It can
+instead reference one of your own domain objects (an experience, course, plan,
+…) via `source`, and the kit will find-or-create the backing product for you —
+keyed on `(organization, sourceType, sourceId)`:
+
+```jsonc
+// existing path — reference a product directly
+{ "productId": "…", "quantity": "1", "price": "5000", "taxIds": [] }
+
+// source path — reference your own object; product is created on first use
+{ "source": { "type": "experience", "id": "42", "name": "Sunset Tour" },
+  "quantity": "2", "price": "5000", "taxIds": [] }
+```
+
+Provide exactly one of `productId` / `source`. The product is created once
+(price defaults from the line item's minor units) and reused on later sales;
+the line item still carries its own `price`/`description`, so it remains the
+immutable snapshot of the sale. `Product` exposes the same `sourceType` /
+`sourceId` on create and read for catalog lookups.
+
 ## License
 
 MIT

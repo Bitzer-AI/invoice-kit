@@ -33,6 +33,10 @@ export interface Product {
   name: string;
   description: string | null;
   price: DecimalString;
+  /** Opaque app-defined link to a host-app domain object (e.g. "experience"). */
+  sourceType: string | null;
+  /** Id of the linked source object, as a string. */
+  sourceId: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

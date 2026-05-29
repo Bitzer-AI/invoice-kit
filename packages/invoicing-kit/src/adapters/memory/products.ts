@@ -21,6 +21,8 @@ export function createInMemoryProductRepository(store: MemoryStore): ProductRepo
         name: data.name,
         description: data.description ?? null,
         price: data.price,
+        sourceType: data.sourceType ?? null,
+        sourceId: data.sourceId ?? null,
         createdAt: now,
         updatedAt: now,
       };
@@ -31,6 +33,18 @@ export function createInMemoryProductRepository(store: MemoryStore): ProductRepo
       const row = rows.get(id);
       if (!row || row.organizationId !== organizationId) return null;
       return row;
+    },
+    async findBySource(organizationId, sourceType, sourceId) {
+      for (const row of rows.values()) {
+        if (
+          row.organizationId === organizationId &&
+          row.sourceType === sourceType &&
+          row.sourceId === sourceId
+        ) {
+          return row;
+        }
+      }
+      return null;
     },
     async list(args: ListProductsArgs): Promise<Page<Product>> {
       const all = Array.from(rows.values())

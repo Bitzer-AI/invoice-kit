@@ -7,6 +7,8 @@ export function productToResponse(p: Product): ProductResponse {
     name: p.name,
     description: p.description,
     price: p.price,
+    sourceType: p.sourceType,
+    sourceId: p.sourceId,
     createdAt: p.createdAt.toISOString(),
     updatedAt: p.updatedAt.toISOString(),
   };

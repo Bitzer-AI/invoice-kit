@@ -4,11 +4,19 @@ model Product {
   name           String   @map("name")
   description    String?  @map("description")
   price          Decimal  @map("price") @db.Decimal(10, 2)
+  // Optional link to a host-app domain object this product mirrors (e.g. an
+  // experience, course, or plan). `sourceType` is an opaque app-defined string;
+  // `sourceId` is that object's id. Enables find-or-create from a line item.
+  sourceType     String?  @map("source_type")
+  sourceId       String?  @map("source_id")
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @default(now()) @updatedAt @map("updated_at")
 
   organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   lineItems    DocumentLineItem[]
 
+  // At most one product per (org, sourceType, sourceId). Postgres treats NULLs
+  // as distinct, so manual products (null source) are unconstrained.
+  @@unique([organizationId, sourceType, sourceId])
   @@map("products")
 }

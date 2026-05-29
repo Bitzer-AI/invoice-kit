@@ -73,6 +73,8 @@ export interface NewProduct {
   name: string;
   description?: string | null;
   price: DecimalString;
+  sourceType?: string | null;
+  sourceId?: string | null;
 }
 
 export type ProductUpdate = Partial<Omit<NewProduct, "organizationId">>;
@@ -85,6 +87,12 @@ export interface ListProductsArgs extends PageRequest {
 export interface ProductRepository {
   create(data: NewProduct): Promise<Product>;
   findById(id: string, organizationId: string): Promise<Product | null>;
+  /** Find the product linked to (org, sourceType, sourceId), or null. */
+  findBySource(
+    organizationId: string,
+    sourceType: string,
+    sourceId: string,
+  ): Promise<Product | null>;
   list(args: ListProductsArgs): Promise<Page<Product>>;
   update(id: string, organizationId: string, patch: ProductUpdate): Promise<Product>;
   delete(id: string, organizationId: string): Promise<void>;

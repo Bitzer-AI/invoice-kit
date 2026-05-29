@@ -22,12 +22,18 @@ export function createPrismaProductRepository(
           name: data.name,
           description: data.description ?? null,
           price: data.price,
+          sourceType: data.sourceType ?? null,
+          sourceId: data.sourceId ?? null,
         },
       });
       return productRowToDomain(row);
     },
     async findById(id, organizationId) {
       const row = await db.findFirst({ where: { id, organizationId } });
+      return row ? productRowToDomain(row) : null;
+    },
+    async findBySource(organizationId, sourceType, sourceId) {
+      const row = await db.findFirst({ where: { organizationId, sourceType, sourceId } });
       return row ? productRowToDomain(row) : null;
     },
     async list(args: ListProductsArgs): Promise<Page<Product>> {

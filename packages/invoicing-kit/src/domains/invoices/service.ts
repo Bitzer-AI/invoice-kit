@@ -17,6 +17,7 @@ import { QuoteNotFoundException } from "../quotes/exceptions";
 import { DocumentCalculator } from "../../lib/calculator";
 import { DocumentNumberingService } from "../../lib/numbering";
 import { TaxStrategy } from "../../lib/tax-strategy";
+import { resolveLineItemProductId } from "../../lib/line-item";
 
 export class InvoiceService {
   constructor(
@@ -45,6 +46,7 @@ export class InvoiceService {
       // Compute line items with taxes.
       const lineItems = [];
       for (const li of body.lineItems) {
+        const productId = await resolveLineItemProductId(tx, ctx.organizationId, li);
         const price = BigInt(li.price);
         const taxResult = await this.tax.computeForLine(tx, ctx.organizationId, {
           quantity: li.quantity,
@@ -57,7 +59,7 @@ export class InvoiceService {
           taxAmount: taxResult.taxAmount,
         });
         lineItems.push({
-          productId: li.productId,
+          productId,
           quantity: li.quantity,
           price,
           description: li.description ?? null,
@@ -160,6 +162,7 @@ export class InvoiceService {
       if (body.lineItems !== undefined) {
         const lineItems = [];
         for (const li of body.lineItems) {
+          const productId = await resolveLineItemProductId(tx, ctx.organizationId, li);
           const price = BigInt(li.price);
           const taxResult = await this.tax.computeForLine(tx, ctx.organizationId, {
             quantity: li.quantity,
@@ -172,7 +175,7 @@ export class InvoiceService {
             taxAmount: taxResult.taxAmount,
           });
           lineItems.push({
-            productId: li.productId,
+            productId,
             quantity: li.quantity,
             price,
             description: li.description ?? null,

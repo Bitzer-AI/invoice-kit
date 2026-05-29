@@ -66,4 +66,48 @@ describeForEachAdapter("ProductRepository", allFactories, (ctx) => {
     await ctx.repos.products.delete(c.id, organizationId);
     expect(await ctx.repos.products.findById(c.id, organizationId)).toBeNull();
   });
+
+  test("create persists sourceType/sourceId", async () => {
+    const { organizationId } = await seed(ctx.repos);
+    const created = await ctx.repos.products.create({
+      organizationId,
+      name: "Sunset Tour",
+      price: "50.00",
+      sourceType: "experience",
+      sourceId: "42",
+    });
+    expect(created.sourceType).toBe("experience");
+    expect(created.sourceId).toBe("42");
+  });
+
+  test("findBySource returns the linked product, null otherwise", async () => {
+    const { organizationId } = await seed(ctx.repos);
+    expect(
+      await ctx.repos.products.findBySource(organizationId, "experience", "42"),
+    ).toBeNull();
+    const created = await ctx.repos.products.create({
+      organizationId,
+      name: "Sunset Tour",
+      price: "50.00",
+      sourceType: "experience",
+      sourceId: "42",
+    });
+    const found = await ctx.repos.products.findBySource(organizationId, "experience", "42");
+    expect(found?.id).toBe(created.id);
+  });
+
+  test("findBySource is org-scoped", async () => {
+    const a = await seed(ctx.repos);
+    const b = await seed(ctx.repos);
+    await ctx.repos.products.create({
+      organizationId: a.organizationId,
+      name: "Sunset Tour",
+      price: "50.00",
+      sourceType: "experience",
+      sourceId: "42",
+    });
+    expect(
+      await ctx.repos.products.findBySource(b.organizationId, "experience", "42"),
+    ).toBeNull();
+  });
 });

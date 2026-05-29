@@ -6,6 +6,8 @@ export const createProductBody = z.object({
   name: z.string().min(1).max(255),
   description: z.string().optional().nullable(),
   price: priceSchema,
+  sourceType: z.string().min(1).max(255).optional().nullable(),
+  sourceId: z.string().min(1).max(255).optional().nullable(),
 });
 export type CreateProductBody = z.infer<typeof createProductBody>;
 
@@ -24,6 +26,8 @@ export const productResponse = z.object({
   name: z.string(),
   description: z.string().nullable(),
   price: z.string(),
+  sourceType: z.string().nullable(),
+  sourceId: z.string().nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });

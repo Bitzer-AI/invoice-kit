@@ -53,6 +53,8 @@ export function productRowToDomain(row: any): Product {
     name: row.name,
     description: row.description ?? null,
     price: row.price.toFixed(2), // Prisma Decimal -> string, preserve 2dp from Decimal(10,2) column
+    sourceType: row.sourceType ?? null,
+    sourceId: row.sourceId ?? null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };

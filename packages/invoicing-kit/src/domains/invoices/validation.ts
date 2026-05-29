@@ -1,12 +1,5 @@
 import { z } from "zod";
-
-const lineItemSchema = z.object({
-  productId: z.string(),
-  quantity: z.string().regex(/^\d+(\.\d{1,4})?$/, "Invalid quantity"),
-  price: z.string().regex(/^\d+$/, "Price must be integer minor units"), // BigInt as string in body
-  description: z.string().optional().nullable(),
-  taxIds: z.array(z.string()).default([]),
-});
+import { lineItemSchema } from "../../lib/line-item";
 
 export const createInvoiceBody = z.object({
   clientId: z.string(),
