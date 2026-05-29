@@ -68,6 +68,19 @@ describe("clients integration", () => {
     expect((await res.json()).name).toBe("New");
   });
 
+  test("POST /clients forwards taxId and taxIdType", async () => {
+    const { request } = await buildHarness(createInvoicingKit);
+    const res = await request("/api/bills/clients", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Negocio SRL", taxId: "130862346", taxIdType: "RNC" }),
+    });
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.taxId).toBe("130862346");
+    expect(body.taxIdType).toBe("RNC");
+  });
+
   test("DELETE /clients/{id} returns 204", async () => {
     const { request } = await buildHarness(createInvoicingKit);
     const c = await (

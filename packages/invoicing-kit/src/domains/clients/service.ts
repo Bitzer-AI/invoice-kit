@@ -13,6 +13,8 @@ export class ClientService {
       name: body.name,
       email: body.email ?? null,
       phone: body.phone ?? null,
+      taxId: body.taxId ?? null,
+      taxIdType: body.taxIdType ?? null,
       country: body.country ?? null,
       addressLine1: body.addressLine1 ?? null,
       city: body.city ?? null,
