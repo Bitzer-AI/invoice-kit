@@ -4,6 +4,8 @@ model Client {
   name           String   @map("name")
   email          String?  @map("email")
   phone          String?  @map("phone")
+  taxId          String?  @map("tax_id")
+  taxIdType      String?  @map("tax_id_type")
   country        String?  @map("country") @db.VarChar(2) // ISO 3166-1 alpha-2
   addressLine1   String?  @map("address_line_1")
   city           String?  @map("city")

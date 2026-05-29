@@ -95,4 +95,25 @@ describeForEachAdapter("ClientRepository", allFactories, (ctx) => {
     await ctx.repos.clients.delete(c.id, organizationId);
     expect(await ctx.repos.clients.findById(c.id, organizationId)).toBeNull();
   });
+
+  test("create persists taxId and taxIdType", async () => {
+    const { organizationId } = await seed(ctx.repos);
+    const created = await ctx.repos.clients.create({
+      organizationId,
+      name: "Negocio SRL",
+      taxId: "130862346",
+      taxIdType: "RNC",
+    });
+    expect(created.taxId).toBe("130862346");
+    expect(created.taxIdType).toBe("RNC");
+    const found = await ctx.repos.clients.findById(created.id, organizationId);
+    expect(found).toMatchObject({ taxId: "130862346", taxIdType: "RNC" });
+  });
+
+  test("taxId and taxIdType default to null when omitted", async () => {
+    const { organizationId } = await seed(ctx.repos);
+    const created = await ctx.repos.clients.create({ organizationId, name: "Tourist" });
+    expect(created.taxId).toBeNull();
+    expect(created.taxIdType).toBeNull();
+  });
 });

@@ -7,6 +7,8 @@ export function clientToResponse(c: Client): ClientResponse {
     name: c.name,
     email: c.email,
     phone: c.phone,
+    taxId: c.taxId,
+    taxIdType: c.taxIdType,
     country: c.country,
     addressLine1: c.addressLine1,
     city: c.city,

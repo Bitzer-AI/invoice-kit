@@ -21,6 +21,8 @@ export function createInMemoryClientRepository(store: MemoryStore): ClientReposi
         name: data.name,
         email: data.email ?? null,
         phone: data.phone ?? null,
+        taxId: data.taxId ?? null,
+        taxIdType: data.taxIdType ?? null,
         country: data.country ?? null,
         addressLine1: data.addressLine1 ?? null,
         city: data.city ?? null,

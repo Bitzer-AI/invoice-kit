@@ -36,6 +36,8 @@ export function clientRowToDomain(row: any): Client {
     name: row.name,
     email: row.email ?? null,
     phone: row.phone ?? null,
+    taxId: row.taxId ?? null,
+    taxIdType: row.taxIdType ?? null,
     country: row.country ?? null,
     addressLine1: row.addressLine1 ?? null,
     city: row.city ?? null,

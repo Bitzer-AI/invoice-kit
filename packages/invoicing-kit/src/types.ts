@@ -18,6 +18,8 @@ export interface Client {
   name: string;
   email: string | null;
   phone: string | null;
+  taxId: string | null;
+  taxIdType: string | null;
   country: string | null;
   addressLine1: string | null;
   city: string | null;
