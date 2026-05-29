@@ -140,6 +140,26 @@ export interface DocumentPaymentMethod {
   createdAt: Date;
 }
 
+export type FiscalStatus =
+  | "pending" | "accepted" | "rejected" | "conditional" | "contingency";
+
+export interface FiscalDocument {
+  id: string;
+  invoiceId: string;
+  provider: string;
+  status: FiscalStatus;
+  documentType: string | null;
+  fiscalId: string | null;
+  trackId: string | null;
+  securityCode: string | null;
+  qrUrl: string | null;
+  message: string | null;
+  payload: unknown | null;
+  issuedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface Payment {
   id: string;
   invoiceId: string;

@@ -103,11 +103,34 @@ model Invoice {
   paidDate             DateTime?     @map("paid_date") @db.Date
   convertedFromQuoteId String?       @unique @map("converted_from_quote_id")
 
-  convertedFromQuote Quote?     @relation(fields: [convertedFromQuoteId], references: [id], onDelete: SetNull)
-  document           Document   @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  convertedFromQuote Quote?          @relation(fields: [convertedFromQuoteId], references: [id], onDelete: SetNull)
+  document           Document        @relation(fields: [documentId], references: [id], onDelete: Cascade)
   payments           Payment[]
+  fiscalDocument     FiscalDocument?
 
   @@map("invoices")
+}
+
+model FiscalDocument {
+  id            String    @id @default(uuid(7))
+  invoiceId     String    @unique @map("invoice_id")
+  provider      String
+  status        String    @default("pending")
+  documentType  String?   @map("document_type")
+  fiscalId      String?   @map("fiscal_id")
+  trackId       String?   @map("track_id")
+  securityCode  String?   @map("security_code")
+  qrUrl         String?   @map("qr_url")
+  message       String?
+  payload       Json?
+  issuedAt      DateTime? @map("issued_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  invoice       Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([provider, status])
+  @@map("fiscal_documents")
 }
 
 model DocumentLineItem {
