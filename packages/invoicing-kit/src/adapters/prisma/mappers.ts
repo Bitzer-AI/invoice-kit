@@ -72,6 +72,7 @@ export function taxRowToDomain(row: any): Tax {
     rate: row.rate.toFixed(4), // Decimal(10,4); preserve trailing zeros
     isActive: row.isActive,
     isDefault: row.isDefault,
+    fiscalCategory: row.fiscalCategory ?? null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };

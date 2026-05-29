@@ -24,6 +24,7 @@ export function createPrismaTaxRepository(
           rate: data.rate,
           isActive: data.isActive ?? true,
           isDefault: data.isDefault ?? false,
+          fiscalCategory: data.fiscalCategory ?? null,
         },
       });
       return taxRowToDomain(row);

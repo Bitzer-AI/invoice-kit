@@ -23,6 +23,7 @@ export function createInMemoryTaxRepository(store: MemoryStore): TaxRepository {
         rate: data.rate,
         isActive: data.isActive ?? true,
         isDefault: data.isDefault ?? false,
+        fiscalCategory: data.fiscalCategory ?? null,
         createdAt: now,
         updatedAt: now,
       };

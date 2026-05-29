@@ -52,6 +52,7 @@ export interface Tax {
   rate: DecimalString;
   isActive: boolean;
   isDefault: boolean;
+  fiscalCategory: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

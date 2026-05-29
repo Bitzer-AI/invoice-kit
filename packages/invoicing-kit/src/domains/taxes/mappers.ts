@@ -10,6 +10,7 @@ export function taxToResponse(t: Tax): TaxResponse {
     rate: t.rate,
     isActive: t.isActive,
     isDefault: t.isDefault,
+    fiscalCategory: t.fiscalCategory,
     createdAt: t.createdAt.toISOString(),
     updatedAt: t.updatedAt.toISOString(),
   };

@@ -118,4 +118,15 @@ describeForEachAdapter("TaxRepository", allFactories, (ctx) => {
     await ctx.repos.taxes.delete(t.id, organizationId);
     expect(await ctx.repos.taxes.findById(t.id, organizationId)).toBeNull();
   });
+
+  test("create persists fiscalCategory", async () => {
+    const { organizationId } = await seed(ctx.repos);
+    const created = await ctx.repos.taxes.create({
+      organizationId, name: "ITBIS", type: "PERCENTAGE", rate: "18.00",
+      fiscalCategory: "ITBIS18",
+    });
+    expect(created.fiscalCategory).toBe("ITBIS18");
+    const found = await ctx.repos.taxes.findById(created.id, organizationId);
+    expect(found?.fiscalCategory).toBe("ITBIS18");
+  });
 });

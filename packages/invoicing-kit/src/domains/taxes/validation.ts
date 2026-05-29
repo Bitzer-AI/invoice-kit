@@ -9,6 +9,7 @@ export const createTaxBody = z.object({
   rate: rateSchema,
   isActive: z.boolean().optional(),
   isDefault: z.boolean().optional(),
+  fiscalCategory: z.enum(["ITBIS18", "ITBIS16", "ITBIS0", "EXEMPT"]).optional().nullable(),
 });
 export type CreateTaxBody = z.infer<typeof createTaxBody>;
 
@@ -28,6 +29,7 @@ export const taxResponse = z.object({
   rate: z.string(),
   isActive: z.boolean(),
   isDefault: z.boolean(),
+  fiscalCategory: z.string().nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });

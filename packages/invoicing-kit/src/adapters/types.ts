@@ -110,6 +110,7 @@ export interface NewTax {
   rate: DecimalString;
   isActive?: boolean;
   isDefault?: boolean;
+  fiscalCategory?: string | null;
 }
 
 export type TaxUpdate = Partial<Omit<NewTax, "organizationId">>;

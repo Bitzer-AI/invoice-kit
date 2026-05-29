@@ -17,6 +17,7 @@ export class TaxService {
         rate: body.rate,
         isActive: body.isActive,
         isDefault: body.isDefault,
+        fiscalCategory: body.fiscalCategory ?? null,
       });
       if (body.isDefault) {
         await tx.taxes.clearDefaultExcept(ctx.organizationId, created.id);
