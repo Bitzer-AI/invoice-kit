@@ -10,6 +10,7 @@ import { createPrismaInvoiceRepository } from "./invoices";
 import { createPrismaQuoteRepository } from "./quotes";
 import { createPrismaPaymentMethodRepository } from "./payment-methods";
 import { createPrismaPaymentRepository } from "./payments";
+import { createPrismaFiscalDocumentRepository } from "./fiscal-documents";
 
 export function prismaAdapter(
   prisma: AnyPrismaClient,
@@ -31,6 +32,7 @@ export function prismaAdapter(
       quotes: createPrismaQuoteRepository(client, modelNames),
       paymentMethods: createPrismaPaymentMethodRepository(client, modelNames),
       payments: createPrismaPaymentRepository(client, modelNames),
+      fiscalDocuments: createPrismaFiscalDocumentRepository(client, modelNames),
       tx: async (fn) => {
         if (depth > 0) {
           // Already inside a transaction; reuse same client.

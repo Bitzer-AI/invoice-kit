@@ -14,6 +14,8 @@ import type {
   DocumentNumberSequence,
   DocumentPaymentMethod,
   DocumentType,
+  FiscalDocument,
+  FiscalStatus,
   Invoice,
   InvoiceStatus,
   Payment,
@@ -201,6 +203,25 @@ export function quoteWithDocumentRowToDomain(row: any): QuoteWithDocument {
   return {
     ...quoteRowToDomain(row),
     document: documentWithRelationsRowToDomain(row.document),
+  };
+}
+
+export function fiscalDocumentRowToDomain(row: any): FiscalDocument {
+  return {
+    id: row.id,
+    invoiceId: row.invoiceId,
+    provider: row.provider,
+    status: row.status as FiscalStatus,
+    documentType: row.documentType ?? null,
+    fiscalId: row.fiscalId ?? null,
+    trackId: row.trackId ?? null,
+    securityCode: row.securityCode ?? null,
+    qrUrl: row.qrUrl ?? null,
+    message: row.message ?? null,
+    payload: row.payload ?? null,
+    issuedAt: row.issuedAt ?? null,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
   };
 }
 

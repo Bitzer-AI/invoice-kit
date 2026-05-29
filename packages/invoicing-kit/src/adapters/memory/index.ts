@@ -10,6 +10,7 @@ import { createInMemoryInvoiceRepository } from "./invoices";
 import { createInMemoryQuoteRepository } from "./quotes";
 import { createInMemoryPaymentMethodRepository } from "./payment-methods";
 import { createInMemoryPaymentRepository } from "./payments";
+import { createInMemoryFiscalDocumentRepository } from "./fiscal-documents";
 
 export function inMemoryAdapter(): Repositories {
   const store = createStore();
@@ -26,6 +27,7 @@ export function inMemoryAdapter(): Repositories {
       quotes: createInMemoryQuoteRepository(s),
       paymentMethods: createInMemoryPaymentMethodRepository(s),
       payments: createInMemoryPaymentRepository(s),
+      fiscalDocuments: createInMemoryFiscalDocumentRepository(s),
       tx: async (fn) => {
         if (txDepth > 0) {
           // Nested: reuse current snapshot store.

@@ -49,6 +49,7 @@ export async function buildHarness(
 
   await (prisma as any).$executeRawUnsafe(`
     TRUNCATE TABLE
+      "fiscal_documents",
       "document_line_item_taxes",
       "document_line_items",
       "document_payment_methods",

@@ -5,6 +5,7 @@ import type {
   DocumentLineItemTax,
   DocumentNumberSequence,
   DocumentPaymentMethod,
+  FiscalDocument,
   Invoice,
   Payment,
   PaymentMethod,
@@ -26,6 +27,7 @@ export interface MemoryStore {
   quotes: Map<string, Quote>;
   paymentMethods: Map<string, PaymentMethod>;
   payments: Map<string, Payment>;
+  fiscalDocuments: Map<string, FiscalDocument>;
 }
 
 export function createStore(): MemoryStore {
@@ -42,6 +44,7 @@ export function createStore(): MemoryStore {
     quotes: new Map(),
     paymentMethods: new Map(),
     payments: new Map(),
+    fiscalDocuments: new Map(),
   };
 }
 
@@ -59,6 +62,7 @@ export function snapshot(store: MemoryStore): MemoryStore {
     quotes: new Map(store.quotes),
     paymentMethods: new Map(store.paymentMethods),
     payments: new Map(store.payments),
+    fiscalDocuments: new Map(store.fiscalDocuments),
   };
 }
 

@@ -6,6 +6,8 @@ import type {
   DocumentNumberSequence,
   DocumentPaymentMethod,
   DocumentType,
+  FiscalDocument,
+  FiscalStatus,
   Invoice,
   InvoiceStatus,
   Payment,
@@ -361,6 +363,28 @@ export interface PaymentRepository {
   totalPaidForInvoice(invoiceId: string, organizationId: string): Promise<BigintMinor>;
 }
 
+// ============== FiscalDocument ==============
+
+export interface NewFiscalDocument {
+  invoiceId: string;
+  provider: string;
+  status?: FiscalStatus;
+  documentType?: string | null;
+  fiscalId?: string | null;
+  trackId?: string | null;
+  securityCode?: string | null;
+  qrUrl?: string | null;
+  message?: string | null;
+  payload?: unknown | null;
+  issuedAt?: Date | null;
+}
+export type FiscalDocumentUpdate = Partial<Omit<NewFiscalDocument, "invoiceId">>;
+export interface FiscalDocumentRepository {
+  upsertByInvoice(data: NewFiscalDocument): Promise<FiscalDocument>;
+  findByInvoice(invoiceId: string): Promise<FiscalDocument | null>;
+  update(invoiceId: string, patch: FiscalDocumentUpdate): Promise<FiscalDocument>;
+}
+
 // ============== Top-level bundle ==============
 
 export interface Repositories {
@@ -373,6 +397,7 @@ export interface Repositories {
   quotes: QuoteRepository;
   paymentMethods: PaymentMethodRepository;
   payments: PaymentRepository;
+  fiscalDocuments: FiscalDocumentRepository;
   /** Runs `fn` inside a transaction; the `txRepos` passed in share the transaction. Nested calls must reuse the outer transaction (no nested savepoints in v0). */
   tx<T>(fn: (txRepos: Repositories) => Promise<T>): Promise<T>;
 }
