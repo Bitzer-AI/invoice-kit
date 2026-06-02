@@ -109,6 +109,10 @@ export interface NewTax {
   name: string;
   description?: string | null;
   type: TaxType;
+  /**
+   * PERCENTAGE: a fraction — `"0.1800"` means 18% (NOT `"18"`, which is 1800%).
+   * FIXED: minor units — `"50"` means 50 cents.
+   */
   rate: DecimalString;
   isActive?: boolean;
   isDefault?: boolean;

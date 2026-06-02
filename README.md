@@ -42,6 +42,13 @@ app.route("/", kit.router);
 export default app;
 ```
 
+## Tax rates
+
+Tax `rate` is a **decimal string**, and its meaning depends on `type`:
+
+- `PERCENTAGE` — a **fraction**: `"0.1800"` = 18%. Passing `"18"` means **1800%**. The API rejects a `PERCENTAGE` rate `>= 1` as a likely mistake.
+- `FIXED` — **minor units**: `"50"` = 50 cents per unit.
+
 ## Design docs
 
 See [`docs/superpowers/specs/`](./docs/superpowers/specs/) for design specs and [`docs/superpowers/plans/`](./docs/superpowers/plans/) for implementation plans.

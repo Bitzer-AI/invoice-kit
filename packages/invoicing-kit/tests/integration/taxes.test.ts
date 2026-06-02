@@ -11,7 +11,7 @@ describe("taxes integration", () => {
       body: JSON.stringify({
         name: "VAT",
         type: "PERCENTAGE",
-        rate: "21.00",
+        rate: "0.21",
         description: "Value Added Tax",
       }),
     });
@@ -33,7 +33,7 @@ describe("taxes integration", () => {
       body: JSON.stringify({
         name: "Tax A",
         type: "PERCENTAGE",
-        rate: "10.00",
+        rate: "0.10",
         isDefault: true,
       }),
     });
@@ -47,7 +47,7 @@ describe("taxes integration", () => {
       body: JSON.stringify({
         name: "Tax B",
         type: "PERCENTAGE",
-        rate: "20.00",
+        rate: "0.20",
         isDefault: true,
       }),
     });
@@ -76,7 +76,7 @@ describe("taxes integration", () => {
       body: JSON.stringify({
         name: "Active Tax",
         type: "PERCENTAGE",
-        rate: "15.00",
+        rate: "0.15",
         isActive: true,
       }),
     });
@@ -88,7 +88,7 @@ describe("taxes integration", () => {
       body: JSON.stringify({
         name: "Inactive Tax",
         type: "PERCENTAGE",
-        rate: "5.00",
+        rate: "0.05",
         isActive: false,
       }),
     });
@@ -109,7 +109,7 @@ describe("taxes integration", () => {
       body: JSON.stringify({
         name: "First",
         type: "PERCENTAGE",
-        rate: "10.00",
+        rate: "0.10",
         isDefault: true,
       }),
     });
@@ -121,7 +121,7 @@ describe("taxes integration", () => {
       body: JSON.stringify({
         name: "Second",
         type: "PERCENTAGE",
-        rate: "20.00",
+        rate: "0.20",
       }),
     });
     const tax2 = await res2.json();
@@ -150,7 +150,7 @@ describe("taxes integration", () => {
       body: JSON.stringify({
         name: "Delete me",
         type: "PERCENTAGE",
-        rate: "10.00",
+        rate: "0.10",
       }),
     });
     const tax = await create.json();
@@ -166,5 +166,25 @@ describe("taxes integration", () => {
     const { request } = await buildHarness(createInvoicingKit);
     const res = await request("/api/bills/taxes/missing");
     expect(res.status).toBe(404);
+  });
+
+  test("POST /taxes rejects a PERCENTAGE rate >= 1 (whole-percent mistake)", async () => {
+    const { request } = await buildHarness(createInvoicingKit);
+    const res = await request("/api/bills/taxes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Bad ITBIS", type: "PERCENTAGE", rate: "18" }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  test("POST /taxes accepts a FIXED rate >= 1 (minor units, exempt from the fraction check)", async () => {
+    const { request } = await buildHarness(createInvoicingKit);
+    const res = await request("/api/bills/taxes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Per-unit fee", type: "FIXED", rate: "50" }),
+    });
+    expect(res.status).toBe(201);
   });
 });

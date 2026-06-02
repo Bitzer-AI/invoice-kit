@@ -10,8 +10,27 @@
 // `Repositories` shape we return is fully typed.
 
 export type AnyPrismaClient = {
-  $transaction: <T>(fn: (tx: AnyPrismaClient) => Promise<T>) => Promise<T>;
-} & Record<string, unknown>;
+  // The boundary is intentionally minimal: every internal use casts `prisma as any` (model
+  // namespaces via `(prisma as any)[modelName]`, transactions via `(prisma as any).$transaction`),
+  // so the only thing this type must do is accept a real generated client without a cast.
+  //
+  // Do NOT add `& Record<string, unknown>` here. A generated PrismaClient is a nominal class /
+  // interface and is NOT assignable to a string index signature, so the intersection silently
+  // breaks `prismaAdapter(new PrismaClient())` and forces consumers to cast. Likewise, leave
+  // `$transaction` loose — narrowing it to a single fixed signature won't unify with the client's
+  // overloaded (batch + interactive) `$transaction`.
+  $transaction: (...args: any[]) => any;
+};
+
+// Compile-time regression guard. `_NominalClient` is an `interface` on purpose: like a real
+// generated client (and unlike a `type` alias), an interface is not assignable to a string index
+// signature. So if anyone reintroduces `& Record<string, unknown>` on `AnyPrismaClient`, this stops
+// compiling — the exact regression that would force `prismaAdapter(prisma)` to need a cast again.
+interface _NominalClient {
+  $transaction: (...args: any[]) => any;
+}
+type _Assert<T extends AnyPrismaClient> = T;
+type _AnyPrismaClientAcceptsNominalClient = _Assert<_NominalClient>;
 
 // ---------------------------------------------------------------------------
 // Model name configuration

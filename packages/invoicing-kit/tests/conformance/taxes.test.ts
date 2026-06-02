@@ -122,7 +122,7 @@ describeForEachAdapter("TaxRepository", allFactories, (ctx) => {
   test("create persists fiscalCategory", async () => {
     const { organizationId } = await seed(ctx.repos);
     const created = await ctx.repos.taxes.create({
-      organizationId, name: "ITBIS", type: "PERCENTAGE", rate: "18.00",
+      organizationId, name: "ITBIS", type: "PERCENTAGE", rate: "0.18",
       fiscalCategory: "ITBIS18",
     });
     expect(created.fiscalCategory).toBe("ITBIS18");
