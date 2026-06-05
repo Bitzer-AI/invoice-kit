@@ -20,6 +20,21 @@ export function stubAuth(session: StubSession | null): BetterAuthLike {
   };
 }
 
+let sharedPrisma: any;
+
+async function getSharedPrisma(): Promise<any> {
+  if (sharedPrisma) return sharedPrisma;
+  // @ts-expect-error generated at test setup
+  const { PrismaClient } = await import("../../src/generated/test-prisma/client.ts");
+  // @ts-expect-error driver adapter
+  const { PrismaPg } = await import("@prisma/adapter-pg");
+  const connectionString =
+    process.env.INVOICING_KIT_TEST_DATABASE_URL ??
+    "postgresql://test:test@localhost:5544/invoicing_kit_test";
+  sharedPrisma = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
+  return sharedPrisma;
+}
+
 export interface HarnessOptions {
   basePath?: string;
   session?: StubSession;
@@ -33,18 +48,7 @@ export async function buildHarness(
   }) => { router: any },
   opts: HarnessOptions = {},
 ) {
-  // @ts-expect-error generated at test setup
-  const { PrismaClient } = await import("../../src/generated/test-prisma/client.ts");
-  // @ts-expect-error driver adapter
-  const { PrismaPg } = await import("@prisma/adapter-pg");
-
-  const connectionString =
-    process.env.INVOICING_KIT_TEST_DATABASE_URL ??
-    "postgresql://test:test@localhost:5544/invoicing_kit_test";
-
-  const prisma = new PrismaClient({
-    adapter: new PrismaPg({ connectionString }),
-  });
+  const prisma = await getSharedPrisma();
   const adapter = prismaAdapter(prisma);
 
   await (prisma as any).$executeRawUnsafe(`
