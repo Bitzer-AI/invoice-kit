@@ -1,6 +1,6 @@
 {
   "name": "invoicing-kit",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Drop-in invoicing API for Hono + better-auth apps: clients, products, taxes, quotes, invoices, and payments.",
   "type": "module",
   "license": "MIT",
@@ -44,7 +44,11 @@
       "require": "./dist/testing.cjs"
     }
   },
-  "files": ["dist", "README.md", "LICENSE"],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsup",
     "prepublishOnly": "bun run build",
@@ -67,7 +71,9 @@
     "zod": "^4.0.0"
   },
   "peerDependenciesMeta": {
-    "@prisma/client": { "optional": true }
+    "@prisma/client": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@hono/zod-openapi": "^1.2.0",

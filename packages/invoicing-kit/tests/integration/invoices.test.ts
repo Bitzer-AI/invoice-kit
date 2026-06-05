@@ -89,6 +89,40 @@ describe("invoices integration", () => {
     expect(body.document.lineItems[0].taxes[0].taxAmount).toBe("2100");
   });
 
+  test("POST /invoices honors a one-off documentNumber override without advancing the series", async () => {
+    const { request } = await buildHarness(createInvoicingKit);
+    const { clientId, productId, taxId } = await createPrereqs(request);
+
+    const overridden = await (
+      await request("/api/bills/invoices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clientId,
+          documentNumber: 5000,
+          issueDate: "2025-01-01",
+          lineItems: [{ productId, quantity: "1", price: "10000", taxIds: [taxId] }],
+        }),
+      })
+    ).json();
+    expect(overridden.document.documentNumber).toBe(5000);
+
+    // A subsequent auto-numbered invoice uses the series counter (starts at 1),
+    // unaffected by the one-off override above.
+    const auto = await (
+      await request("/api/bills/invoices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clientId,
+          issueDate: "2025-01-02",
+          lineItems: [{ productId, quantity: "1", price: "10000", taxIds: [taxId] }],
+        }),
+      })
+    ).json();
+    expect(auto.document.documentNumber).toBe(1);
+  });
+
   test("GET /invoices/{id} returns the full joined document with line items", async () => {
     const { request } = await buildHarness(createInvoicingKit);
     const { clientId, productId, taxId } = await createPrereqs(request);

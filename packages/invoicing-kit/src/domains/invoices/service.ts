@@ -30,7 +30,11 @@ export class InvoiceService {
   async create(body: CreateInvoiceBody, ctx: AuthContext): Promise<Invoice> {
     return this.repos.tx(async (tx) => {
       const resolvedPrefix = body.documentNumberPrefix ?? null;
-      const number = await this.numbering.next(tx, ctx.organizationId, "INVOICE", resolvedPrefix);
+      // A caller-supplied documentNumber is a one-off override for THIS document
+      // (the series counter is left untouched); otherwise the series assigns it.
+      const number =
+        body.documentNumber ??
+        (await this.numbering.next(tx, ctx.organizationId, "INVOICE", resolvedPrefix));
       // Pre-check uniqueness for the (org, prefix, number) tuple.
       const existing = await tx.invoices.findByDocumentNumber({
         organizationId: ctx.organizationId,
@@ -151,6 +155,8 @@ export class InvoiceService {
       if (body.clientId !== undefined) documentUpdate.clientId = body.clientId;
       if (body.documentNumberPrefix !== undefined)
         documentUpdate.documentNumberPrefix = body.documentNumberPrefix;
+      if (body.documentNumber !== undefined)
+        documentUpdate.documentNumber = body.documentNumber;
       if (body.issueDate !== undefined) documentUpdate.issueDate = new Date(body.issueDate);
       if (body.notes !== undefined) documentUpdate.notes = body.notes;
 

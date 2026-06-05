@@ -4,6 +4,8 @@ import { lineItemSchema } from "../../lib/line-item";
 export const createQuoteBody = z.object({
   clientId: z.string(),
   documentNumberPrefix: z.string().max(20).optional().nullable(),
+  /** One-off override of the assigned number for THIS document. When omitted, the series counter assigns it. */
+  documentNumber: z.number().int().positive().optional(),
   issueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "YYYY-MM-DD"),
   validUntil: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
   notes: z.string().optional().nullable(),
@@ -16,6 +18,7 @@ export type CreateQuoteBody = z.infer<typeof createQuoteBody>;
 export const updateQuoteBody = z.object({
   clientId: z.string().optional(),
   documentNumberPrefix: z.string().max(20).optional().nullable(),
+  documentNumber: z.number().int().positive().optional(),
   issueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   validUntil: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
   notes: z.string().optional().nullable(),
