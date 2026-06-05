@@ -4,7 +4,7 @@ export const createPaymentBody = z.object({
   paymentMethodId: z.string().optional().nullable(),
   amount: z.string().regex(/^\d+$/, "Amount must be integer minor units"),
   currency: z.string().length(3),
-  provider: z.literal("MANUAL"), // v0: only MANUAL
+  provider: z.string().min(1).max(50),
   paidAt: z.string().datetime().optional().nullable(),
   reference: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
@@ -18,7 +18,7 @@ export const paymentResponse = z.object({
   amount: z.string(),
   currency: z.string(),
   status: z.enum(["pending", "processing", "succeeded", "failed", "canceled"]),
-  provider: z.enum(["STRIPE", "MANUAL"]),
+  provider: z.string(),
   paidAt: z.string().nullable(),
   reference: z.string().nullable(),
   notes: z.string().nullable(),

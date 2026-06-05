@@ -8,9 +8,10 @@ export type DocumentType = "INVOICE" | "QUOTE";
 export type InvoiceStatus = "draft" | "sent" | "paid" | "partially_paid";
 export type QuoteStatus = "draft" | "sent" | "accepted" | "rejected" | "converted";
 export type TaxType = "PERCENTAGE" | "FIXED";
-export type PaymentMethodType = "STRIPE" | "MANUAL";
+// Known gateways are listed for autocomplete, but any provider string is allowed
+// so integrators can support regional gateways (e.g. AZUL) without a library change.
+export type PaymentMethodType = "STRIPE" | "MANUAL" | "AZUL" | (string & {});
 export type PaymentStatus = "pending" | "processing" | "succeeded" | "failed" | "canceled";
-export type PaymentProvider = "STRIPE" | "MANUAL";
 
 export interface Client {
   id: string;
@@ -167,7 +168,7 @@ export interface Payment {
   amount: BigintMinor;
   currency: string;
   status: PaymentStatus;
-  provider: PaymentProvider;
+  provider: string;
   stripePaymentIntentId: string | null;
   stripeCheckoutSessionId: string | null;
   stripeChargeId: string | null;

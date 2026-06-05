@@ -13,7 +13,6 @@ import type {
   Payment,
   PaymentMethod,
   PaymentMethodType,
-  PaymentProvider,
   PaymentStatus,
   Product,
   Quote,
@@ -336,7 +335,7 @@ export interface NewPayment {
   amount: BigintMinor;
   currency: string;
   status: PaymentStatus;
-  provider: PaymentProvider;
+  provider: string;
   stripePaymentIntentId?: string | null;
   stripeCheckoutSessionId?: string | null;
   stripeChargeId?: string | null;

@@ -23,7 +23,6 @@ export type {
   Payment,
   PaymentMethod,
   PaymentMethodType,
-  PaymentProvider,
   PaymentStatus,
   Product,
   Quote,

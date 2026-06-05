@@ -33,7 +33,7 @@ export class PaymentService {
         amount,
         currency: body.currency,
         status: "succeeded",
-        provider: "MANUAL",
+        provider: body.provider,
         paidAt: body.paidAt ? new Date(body.paidAt) : new Date(),
         reference: body.reference ?? null,
         notes: body.notes ?? null,

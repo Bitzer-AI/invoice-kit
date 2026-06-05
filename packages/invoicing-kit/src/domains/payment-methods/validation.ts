@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const createPaymentMethodBody = z.object({
   name: z.string().min(1).max(100),
-  type: z.enum(["STRIPE", "MANUAL"]),
+  type: z.string().min(1).max(50),
   instructions: z.string().optional().nullable(),
   metadata: z.unknown().optional().nullable(),
   isActive: z.boolean().optional(),
@@ -21,7 +21,7 @@ export type ListPaymentMethodsQuery = z.infer<typeof listPaymentMethodsQuery>;
 export const paymentMethodResponse = z.object({
   id: z.string(),
   name: z.string(),
-  type: z.enum(["STRIPE", "MANUAL"]),
+  type: z.string(),
   instructions: z.string().nullable(),
   metadata: z.unknown().nullable(),
   isActive: z.boolean(),
