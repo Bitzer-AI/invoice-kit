@@ -9,18 +9,6 @@ export class DocumentNumberingService {
     prefix: string | null,
   ): Promise<number> {
     await repos.documentSequences.ensure({ organizationId, documentType, prefix });
-    return repos.documentSequences.incrementAndGet({ organizationId, documentType });
+    return repos.documentSequences.incrementAndGet({ organizationId, documentType, prefix });
   }
-}
-
-/** Honors an explicit body prefix (null/string); falls back to the configured sequence prefix only when omitted. */
-export async function resolveDocumentPrefix(
-  repos: Repositories,
-  organizationId: string,
-  documentType: DocumentType,
-  bodyPrefix: string | null | undefined,
-): Promise<string | null> {
-  if (bodyPrefix !== undefined) return bodyPrefix;
-  const row = await repos.documentSequences.find({ organizationId, documentType });
-  return row?.prefix ?? null;
 }

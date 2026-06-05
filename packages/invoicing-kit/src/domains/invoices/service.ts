@@ -15,7 +15,7 @@ import {
 } from "./exceptions";
 import { QuoteNotFoundException } from "../quotes/exceptions";
 import { DocumentCalculator } from "../../lib/calculator";
-import { DocumentNumberingService, resolveDocumentPrefix } from "../../lib/numbering";
+import { DocumentNumberingService } from "../../lib/numbering";
 import { TaxStrategy } from "../../lib/tax-strategy";
 import { resolveLineItemProductId } from "../../lib/line-item";
 
@@ -29,19 +29,9 @@ export class InvoiceService {
 
   async create(body: CreateInvoiceBody, ctx: AuthContext): Promise<Invoice> {
     return this.repos.tx(async (tx) => {
-      const number = await this.numbering.next(
-        tx,
-        ctx.organizationId,
-        "INVOICE",
-        body.documentNumberPrefix ?? null,
-      );
-      const resolvedPrefix = await resolveDocumentPrefix(
-        tx,
-        ctx.organizationId,
-        "INVOICE",
-        body.documentNumberPrefix,
-      );
-      // Pre-check uniqueness if a prefix is provided.
+      const resolvedPrefix = body.documentNumberPrefix ?? null;
+      const number = await this.numbering.next(tx, ctx.organizationId, "INVOICE", resolvedPrefix);
+      // Pre-check uniqueness for the (org, prefix, number) tuple.
       const existing = await tx.invoices.findByDocumentNumber({
         organizationId: ctx.organizationId,
         prefix: resolvedPrefix,

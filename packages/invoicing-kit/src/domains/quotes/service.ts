@@ -5,7 +5,7 @@ import type { Quote } from "../../types";
 import type { CreateQuoteBody, UpdateQuoteBody, ListQuotesQuery } from "./validation";
 import { QuoteNotFoundException, QuoteNumberAlreadyExistsException } from "./exceptions";
 import { DocumentCalculator } from "../../lib/calculator";
-import { DocumentNumberingService, resolveDocumentPrefix } from "../../lib/numbering";
+import { DocumentNumberingService } from "../../lib/numbering";
 import { TaxStrategy } from "../../lib/tax-strategy";
 import { resolveLineItemProductId } from "../../lib/line-item";
 
@@ -19,19 +19,9 @@ export class QuoteService {
 
   async create(body: CreateQuoteBody, ctx: AuthContext): Promise<Quote> {
     return this.repos.tx(async (tx) => {
-      const number = await this.numbering.next(
-        tx,
-        ctx.organizationId,
-        "QUOTE",
-        body.documentNumberPrefix ?? null,
-      );
-      const resolvedPrefix = await resolveDocumentPrefix(
-        tx,
-        ctx.organizationId,
-        "QUOTE",
-        body.documentNumberPrefix,
-      );
-      // Pre-check uniqueness if a prefix is provided (rare race against tx isolation, but cleaner UX).
+      const resolvedPrefix = body.documentNumberPrefix ?? null;
+      const number = await this.numbering.next(tx, ctx.organizationId, "QUOTE", resolvedPrefix);
+      // Pre-check uniqueness for the (org, prefix, number) tuple.
       const existing = await tx.quotes.findByDocumentNumber({
         organizationId: ctx.organizationId,
         prefix: resolvedPrefix,
