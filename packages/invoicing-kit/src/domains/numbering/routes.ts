@@ -2,11 +2,34 @@ import { createRoute, OpenAPIHono } from "@hono/zod-openapi";
 import { authMiddleware, type BetterAuthLike } from "../../auth/middleware";
 import type { AuthVariables } from "../../auth/types";
 import type { NumberingService } from "./service";
-import { getSequenceQuery, upsertSequenceBody, sequenceResponse } from "./validation";
+import {
+  getSequenceQuery,
+  listSequencesQuery,
+  upsertSequenceBody,
+  sequenceResponse,
+  sequenceListResponse,
+} from "./validation";
 
 export function buildNumberingRouter(service: NumberingService, auth: BetterAuthLike) {
   const app = new OpenAPIHono<{ Variables: AuthVariables }>();
   app.use("*", authMiddleware(auth));
+
+  app.openapi(
+    createRoute({
+      method: "get",
+      path: "/document-number-sequences",
+      tags: ["Numbering"],
+      request: { query: listSequencesQuery },
+      responses: {
+        200: { content: { "application/json": { schema: sequenceListResponse } }, description: "Series list" },
+        401: { description: "Unauthorized" },
+      },
+    }),
+    async (c) => {
+      const { documentType } = c.req.valid("query");
+      return c.json(await service.list(documentType, c.var.authContext));
+    },
+  );
 
   app.openapi(
     createRoute({
@@ -20,8 +43,8 @@ export function buildNumberingRouter(service: NumberingService, auth: BetterAuth
       },
     }),
     async (c) => {
-      const { documentType } = c.req.valid("query");
-      return c.json(await service.get(documentType, c.var.authContext));
+      const { documentType, prefix } = c.req.valid("query");
+      return c.json(await service.get(documentType, prefix, c.var.authContext));
     },
   );
 

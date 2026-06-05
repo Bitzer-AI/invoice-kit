@@ -8,17 +8,32 @@ import { NextNumberTooLowException } from "./exceptions";
 export class NumberingService {
   constructor(private readonly repos: Repositories) {}
 
-  async get(documentType: DocumentType, ctx: AuthContext): Promise<SequenceResponse> {
+  async get(
+    documentType: DocumentType,
+    prefix: string | undefined,
+    ctx: AuthContext,
+  ): Promise<SequenceResponse> {
+    const series = prefix ?? "";
     const row = await this.repos.documentSequences.find({
       organizationId: ctx.organizationId,
       documentType,
+      prefix: series,
     });
     if (row) return toSequenceView(row);
     const max = await this.repos.documentSequences.maxIssuedNumber({
       organizationId: ctx.organizationId,
       documentType,
+      prefix: series,
     });
-    return { documentType, prefix: null, nextNumber: (max ?? 0) + 1, padWidth: null };
+    return { documentType, prefix: prefix ?? null, nextNumber: (max ?? 0) + 1, padWidth: null };
+  }
+
+  async list(documentType: DocumentType, ctx: AuthContext): Promise<SequenceResponse[]> {
+    const rows = await this.repos.documentSequences.list({
+      organizationId: ctx.organizationId,
+      documentType,
+    });
+    return rows.map(toSequenceView);
   }
 
   async upsert(body: UpsertSequenceBody, ctx: AuthContext): Promise<SequenceResponse> {
@@ -26,6 +41,7 @@ export class NumberingService {
       const max = await tx.documentSequences.maxIssuedNumber({
         organizationId: ctx.organizationId,
         documentType: body.documentType,
+        prefix: body.prefix ?? null,
       });
       if (max !== null && body.nextNumber <= max) {
         throw NextNumberTooLowException(max);

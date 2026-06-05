@@ -2,7 +2,12 @@ import { z } from "zod";
 
 export const documentTypeParam = z.enum(["INVOICE", "QUOTE"]);
 
-export const getSequenceQuery = z.object({ documentType: documentTypeParam });
+export const getSequenceQuery = z.object({
+  documentType: documentTypeParam,
+  prefix: z.string().max(20).optional(),
+});
+
+export const listSequencesQuery = z.object({ documentType: documentTypeParam });
 
 export const upsertSequenceBody = z.object({
   documentType: documentTypeParam,
@@ -18,7 +23,8 @@ export const sequenceResponse = z.object({
   padWidth: z.number().int().nullable(),
 });
 
+export const sequenceListResponse = z.array(sequenceResponse);
+
 export type SequenceResponse = z.infer<typeof sequenceResponse>;
 
 export type UpsertSequenceBody = z.infer<typeof upsertSequenceBody>;
-
