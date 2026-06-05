@@ -29,6 +29,7 @@ model DocumentNumberSequence {
   documentType   DocumentType
   prefix         String?      @db.VarChar(20)
   nextNumber     Int          @map("next_number")
+  padWidth       Int?         @map("pad_width")
   updatedAt      DateTime     @default(now()) @updatedAt @map("updated_at")
 
   @@unique([organizationId, documentType])

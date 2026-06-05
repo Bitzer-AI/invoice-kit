@@ -8,6 +8,7 @@ import { buildPaymentMethodsRouter } from "./domains/payment-methods/routes";
 import { buildQuotesRouter } from "./domains/quotes/routes";
 import { buildInvoicesRouter } from "./domains/invoices/routes";
 import { buildPaymentsRouter } from "./domains/payments/routes";
+import { buildNumberingRouter } from "./domains/numbering/routes";
 
 interface BuildRouterArgs {
   services: Services;
@@ -24,5 +25,6 @@ export function buildRouter({ services, auth, basePath }: BuildRouterArgs) {
   root.route(basePath, buildQuotesRouter(services.quotes, auth));
   root.route(basePath, buildInvoicesRouter(services.invoices, auth));
   root.route(basePath, buildPaymentsRouter(services.payments, auth));
+  root.route(basePath, buildNumberingRouter(services.numbering, auth));
   return root;
 }

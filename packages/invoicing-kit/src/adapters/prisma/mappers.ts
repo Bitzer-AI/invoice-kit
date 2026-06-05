@@ -101,6 +101,7 @@ export function documentSequenceRowToDomain(row: any): DocumentNumberSequence {
     documentType: row.documentType as DocumentType,
     prefix: row.prefix ?? null,
     nextNumber: row.nextNumber,
+    padWidth: row.padWidth ?? null,
     updatedAt: row.updatedAt,
   };
 }

@@ -64,6 +64,7 @@ export interface DocumentNumberSequence {
   documentType: DocumentType;
   prefix: string | null;
   nextNumber: number;
+  padWidth: number | null;
   updatedAt: Date;
 }
 

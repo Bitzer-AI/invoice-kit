@@ -43,5 +43,21 @@ export function createPrismaDocumentSequenceRepository(
       });
       return row ? documentSequenceRowToDomain(row) : null;
     },
+    async upsert({ organizationId, documentType, prefix, nextNumber, padWidth }) {
+      const row = await db.upsert({
+        where: { organizationId_documentType: { organizationId, documentType } },
+        update: { prefix, nextNumber, padWidth },
+        create: { organizationId, documentType, prefix, nextNumber, padWidth },
+      });
+      return documentSequenceRowToDomain(row);
+    },
+    async maxIssuedNumber({ organizationId, documentType }) {
+      const docDb = (prisma as any)[modelNames.document];
+      const agg = await docDb.aggregate({
+        where: { organizationId, type: documentType },
+        _max: { documentNumber: true },
+      });
+      return agg._max.documentNumber ?? null;
+    },
   };
 }

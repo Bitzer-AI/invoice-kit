@@ -5,7 +5,7 @@ import type { Quote } from "../../types";
 import type { CreateQuoteBody, UpdateQuoteBody, ListQuotesQuery } from "./validation";
 import { QuoteNotFoundException, QuoteNumberAlreadyExistsException } from "./exceptions";
 import { DocumentCalculator } from "../../lib/calculator";
-import { DocumentNumberingService } from "../../lib/numbering";
+import { DocumentNumberingService, resolveDocumentPrefix } from "../../lib/numbering";
 import { TaxStrategy } from "../../lib/tax-strategy";
 import { resolveLineItemProductId } from "../../lib/line-item";
 
@@ -25,10 +25,16 @@ export class QuoteService {
         "QUOTE",
         body.documentNumberPrefix ?? null,
       );
+      const resolvedPrefix = await resolveDocumentPrefix(
+        tx,
+        ctx.organizationId,
+        "QUOTE",
+        body.documentNumberPrefix,
+      );
       // Pre-check uniqueness if a prefix is provided (rare race against tx isolation, but cleaner UX).
       const existing = await tx.quotes.findByDocumentNumber({
         organizationId: ctx.organizationId,
-        prefix: body.documentNumberPrefix ?? null,
+        prefix: resolvedPrefix,
         documentNumber: number,
       });
       if (existing) throw QuoteNumberAlreadyExistsException();
@@ -71,7 +77,7 @@ export class QuoteService {
         type: "QUOTE",
         organizationId: ctx.organizationId,
         clientId: body.clientId,
-        documentNumberPrefix: body.documentNumberPrefix ?? null,
+        documentNumberPrefix: resolvedPrefix,
         documentNumber: number,
         issueDate: new Date(body.issueDate),
         notes: body.notes ?? null,

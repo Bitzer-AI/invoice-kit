@@ -15,7 +15,7 @@ import {
 } from "./exceptions";
 import { QuoteNotFoundException } from "../quotes/exceptions";
 import { DocumentCalculator } from "../../lib/calculator";
-import { DocumentNumberingService } from "../../lib/numbering";
+import { DocumentNumberingService, resolveDocumentPrefix } from "../../lib/numbering";
 import { TaxStrategy } from "../../lib/tax-strategy";
 import { resolveLineItemProductId } from "../../lib/line-item";
 
@@ -35,10 +35,16 @@ export class InvoiceService {
         "INVOICE",
         body.documentNumberPrefix ?? null,
       );
+      const resolvedPrefix = await resolveDocumentPrefix(
+        tx,
+        ctx.organizationId,
+        "INVOICE",
+        body.documentNumberPrefix,
+      );
       // Pre-check uniqueness if a prefix is provided.
       const existing = await tx.invoices.findByDocumentNumber({
         organizationId: ctx.organizationId,
-        prefix: body.documentNumberPrefix ?? null,
+        prefix: resolvedPrefix,
         documentNumber: number,
       });
       if (existing) throw InvoiceNumberAlreadyExistsException();
@@ -81,7 +87,7 @@ export class InvoiceService {
         type: "INVOICE",
         organizationId: ctx.organizationId,
         clientId: body.clientId,
-        documentNumberPrefix: body.documentNumberPrefix ?? null,
+        documentNumberPrefix: resolvedPrefix,
         documentNumber: number,
         issueDate: new Date(body.issueDate),
         notes: body.notes ?? null,

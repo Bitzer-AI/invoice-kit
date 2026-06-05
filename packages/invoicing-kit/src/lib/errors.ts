@@ -29,6 +29,7 @@ export const ErrorCode = {
   QuoteNumberAlreadyExists: "QUOTE_NUMBER_ALREADY_EXISTS",
   QuoteAlreadyConverted: "QUOTE_ALREADY_CONVERTED",
   InvoiceStatusTransitionInvalid: "INVOICE_STATUS_TRANSITION_INVALID",
+  NextNumberTooLow: "NEXT_NUMBER_TOO_LOW",
 
   // Payment
   PaymentNotFound: "PAYMENT_NOT_FOUND",

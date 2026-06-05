@@ -154,6 +154,19 @@ export interface DocumentSequenceRepository {
     organizationId: string;
     documentType: DocumentType;
   }): Promise<DocumentNumberSequence | null>;
+  /** Full configuration write: sets prefix/nextNumber/padWidth, creating the row if absent. */
+  upsert(args: {
+    organizationId: string;
+    documentType: DocumentType;
+    prefix: string | null;
+    nextNumber: number;
+    padWidth: number | null;
+  }): Promise<DocumentNumberSequence>;
+  /** Largest documentNumber already issued for (org, type), or null if none. */
+  maxIssuedNumber(args: {
+    organizationId: string;
+    documentType: DocumentType;
+  }): Promise<number | null>;
 }
 
 // ============== Document ==============
