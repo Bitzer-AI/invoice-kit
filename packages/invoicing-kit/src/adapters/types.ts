@@ -139,12 +139,13 @@ export interface TaxRepository {
 // ============== DocumentNumberSequence ==============
 
 export interface DocumentSequenceRepository {
-  /** Atomically increments `nextNumber` for (org, type) and returns the value prior to increment. */
+  /** Atomically increments `nextNumber` for the (org, type, prefix) series and returns the value prior to increment. */
   incrementAndGet(args: {
     organizationId: string;
     documentType: DocumentType;
+    prefix: string | null;
   }): Promise<number>;
-  /** Idempotent: creates the row with `nextNumber=1` if missing, no-op otherwise. */
+  /** Idempotent: creates the series row with `nextNumber=1` if missing, no-op otherwise. */
   ensure(args: {
     organizationId: string;
     documentType: DocumentType;
@@ -153,8 +154,14 @@ export interface DocumentSequenceRepository {
   find(args: {
     organizationId: string;
     documentType: DocumentType;
+    prefix: string | null;
   }): Promise<DocumentNumberSequence | null>;
-  /** Full configuration write: sets prefix/nextNumber/padWidth, creating the row if absent. */
+  /** All configured series for (org, type), ordered by prefix. */
+  list(args: {
+    organizationId: string;
+    documentType: DocumentType;
+  }): Promise<DocumentNumberSequence[]>;
+  /** Full configuration write for one series: sets nextNumber/padWidth, creating the row if absent. */
   upsert(args: {
     organizationId: string;
     documentType: DocumentType;
@@ -162,10 +169,11 @@ export interface DocumentSequenceRepository {
     nextNumber: number;
     padWidth: number | null;
   }): Promise<DocumentNumberSequence>;
-  /** Largest documentNumber already issued for (org, type), or null if none. */
+  /** Largest documentNumber already issued for the (org, type, prefix) series, or null if none. */
   maxIssuedNumber(args: {
     organizationId: string;
     documentType: DocumentType;
+    prefix: string | null;
   }): Promise<number | null>;
 }
 

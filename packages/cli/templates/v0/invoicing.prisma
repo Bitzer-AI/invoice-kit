@@ -27,12 +27,12 @@ model DocumentNumberSequence {
   id             String       @id @default(uuid(7))
   organizationId String       @map("organization_id")
   documentType   DocumentType
-  prefix         String?      @db.VarChar(20)
+  prefix         String       @default("") @db.VarChar(20)
   nextNumber     Int          @map("next_number")
   padWidth       Int?         @map("pad_width")
   updatedAt      DateTime     @default(now()) @updatedAt @map("updated_at")
 
-  @@unique([organizationId, documentType])
+  @@unique([organizationId, documentType, prefix])
   @@map("document_number_sequences")
 }
 
