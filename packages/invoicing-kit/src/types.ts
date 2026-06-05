@@ -63,6 +63,7 @@ export interface DocumentNumberSequence {
   organizationId: string;
   documentType: DocumentType;
   prefix: string | null;
+  label: string | null;
   nextNumber: number;
   padWidth: number | null;
   updatedAt: Date;

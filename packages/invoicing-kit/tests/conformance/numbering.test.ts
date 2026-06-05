@@ -223,4 +223,26 @@ describeForEachAdapter("DocumentSequenceRepository", allFactories, (ctx) => {
     const b02 = await service.upsert({ documentType: "INVOICE", prefix: "B02", nextNumber: 1 }, c);
     expect(b02).toMatchObject({ prefix: "B02", nextNumber: 1 });
   });
+
+  test("service.upsert persists an optional label, returned by get and list", async () => {
+    const { organizationId } = await seed(ctx.repos);
+    const service = new NumberingService(ctx.repos);
+    const c = authCtx(organizationId);
+
+    const saved = await service.upsert(
+      { documentType: "INVOICE", prefix: "B02", label: "Consumidor Final", nextNumber: 1 },
+      c,
+    );
+    expect(saved).toMatchObject({ prefix: "B02", label: "Consumidor Final" });
+
+    const got = await service.get("INVOICE", "B02", c);
+    expect(got.label).toBe("Consumidor Final");
+
+    const list = await service.list("INVOICE", c);
+    expect(list.find((s) => s.prefix === "B02")?.label).toBe("Consumidor Final");
+
+    // Suggestion for an unconfigured series has a null label.
+    const suggestion = await service.get("INVOICE", "B99", c);
+    expect(suggestion.label).toBeNull();
+  });
 });

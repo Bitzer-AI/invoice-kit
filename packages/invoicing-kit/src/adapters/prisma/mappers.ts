@@ -100,6 +100,7 @@ export function documentSequenceRowToDomain(row: any): DocumentNumberSequence {
     organizationId: row.organizationId,
     documentType: row.documentType as DocumentType,
     prefix: row.prefix ?? null,
+    label: row.label ?? null,
     nextNumber: row.nextNumber,
     padWidth: row.padWidth ?? null,
     updatedAt: row.updatedAt,

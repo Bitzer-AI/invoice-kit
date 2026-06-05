@@ -23,6 +23,7 @@ export function createInMemoryDocumentSequenceRepository(
         organizationId,
         documentType,
         prefix: series(prefix),
+        label: null,
         nextNumber: 1,
         padWidth: null,
         updatedAt: new Date(),
@@ -48,7 +49,7 @@ export function createInMemoryDocumentSequenceRepository(
       }
       return out.sort((a, b) => (a.prefix ?? "").localeCompare(b.prefix ?? ""));
     },
-    async upsert({ organizationId, documentType, prefix, nextNumber, padWidth }) {
+    async upsert({ organizationId, documentType, prefix, label, nextNumber, padWidth }) {
       const k = key(organizationId, documentType, prefix);
       const existing = rows.get(k);
       const row: DocumentNumberSequence = {
@@ -56,6 +57,7 @@ export function createInMemoryDocumentSequenceRepository(
         organizationId,
         documentType,
         prefix: series(prefix),
+        label,
         nextNumber,
         padWidth,
         updatedAt: new Date(),

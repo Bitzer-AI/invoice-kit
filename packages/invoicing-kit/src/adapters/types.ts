@@ -161,11 +161,12 @@ export interface DocumentSequenceRepository {
     organizationId: string;
     documentType: DocumentType;
   }): Promise<DocumentNumberSequence[]>;
-  /** Full configuration write for one series: sets nextNumber/padWidth, creating the row if absent. */
+  /** Full configuration write for one series: sets label/nextNumber/padWidth, creating the row if absent. */
   upsert(args: {
     organizationId: string;
     documentType: DocumentType;
     prefix: string | null;
+    label: string | null;
     nextNumber: number;
     padWidth: number | null;
   }): Promise<DocumentNumberSequence>;

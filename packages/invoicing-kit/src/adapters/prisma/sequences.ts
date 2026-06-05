@@ -63,7 +63,7 @@ export function createPrismaDocumentSequenceRepository(
       });
       return rows.map(documentSequenceRowToDomain);
     },
-    async upsert({ organizationId, documentType, prefix, nextNumber, padWidth }) {
+    async upsert({ organizationId, documentType, prefix, label, nextNumber, padWidth }) {
       const row = await db.upsert({
         where: {
           organizationId_documentType_prefix: {
@@ -72,8 +72,8 @@ export function createPrismaDocumentSequenceRepository(
             prefix: series(prefix),
           },
         },
-        update: { nextNumber, padWidth },
-        create: { organizationId, documentType, prefix: series(prefix), nextNumber, padWidth },
+        update: { label, nextNumber, padWidth },
+        create: { organizationId, documentType, prefix: series(prefix), label, nextNumber, padWidth },
       });
       return documentSequenceRowToDomain(row);
     },

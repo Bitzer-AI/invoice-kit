@@ -28,6 +28,7 @@ model DocumentNumberSequence {
   organizationId String       @map("organization_id")
   documentType   DocumentType
   prefix         String       @default("") @db.VarChar(20)
+  label          String?      @db.VarChar(100)
   nextNumber     Int          @map("next_number")
   padWidth       Int?         @map("pad_width")
   updatedAt      DateTime     @default(now()) @updatedAt @map("updated_at")

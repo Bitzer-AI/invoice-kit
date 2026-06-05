@@ -25,7 +25,7 @@ export class NumberingService {
       documentType,
       prefix: series,
     });
-    return { documentType, prefix: prefix ?? null, nextNumber: (max ?? 0) + 1, padWidth: null };
+    return { documentType, prefix: prefix ?? null, label: null, nextNumber: (max ?? 0) + 1, padWidth: null };
   }
 
   async list(documentType: DocumentType, ctx: AuthContext): Promise<SequenceResponse[]> {
@@ -50,6 +50,7 @@ export class NumberingService {
         organizationId: ctx.organizationId,
         documentType: body.documentType,
         prefix: body.prefix ?? null,
+        label: body.label ?? null,
         nextNumber: body.nextNumber,
         padWidth: body.padWidth ?? null,
       });
