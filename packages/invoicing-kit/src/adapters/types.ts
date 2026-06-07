@@ -10,6 +10,8 @@ import type {
   FiscalStatus,
   Invoice,
   InvoiceStatus,
+  Note,
+  NoteStatus,
   Payment,
   PaymentMethod,
   PaymentMethodType,
@@ -229,6 +231,7 @@ export interface NewDocument {
   organizationId: string;
   clientId?: string | null;
   vendorId?: string | null;
+  referencedDocumentId?: string | null;
   externalDocumentNumber?: string | null;
   documentNumberPrefix?: string | null;
   documentNumber: number;
@@ -358,6 +361,41 @@ export interface VendorBillRepository {
   findById(id: string, organizationId: string): Promise<VendorBillWithDocument | null>;
   list(args: ListVendorBillsArgs): Promise<Page<VendorBillWithDocument>>;
   update(id: string, organizationId: string, patch: VendorBillUpdate): Promise<VendorBill>;
+  delete(id: string, organizationId: string): Promise<void>;
+}
+
+// ============== Note (credit/debit, status over Document) ==============
+
+export interface NewNote {
+  documentId: string;
+  status: NoteStatus;
+}
+
+export type NoteUpdate = Partial<{ status: NoteStatus }>;
+
+export interface NoteWithDocument extends Note {
+  document: DocumentWithRelations;
+}
+
+export interface ListNotesArgs extends PageRequest {
+  organizationId: string;
+  status?: NoteStatus | NoteStatus[];
+  type?: "CREDIT_NOTE" | "DEBIT_NOTE";
+  clientId?: string;
+  vendorId?: string;
+  referencedDocumentId?: string;
+  issueDateFrom?: Date;
+  issueDateTo?: Date;
+  query?: string;
+  sortBy?: "issueDate" | "total" | "status";
+  sortDir?: "asc" | "desc";
+}
+
+export interface NoteRepository {
+  create(data: NewNote): Promise<Note>;
+  findById(id: string, organizationId: string): Promise<NoteWithDocument | null>;
+  list(args: ListNotesArgs): Promise<Page<NoteWithDocument>>;
+  update(id: string, organizationId: string, patch: NoteUpdate): Promise<Note>;
   delete(id: string, organizationId: string): Promise<void>;
 }
 
@@ -538,6 +576,7 @@ export interface Repositories {
   documents: DocumentRepository;
   invoices: InvoiceRepository;
   vendorBills: VendorBillRepository;
+  notes: NoteRepository;
   quotes: QuoteRepository;
   paymentMethods: PaymentMethodRepository;
   payments: PaymentRepository;
