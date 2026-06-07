@@ -20,7 +20,7 @@ export class PaymentService {
     body: CreatePaymentBody,
     ctx: AuthContext,
   ): Promise<Payment> {
-    return this.repos.tx(async (tx) => {
+    const payment = await this.repos.tx(async (tx) => {
       const invoice = await tx.invoices.findById(invoiceId, ctx.organizationId);
       if (!invoice) throw InvoiceNotFoundException();
 
@@ -31,7 +31,7 @@ export class PaymentService {
         throw PaymentAmountExceedsInvoiceTotalException();
       }
 
-      const payment = await tx.payments.create({
+      const created = await tx.payments.create({
         invoiceId,
         paymentMethodId: body.paymentMethodId ?? null,
         amount,
@@ -56,8 +56,21 @@ export class PaymentService {
         });
       }
 
-      return payment;
+      return created;
     });
+
+    if (this.hooks?.onPaymentSucceeded) {
+      try {
+        await this.hooks.onPaymentSucceeded({
+          organizationId: ctx.organizationId,
+          paymentId: payment.id,
+        });
+      } catch (err) {
+        console.error("[invoicing-kit] onPaymentSucceeded handler failed", err);
+      }
+    }
+
+    return payment;
   }
 
   async listForInvoice(invoiceId: string, ctx: AuthContext) {
