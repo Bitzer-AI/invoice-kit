@@ -10,6 +10,7 @@ import type {
 } from "../types";
 import type { MemoryStore } from "./store";
 import { createInMemoryDocumentRepository } from "./documents";
+import { sortVendorBillsInMemory } from "../../lib/list-query";
 
 export function createInMemoryVendorBillRepository(
   store: MemoryStore,
@@ -53,6 +54,8 @@ export function createInMemoryVendorBillRepository(
         if (args.vendorId && document.vendorId !== args.vendorId) continue;
         if (args.issueDateFrom && document.issueDate < args.issueDateFrom) continue;
         if (args.issueDateTo && document.issueDate > args.issueDateTo) continue;
+        // Search is intentionally limited to externalDocumentNumber for vendor
+        // bills (the supplier NCF is the natural search key); not vendor name/taxId.
         if (
           args.query &&
           !(document.externalDocumentNumber ?? "")
@@ -62,13 +65,11 @@ export function createInMemoryVendorBillRepository(
           continue;
         enriched.push({ ...row, document });
       }
-      enriched.sort(
-        (a, b) => b.document.createdAt.getTime() - a.document.createdAt.getTime(),
-      );
+      const sorted = sortVendorBillsInMemory(enriched, args.sortBy, args.sortDir);
       const page = args.page ?? 1;
       const perPage = args.perPage ?? 20;
-      const totalCount = enriched.length;
-      const data = enriched.slice((page - 1) * perPage, page * perPage);
+      const totalCount = sorted.length;
+      const data = sorted.slice((page - 1) * perPage, page * perPage);
       return {
         data,
         pageInfo: {

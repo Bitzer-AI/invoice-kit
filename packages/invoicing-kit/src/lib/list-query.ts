@@ -14,6 +14,8 @@ export type QuoteSortField =
   | "documentNumber"
   | "status";
 
+export type VendorBillSortField = "issueDate" | "total" | "status";
+
 interface SearchableDocument {
   documentNumberPrefix: string | null;
   documentNumber: number;
@@ -155,6 +157,38 @@ export function sortInvoicesInMemory<T extends InvoiceSortRow>(
       break;
     case "documentNumber":
       sorted.sort((a, b) => signed(a.document.documentNumber - b.document.documentNumber, d));
+      break;
+    case "status":
+      sorted.sort((a, b) => signed(a.status.localeCompare(b.status), d));
+      break;
+    default:
+      sorted.sort((a, b) => ms(b.document.createdAt) - ms(a.document.createdAt));
+  }
+  return sorted;
+}
+
+interface VendorBillSortRow {
+  status: string;
+  document: {
+    issueDate: Date;
+    total: bigint | null;
+    createdAt: Date;
+  };
+}
+
+export function sortVendorBillsInMemory<T extends VendorBillSortRow>(
+  rows: T[],
+  sortBy: VendorBillSortField | undefined,
+  sortDir: SortDir | undefined,
+): T[] {
+  const d = dir(sortDir);
+  const sorted = [...rows];
+  switch (sortBy) {
+    case "issueDate":
+      sorted.sort((a, b) => signed(ms(a.document.issueDate) - ms(b.document.issueDate), d));
+      break;
+    case "total":
+      sorted.sort((a, b) => signed(big(a.document.total) - big(b.document.total), d));
       break;
     case "status":
       sorted.sort((a, b) => signed(a.status.localeCompare(b.status), d));
