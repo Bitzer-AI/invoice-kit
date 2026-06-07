@@ -35,6 +35,13 @@ export const ErrorCode = {
   PaymentNotFound: "PAYMENT_NOT_FOUND",
   PaymentAmountExceedsInvoiceTotal: "PAYMENT_AMOUNT_EXCEEDS_INVOICE_TOTAL",
   PaymentInvoiceMismatch: "PAYMENT_INVOICE_MISMATCH",
+
+  // Vendor / VendorBill (purchase side)
+  VendorNotFound: "VENDOR_NOT_FOUND",
+  VendorBillNotFound: "VENDOR_BILL_NOT_FOUND",
+  DocumentPartyInvalid: "DOCUMENT_PARTY_INVALID",
+  VendorBillPaymentNotFound: "VENDOR_BILL_PAYMENT_NOT_FOUND",
+  VendorBillPaymentExceedsTotal: "VENDOR_BILL_PAYMENT_EXCEEDS_TOTAL",
 } as const;
 
 export type ErrorCodeKey = keyof typeof ErrorCode;
