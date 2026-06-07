@@ -81,6 +81,32 @@ describe("vendor bill payments integration", () => {
     expect(afterFull.status).toBe("paid");
   });
 
+  test("deleting the only (full) payment reverts the bill received <- paid", async () => {
+    const { request } = await buildHarness(createInvoicingKit);
+    const billId = await makeBill(request, "100000");
+
+    // Pay in full -> bill is "paid".
+    const created = await (
+      await request(`/api/bills/vendor-bills/${billId}/payments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: "100000", currency: "DOP", provider: "manual" }),
+      })
+    ).json();
+    const paid = await (await request(`/api/bills/vendor-bills/${billId}`)).json();
+    expect(paid.status).toBe("paid");
+
+    // Delete the only payment -> remaining == 0 -> status reverts to "received".
+    const del = await request(`/api/bills/vendor-bill-payments/${created.id}`, { method: "DELETE" });
+    expect(del.status).toBe(204);
+
+    const reverted = await (await request(`/api/bills/vendor-bills/${billId}`)).json();
+    expect(reverted.status).toBe("received");
+    // No payments remain.
+    const list = await (await request(`/api/bills/vendor-bills/${billId}/payments`)).json();
+    expect(list.data).toHaveLength(0);
+  });
+
   test("a payment exceeding the bill total is rejected (400)", async () => {
     const { request } = await buildHarness(createInvoicingKit);
     const billId = await makeBill(request, "100000");
