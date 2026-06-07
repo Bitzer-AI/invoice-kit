@@ -42,6 +42,11 @@ export const ErrorCode = {
   DocumentPartyInvalid: "DOCUMENT_PARTY_INVALID",
   VendorBillPaymentNotFound: "VENDOR_BILL_PAYMENT_NOT_FOUND",
   VendorBillPaymentExceedsTotal: "VENDOR_BILL_PAYMENT_EXCEEDS_TOTAL",
+
+  // Notes (credit / debit)
+  NoteNotFound: "NOTE_NOT_FOUND",
+  NoteReferencedDocumentNotFound: "NOTE_REFERENCED_DOCUMENT_NOT_FOUND",
+  NoteReferencesNote: "NOTE_REFERENCES_NOTE",
 } as const;
 
 export type ErrorCodeKey = keyof typeof ErrorCode;
