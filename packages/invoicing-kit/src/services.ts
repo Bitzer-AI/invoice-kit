@@ -10,6 +10,7 @@ import { InvoiceService } from "./domains/invoices/service";
 import { VendorBillService } from "./domains/vendor-bills/service";
 import { PaymentService } from "./domains/payments/service";
 import { VendorBillPaymentService } from "./domains/vendor-bill-payments/service";
+import { NoteService } from "./domains/notes/service";
 import { NumberingService } from "./domains/numbering/service";
 
 export interface Services {
@@ -23,6 +24,7 @@ export interface Services {
   vendorBills: VendorBillService;
   payments: PaymentService;
   vendorBillPayments: VendorBillPaymentService;
+  notes: NoteService;
   numbering: NumberingService;
 }
 
@@ -38,6 +40,7 @@ export function buildServices(repos: Repositories, hooks?: InvoicingKitHooks): S
     vendorBills: new VendorBillService(repos, undefined, undefined, undefined, hooks),
     payments: new PaymentService(repos, hooks),
     vendorBillPayments: new VendorBillPaymentService(repos, hooks),
+    notes: new NoteService(repos, undefined, undefined, undefined, hooks),
     numbering: new NumberingService(repos),
   };
 }
