@@ -1,4 +1,5 @@
 import type { Repositories } from "./adapters/types";
+import type { InvoicingKitHooks } from "./config";
 import { ClientService } from "./domains/clients/service";
 import { ProductService } from "./domains/products/service";
 import { TaxService } from "./domains/taxes/service";
@@ -19,15 +20,15 @@ export interface Services {
   numbering: NumberingService;
 }
 
-export function buildServices(repos: Repositories): Services {
+export function buildServices(repos: Repositories, hooks?: InvoicingKitHooks): Services {
   return {
     clients: new ClientService(repos),
     products: new ProductService(repos),
     taxes: new TaxService(repos),
     paymentMethods: new PaymentMethodService(repos),
     quotes: new QuoteService(repos),
-    invoices: new InvoiceService(repos),
-    payments: new PaymentService(repos),
+    invoices: new InvoiceService(repos, undefined, undefined, undefined, hooks),
+    payments: new PaymentService(repos, hooks),
     numbering: new NumberingService(repos),
   };
 }

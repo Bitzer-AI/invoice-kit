@@ -7,9 +7,13 @@ import {
   PaymentNotFoundException,
   PaymentAmountExceedsInvoiceTotalException,
 } from "./exceptions";
+import type { InvoicingKitHooks } from "../../config";
 
 export class PaymentService {
-  constructor(private readonly repos: Repositories) {}
+  constructor(
+    private readonly repos: Repositories,
+    private readonly hooks?: InvoicingKitHooks,
+  ) {}
 
   async recordManualPayment(
     invoiceId: string,

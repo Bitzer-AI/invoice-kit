@@ -18,6 +18,7 @@ import { DocumentCalculator } from "../../lib/calculator";
 import { DocumentNumberingService } from "../../lib/numbering";
 import { TaxStrategy } from "../../lib/tax-strategy";
 import { resolveLineItemProductId } from "../../lib/line-item";
+import type { InvoicingKitHooks } from "../../config";
 
 export class InvoiceService {
   constructor(
@@ -25,6 +26,7 @@ export class InvoiceService {
     private readonly calc = new DocumentCalculator(),
     private readonly numbering = new DocumentNumberingService(),
     private readonly tax = new TaxStrategy(),
+    private readonly hooks?: InvoicingKitHooks,
   ) {}
 
   async create(body: CreateInvoiceBody, ctx: AuthContext): Promise<Invoice> {
