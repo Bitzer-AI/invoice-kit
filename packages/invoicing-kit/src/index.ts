@@ -7,6 +7,8 @@ export type {
   InvoicingKitHooks,
   InvoiceIssuedContext,
   PaymentSucceededContext,
+  VendorBillRecordedContext,
+  VendorBillPaymentSucceededContext,
 } from "./config";
 export type { AuthContext } from "./auth/types";
 
@@ -34,6 +36,11 @@ export type {
   QuoteStatus,
   Tax,
   TaxType,
+  Vendor,
+  VendorBill,
+  VendorBillStatus,
+  VendorBillPayment,
+  VendorBillPaymentStatus,
 } from "./types";
 
 // Repository interfaces and input/output shapes
@@ -80,6 +87,19 @@ export type {
   Repositories,
   TaxRepository,
   TaxUpdate,
+  VendorRepository,
+  VendorUpdate,
+  NewVendor,
+  ListVendorsArgs,
+  VendorBillRepository,
+  VendorBillUpdate,
+  NewVendorBill,
+  VendorBillWithDocument,
+  ListVendorBillsArgs,
+  VendorBillPaymentRepository,
+  VendorBillPaymentUpdate,
+  NewVendorBillPayment,
+  ListVendorBillPaymentsArgs,
 } from "./adapters/types";
 
 // Default adapter
