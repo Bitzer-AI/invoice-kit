@@ -2,6 +2,13 @@ enum DocumentType {
   QUOTE
   INVOICE
   VENDOR_BILL
+  CREDIT_NOTE
+  DEBIT_NOTE
+}
+
+enum NoteStatus {
+  draft
+  issued
 }
 
 enum InvoiceStatus {
@@ -91,6 +98,7 @@ model Document {
   clientId               String?      @map("client_id")
   vendorId               String?      @map("vendor_id")
   externalDocumentNumber String?      @map("external_document_number") @db.VarChar(40)
+  referencedDocumentId   String?      @map("referenced_document_id")
   documentNumberPrefix   String?      @map("document_number_prefix") @db.VarChar(20)
   documentNumber         Int          @map("document_number")
   issueDate              DateTime     @map("issue_date") @db.Date
@@ -112,9 +120,14 @@ model Document {
   lineItems      DocumentLineItem[]
   paymentMethods DocumentPaymentMethod[]
 
+  referencedDocument Document?  @relation("DocumentReference", fields: [referencedDocumentId], references: [id], onDelete: Restrict)
+  modifiedBy         Document[] @relation("DocumentReference")
+  note               Note?
+
   @@unique([organizationId, type, documentNumber, documentNumberPrefix])
   @@index([documentNumber])
   @@index([organizationId, vendorId])
+  @@index([organizationId, referencedDocumentId])
   @@map("documents")
 }
 
@@ -155,6 +168,16 @@ model VendorBill {
   payments VendorBillPayment[]
 
   @@map("vendor_bills")
+}
+
+model Note {
+  id         String     @id @default(uuid(7))
+  documentId String     @unique @map("document_id")
+  status     NoteStatus
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@map("notes")
 }
 
 model FiscalDocument {
