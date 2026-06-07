@@ -31,6 +31,7 @@ model PaymentMethod {
   organization           Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   documentPaymentMethods DocumentPaymentMethod[]
   payments               Payment[]
+  vendorBillPayments     VendorBillPayment[]
 
   @@index([organizationId, isActive])
   @@map("payment_methods")

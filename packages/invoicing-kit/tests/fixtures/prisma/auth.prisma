@@ -79,11 +79,13 @@ model Organization {
   members     Member[]
   invitations Invitation[]
 
-  documents      Document[]
-  products       Product[]
-  clients        Client[]
-  taxes          Tax[]
-  paymentMethods PaymentMethod[]
+  documents          Document[]
+  products           Product[]
+  clients            Client[]
+  taxes              Tax[]
+  paymentMethods     PaymentMethod[]
+  vendors            Vendor[]
+  vendorBillPayments VendorBillPayment[]
 
   @@unique([slug])
   @@map("organization")

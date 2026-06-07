@@ -1,6 +1,7 @@
 enum DocumentType {
   QUOTE
   INVOICE
+  VENDOR_BILL
 }
 
 enum InvoiceStatus {
@@ -16,6 +17,13 @@ enum QuoteStatus {
   accepted
   rejected
   converted
+}
+
+enum VendorBillStatus {
+  draft
+  received
+  partially_paid
+  paid
 }
 
 enum TaxType {
@@ -57,32 +65,56 @@ model Tax {
   @@map("taxes")
 }
 
+model Vendor {
+  id             String   @id @default(uuid(7))
+  organizationId String   @map("organization_id")
+  name           String   @map("name")
+  email          String?  @map("email")
+  phone          String?  @map("phone")
+  taxId          String?  @map("tax_id")
+  taxIdType      String?  @map("tax_id_type")
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at")
+
+  documents    Document[]
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@map("vendors")
+}
+
 model Document {
-  id                   String       @id @default(uuid(7))
-  type                 DocumentType
-  organizationId       String       @map("organization_id")
-  clientId             String       @map("client_id")
-  documentNumberPrefix String?      @map("document_number_prefix") @db.VarChar(20)
-  documentNumber       Int          @map("document_number")
-  issueDate            DateTime     @map("issue_date") @db.Date
-  dueDate              DateTime?    @map("due_date") @db.Date
-  notes                String?      @db.Text
-  currency             String       @default("usd") @db.VarChar(3)
-  subtotal             BigInt? // Amount in minor units (cents)
-  tax                  BigInt? // Amount in minor units (cents)
-  total                BigInt? // Amount in minor units (cents)
-  createdAt            DateTime     @default(now()) @map("created_at")
-  updatedAt            DateTime     @default(now()) @updatedAt @map("updated_at")
+  id                     String       @id @default(uuid(7))
+  type                   DocumentType
+  organizationId         String       @map("organization_id")
+  clientId               String?      @map("client_id")
+  vendorId               String?      @map("vendor_id")
+  externalDocumentNumber String?      @map("external_document_number") @db.VarChar(40)
+  documentNumberPrefix   String?      @map("document_number_prefix") @db.VarChar(20)
+  documentNumber         Int          @map("document_number")
+  issueDate              DateTime     @map("issue_date") @db.Date
+  dueDate                DateTime?    @map("due_date") @db.Date
+  notes                  String?      @db.Text
+  currency               String       @default("usd") @db.VarChar(3)
+  subtotal               BigInt? // Amount in minor units (cents)
+  tax                    BigInt? // Amount in minor units (cents)
+  total                  BigInt? // Amount in minor units (cents)
+  createdAt              DateTime     @default(now()) @map("created_at")
+  updatedAt              DateTime     @default(now()) @updatedAt @map("updated_at")
 
   organization   Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  client         Client                  @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  client         Client?                 @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  vendor         Vendor?                 @relation(fields: [vendorId], references: [id], onDelete: Restrict)
   quote          Quote?
   invoice        Invoice?
+  vendorBill     VendorBill?
   lineItems      DocumentLineItem[]
   paymentMethods DocumentPaymentMethod[]
 
   @@unique([organizationId, type, documentNumber, documentNumberPrefix])
   @@index([documentNumber])
+  @@index([organizationId, vendorId])
   @@map("documents")
 }
 
@@ -112,6 +144,17 @@ model Invoice {
   fiscalDocument     FiscalDocument?
 
   @@map("invoices")
+}
+
+model VendorBill {
+  id         String           @id @default(uuid(7))
+  documentId String           @unique @map("document_id")
+  status     VendorBillStatus
+
+  document Document            @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  payments VendorBillPayment[]
+
+  @@map("vendor_bills")
 }
 
 model FiscalDocument {
@@ -168,4 +211,35 @@ model DocumentLineItemTax {
 
   @@unique([lineItemId, taxId])
   @@map("document_line_item_taxes")
+}
+
+model VendorBillPayment {
+  id              String                  @id @default(uuid(7))
+  organizationId  String                  @map("organization_id")
+  vendorBillId    String                  @map("vendor_bill_id")
+  paymentMethodId String?                 @map("payment_method_id")
+  amount          BigInt
+  currency        String                  @default("usd") @db.VarChar(3)
+  status          VendorBillPaymentStatus @default(succeeded)
+  provider        String
+  paidAt          DateTime?               @map("paid_at")
+  reference       String?                 @db.VarChar(255)
+  notes           String?                 @db.Text
+  recordedBy      String?                 @map("recorded_by")
+  createdAt       DateTime                @default(now()) @map("created_at")
+  updatedAt       DateTime                @default(now()) @updatedAt @map("updated_at")
+
+  organization  Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  vendorBill    VendorBill     @relation(fields: [vendorBillId], references: [id], onDelete: Cascade)
+  paymentMethod PaymentMethod? @relation(fields: [paymentMethodId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, vendorBillId])
+  @@index([status])
+  @@map("vendor_bill_payments")
+}
+
+enum VendorBillPaymentStatus {
+  succeeded
+  failed
+  canceled
 }
