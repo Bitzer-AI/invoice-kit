@@ -95,6 +95,9 @@ export class VendorBillPaymentService {
         ctx.organizationId,
       );
       const billTotal = bill.document.total ?? 0n;
+      // Reverting to "received" when nothing remains paid assumes the bill's
+      // pre-payment state was "received" — valid under the current state machine
+      // (you can't record a payment against a draft).
       const newStatus =
         remaining >= billTotal ? "paid" : remaining > 0n ? "partially_paid" : "received";
       await tx.vendorBills.update(payment.vendorBillId, ctx.organizationId, { status: newStatus });
