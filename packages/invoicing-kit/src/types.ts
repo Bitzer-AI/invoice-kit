@@ -4,7 +4,7 @@ export type BigintMinor = bigint;
 // Decimals (rates, quantities): string in canonical Prisma Decimal format.
 export type DecimalString = string;
 
-export type DocumentType = "INVOICE" | "QUOTE";
+export type DocumentType = "INVOICE" | "QUOTE" | "VENDOR_BILL";
 export type InvoiceStatus = "draft" | "sent" | "paid" | "partially_paid";
 export type QuoteStatus = "draft" | "sent" | "accepted" | "rejected" | "converted";
 export type TaxType = "PERCENTAGE" | "FIXED";
@@ -26,6 +26,48 @@ export interface Client {
   city: string | null;
   state: string | null;
   postalCode: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface Vendor {
+  id: string;
+  organizationId: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  taxId: string | null;
+  taxIdType: string | null;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export type VendorBillStatus = "draft" | "received" | "partially_paid" | "paid";
+
+/** Thin view over a Document of type VENDOR_BILL. The document carries the money + line items + currency; this carries the bill status. */
+export interface VendorBill {
+  id: string;
+  documentId: string;
+  status: VendorBillStatus;
+}
+
+export type VendorBillPaymentStatus = "succeeded" | "failed" | "canceled";
+
+export interface VendorBillPayment {
+  id: string;
+  organizationId: string;
+  vendorBillId: string;
+  paymentMethodId: string | null;
+  /** Net cash paid to the vendor, in minor units. */
+  amount: BigintMinor;
+  currency: string;
+  status: VendorBillPaymentStatus;
+  provider: string;
+  paidAt: Date | null;
+  reference: string | null;
+  notes: string | null;
+  recordedBy: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -73,7 +115,10 @@ export interface Document {
   id: string;
   type: DocumentType;
   organizationId: string;
-  clientId: string;
+  clientId: string | null;
+  vendorId: string | null;
+  /** Received supplier NCF / e-CF number (vendor bills). Null for invoices/quotes. */
+  externalDocumentNumber: string | null;
   documentNumberPrefix: string | null;
   documentNumber: number;
   issueDate: Date;
