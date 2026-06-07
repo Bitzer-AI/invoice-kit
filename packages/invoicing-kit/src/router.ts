@@ -10,6 +10,7 @@ import { buildQuotesRouter } from "./domains/quotes/routes";
 import { buildInvoicesRouter } from "./domains/invoices/routes";
 import { buildVendorBillsRouter } from "./domains/vendor-bills/routes";
 import { buildPaymentsRouter } from "./domains/payments/routes";
+import { buildVendorBillPaymentsRouter } from "./domains/vendor-bill-payments/routes";
 import { buildNumberingRouter } from "./domains/numbering/routes";
 
 interface BuildRouterArgs {
@@ -29,6 +30,7 @@ export function buildRouter({ services, auth, basePath }: BuildRouterArgs) {
   root.route(basePath, buildInvoicesRouter(services.invoices, auth));
   root.route(basePath, buildVendorBillsRouter(services.vendorBills, auth));
   root.route(basePath, buildPaymentsRouter(services.payments, auth));
+  root.route(basePath, buildVendorBillPaymentsRouter(services.vendorBillPayments, auth));
   root.route(basePath, buildNumberingRouter(services.numbering, auth));
   return root;
 }

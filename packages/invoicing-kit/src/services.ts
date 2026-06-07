@@ -9,6 +9,7 @@ import { QuoteService } from "./domains/quotes/service";
 import { InvoiceService } from "./domains/invoices/service";
 import { VendorBillService } from "./domains/vendor-bills/service";
 import { PaymentService } from "./domains/payments/service";
+import { VendorBillPaymentService } from "./domains/vendor-bill-payments/service";
 import { NumberingService } from "./domains/numbering/service";
 
 export interface Services {
@@ -21,6 +22,7 @@ export interface Services {
   invoices: InvoiceService;
   vendorBills: VendorBillService;
   payments: PaymentService;
+  vendorBillPayments: VendorBillPaymentService;
   numbering: NumberingService;
 }
 
@@ -35,6 +37,7 @@ export function buildServices(repos: Repositories, hooks?: InvoicingKitHooks): S
     invoices: new InvoiceService(repos, undefined, undefined, undefined, hooks),
     vendorBills: new VendorBillService(repos, undefined, undefined, undefined, hooks),
     payments: new PaymentService(repos, hooks),
+    vendorBillPayments: new VendorBillPaymentService(repos, hooks),
     numbering: new NumberingService(repos),
   };
 }
