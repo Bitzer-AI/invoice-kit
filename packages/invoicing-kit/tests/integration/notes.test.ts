@@ -434,5 +434,25 @@ describe("notes integration", () => {
       await k.services.notes.findById(note.id, ctx);
       expect(recorded).toEqual([]);
     });
+
+    test("a throwing handler does not fail create (note still persisted)", async () => {
+      const k = makeKit({ onNoteRecorded: () => { throw new Error("boom"); } });
+      const client = await k.services.clients.create({ name: "Cliente" }, ctx);
+      const inv = await k.services.invoices.create(
+        {
+          clientId: client.id,
+          issueDate: "2026-01-01",
+          lineItems: [{ source: { type: "experience", id: "exp1", name: "Tour" }, quantity: "1", price: "100000", taxIds: [] }],
+        } as any,
+        ctx,
+      );
+      const note = await k.services.notes.create(
+        { ...noteBody(client.id, inv.documentId), status: "issued" },
+        ctx,
+      );
+      expect(note.id).toBeTruthy();
+      const found = await k.services.notes.findById(note.id, ctx);
+      expect(found.id).toBe(note.id);
+    });
   });
 });
