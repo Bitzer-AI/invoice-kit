@@ -172,7 +172,6 @@ interface VendorBillSortRow {
   document: {
     issueDate: Date;
     total: bigint | null;
-    createdAt: Date;
   };
 }
 
