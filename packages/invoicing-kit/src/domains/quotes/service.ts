@@ -103,6 +103,11 @@ export class QuoteService {
       perPage: query.perPage,
       status: query.status ? (query.status.split(",") as any) : undefined,
       clientId: query.clientId,
+      query: query.query,
+      sortBy: query.sortBy,
+      sortDir: query.sortDir,
+      issueDateFrom: query.issueDateFrom ? new Date(query.issueDateFrom) : undefined,
+      issueDateTo: query.issueDateTo ? new Date(query.issueDateTo) : undefined,
     });
   }
 
@@ -194,5 +199,36 @@ export class QuoteService {
       await tx.quotes.delete(q.id, ctx.organizationId);
       await tx.documents.delete(q.documentId, ctx.organizationId);
     });
+  }
+
+  async bulkDelete(ids: string[], ctx: AuthContext): Promise<{ count: number }> {
+    let count = 0;
+    await this.repos.tx(async (tx) => {
+      for (const id of ids) {
+        const q = await tx.quotes.findById(id, ctx.organizationId);
+        if (!q) continue;
+        await tx.quotes.delete(q.id, ctx.organizationId);
+        await tx.documents.delete(q.documentId, ctx.organizationId);
+        count++;
+      }
+    });
+    return { count };
+  }
+
+  async bulkUpdateStatus(
+    ids: string[],
+    status: "draft" | "sent" | "accepted" | "rejected",
+    ctx: AuthContext,
+  ): Promise<{ count: number }> {
+    let count = 0;
+    await this.repos.tx(async (tx) => {
+      for (const id of ids) {
+        const q = await tx.quotes.findById(id, ctx.organizationId);
+        if (!q) continue;
+        await tx.quotes.update(id, ctx.organizationId, { status });
+        count++;
+      }
+    });
+    return { count };
   }
 }

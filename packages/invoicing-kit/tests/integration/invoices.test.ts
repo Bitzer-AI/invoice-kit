@@ -339,4 +339,47 @@ describe("invoices integration", () => {
     });
     expect(second.status).toBe(409);
   });
+
+  test("bulk-status then bulk-delete act on many invoices at once", async () => {
+    const { request } = await buildHarness(createInvoicingKit);
+    const { clientId, productId } = await createPrereqs(request);
+
+    const ids: string[] = [];
+    for (let n = 0; n < 3; n++) {
+      const created = await (
+        await request("/api/bills/invoices", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            clientId,
+            issueDate: "2025-07-01",
+            lineItems: [{ productId, quantity: "1", price: "1000", taxIds: [] }],
+          }),
+        })
+      ).json();
+      ids.push(created.id);
+    }
+
+    const statusRes = await request("/api/bills/invoices/bulk-status", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids, status: "sent" }),
+    });
+    expect(statusRes.status).toBe(200);
+    expect((await statusRes.json()).count).toBe(3);
+
+    const sent = await (await request("/api/bills/invoices?status=sent")).json();
+    expect(sent.data.length).toBe(3);
+
+    const delRes = await request("/api/bills/invoices/bulk-delete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: ids.slice(0, 2) }),
+    });
+    expect(delRes.status).toBe(200);
+    expect((await delRes.json()).count).toBe(2);
+
+    const remaining = await (await request("/api/bills/invoices")).json();
+    expect(remaining.data.length).toBe(1);
+  });
 });

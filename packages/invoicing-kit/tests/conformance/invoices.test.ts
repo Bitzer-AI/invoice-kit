@@ -11,11 +11,12 @@ async function createInvoiceFixture(
     documentNumber: number;
     documentNumberPrefix: string | null;
     status: "draft" | "sent" | "paid";
+    clientName: string;
   }> = {},
 ) {
   const client = await ctx.repos.clients.create({
     organizationId,
-    name: "Test client",
+    name: overrides.clientName ?? "Test client",
   });
   const product = await ctx.repos.products.create({
     organizationId,
@@ -124,6 +125,56 @@ describeForEachAdapter("InvoiceRepository", allFactories, (ctx) => {
       issueDateFrom: new Date("2027-01-01"),
     });
     expect(outside.data).toHaveLength(0);
+  });
+
+  test("list searches by prefix, number, and client name", async () => {
+    const { organizationId } = await seed(ctx.repos);
+    await createInvoiceFixture(ctx, organizationId, {
+      documentNumber: 100,
+      documentNumberPrefix: "B01",
+      clientName: "Acme Corp",
+    });
+    await createInvoiceFixture(ctx, organizationId, {
+      documentNumber: 200,
+      documentNumberPrefix: "B02",
+      clientName: "Globex",
+    });
+
+    const byPrefix = await ctx.repos.invoices.list({ organizationId, query: "b01" });
+    expect(byPrefix.data).toHaveLength(1);
+    expect(byPrefix.data[0].document.documentNumber).toBe(100);
+
+    const byNumber = await ctx.repos.invoices.list({ organizationId, query: "200" });
+    expect(byNumber.data).toHaveLength(1);
+    expect(byNumber.data[0].document.documentNumber).toBe(200);
+
+    const byClient = await ctx.repos.invoices.list({ organizationId, query: "acme" });
+    expect(byClient.data).toHaveLength(1);
+    expect(byClient.data[0].document.documentNumber).toBe(100);
+
+    const none = await ctx.repos.invoices.list({ organizationId, query: "zzz-no-match" });
+    expect(none.data).toHaveLength(0);
+  });
+
+  test("list sorts by documentNumber asc and desc", async () => {
+    const { organizationId } = await seed(ctx.repos);
+    await createInvoiceFixture(ctx, organizationId, { documentNumber: 3 });
+    await createInvoiceFixture(ctx, organizationId, { documentNumber: 1 });
+    await createInvoiceFixture(ctx, organizationId, { documentNumber: 2 });
+
+    const asc = await ctx.repos.invoices.list({
+      organizationId,
+      sortBy: "documentNumber",
+      sortDir: "asc",
+    });
+    expect(asc.data.map((i) => i.document.documentNumber)).toEqual([1, 2, 3]);
+
+    const desc = await ctx.repos.invoices.list({
+      organizationId,
+      sortBy: "documentNumber",
+      sortDir: "desc",
+    });
+    expect(desc.data.map((i) => i.document.documentNumber)).toEqual([3, 2, 1]);
   });
 
   test("update patches status and paidDate", async () => {

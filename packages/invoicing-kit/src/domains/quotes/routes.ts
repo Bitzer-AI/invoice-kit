@@ -7,6 +7,9 @@ import {
   createQuoteBody,
   listQuotesQuery,
   updateQuoteBody,
+  bulkDeleteQuotesBody,
+  bulkUpdateQuoteStatusBody,
+  bulkResultResponse,
 } from "./validation";
 import { quoteToResponse } from "./mappers";
 import type { AuthVariables } from "../../auth/types";
@@ -51,6 +54,50 @@ export function buildQuotesRouter(service: QuoteService, auth: BetterAuthLike) {
         data: page.data.map(quoteToResponse),
         pageInfo: page.pageInfo,
       });
+    },
+  );
+
+  app.openapi(
+    createRoute({
+      method: "post",
+      path: "/quotes/bulk-delete",
+      tags: ["Quotes"],
+      request: { body: { content: { "application/json": { schema: bulkDeleteQuotesBody } } } },
+      responses: {
+        200: {
+          content: { "application/json": { schema: bulkResultResponse } },
+          description: "Deleted",
+        },
+        401: { description: "Unauthorized" },
+      },
+    }),
+    async (c) => {
+      const { ids } = c.req.valid("json");
+      const result = await service.bulkDelete(ids, c.var.authContext);
+      return c.json(result);
+    },
+  );
+
+  app.openapi(
+    createRoute({
+      method: "post",
+      path: "/quotes/bulk-status",
+      tags: ["Quotes"],
+      request: {
+        body: { content: { "application/json": { schema: bulkUpdateQuoteStatusBody } } },
+      },
+      responses: {
+        200: {
+          content: { "application/json": { schema: bulkResultResponse } },
+          description: "Updated",
+        },
+        401: { description: "Unauthorized" },
+      },
+    }),
+    async (c) => {
+      const { ids, status } = c.req.valid("json");
+      const result = await service.bulkUpdateStatus(ids, status, c.var.authContext);
+      return c.json(result);
     },
   );
 

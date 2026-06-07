@@ -33,8 +33,26 @@ export const listQuotesQuery = z.object({
   perPage: z.coerce.number().int().positive().max(100).optional(),
   status: z.string().optional(), // comma-separated
   clientId: z.string().optional(),
+  query: z.string().trim().min(1).optional(),
+  sortBy: z.enum(["issueDate", "validUntil", "total", "documentNumber", "status"]).optional(),
+  sortDir: z.enum(["asc", "desc"]).optional(),
+  issueDateFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  issueDateTo: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 });
 export type ListQuotesQuery = z.infer<typeof listQuotesQuery>;
+
+export const bulkDeleteQuotesBody = z.object({
+  ids: z.array(z.string()).min(1).max(200),
+});
+export type BulkDeleteQuotesBody = z.infer<typeof bulkDeleteQuotesBody>;
+
+export const bulkUpdateQuoteStatusBody = z.object({
+  ids: z.array(z.string()).min(1).max(200),
+  status: z.enum(["draft", "sent", "accepted", "rejected"]),
+});
+export type BulkUpdateQuoteStatusBody = z.infer<typeof bulkUpdateQuoteStatusBody>;
+
+export const bulkResultResponse = z.object({ count: z.number().int() });
 
 const lineItemResponse = z.object({
   id: z.string(),

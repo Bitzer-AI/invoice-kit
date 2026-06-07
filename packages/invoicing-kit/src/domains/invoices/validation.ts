@@ -33,8 +33,28 @@ export const listInvoicesQuery = z.object({
   perPage: z.coerce.number().int().positive().max(100).optional(),
   status: z.string().optional(), // comma-separated
   clientId: z.string().optional(),
+  query: z.string().trim().min(1).optional(),
+  sortBy: z.enum(["issueDate", "dueDate", "total", "documentNumber", "status"]).optional(),
+  sortDir: z.enum(["asc", "desc"]).optional(),
+  issueDateFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  issueDateTo: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  /** Document.dueDate strictly before this date — used for "overdue" filtering. */
+  dueBefore: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 });
 export type ListInvoicesQuery = z.infer<typeof listInvoicesQuery>;
+
+export const bulkDeleteInvoicesBody = z.object({
+  ids: z.array(z.string()).min(1).max(200),
+});
+export type BulkDeleteInvoicesBody = z.infer<typeof bulkDeleteInvoicesBody>;
+
+export const bulkUpdateInvoiceStatusBody = z.object({
+  ids: z.array(z.string()).min(1).max(200),
+  status: z.enum(["draft", "sent", "paid"]),
+});
+export type BulkUpdateInvoiceStatusBody = z.infer<typeof bulkUpdateInvoiceStatusBody>;
+
+export const bulkResultResponse = z.object({ count: z.number().int() });
 
 export const convertFromQuoteBody = z.object({
   paymentMethodIds: z.array(z.string()).optional(),

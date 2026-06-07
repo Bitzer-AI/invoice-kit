@@ -9,6 +9,7 @@ import type {
 import type { Quote } from "../../types";
 import type { AnyPrismaClient, PrismaModelNames } from "./client-type";
 import { quoteRowToDomain, quoteWithDocumentRowToDomain } from "./mappers";
+import { documentSearchWhere, quoteListOrderBy } from "../../lib/list-query";
 
 const FULL_INCLUDE = {
   document: {
@@ -60,6 +61,13 @@ export function createPrismaQuoteRepository(
       const perPage = args.perPage ?? 20;
       const documentWhere: any = { organizationId: args.organizationId };
       if (args.clientId) documentWhere.clientId = args.clientId;
+      if (args.issueDateFrom || args.issueDateTo) {
+        documentWhere.issueDate = {};
+        if (args.issueDateFrom) documentWhere.issueDate.gte = args.issueDateFrom;
+        if (args.issueDateTo) documentWhere.issueDate.lte = args.issueDateTo;
+      }
+      const search = documentSearchWhere(args.query);
+      if (search) Object.assign(documentWhere, search);
       const where: any = { document: documentWhere };
       if (args.status) {
         where.status = Array.isArray(args.status)
@@ -72,7 +80,7 @@ export function createPrismaQuoteRepository(
           include: FULL_INCLUDE,
           skip: (page - 1) * perPage,
           take: perPage,
-          orderBy: { document: { createdAt: "desc" } },
+          orderBy: quoteListOrderBy(args.sortBy, args.sortDir),
         }),
         db.count({ where }),
       ]);

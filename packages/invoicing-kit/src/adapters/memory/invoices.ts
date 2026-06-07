@@ -10,11 +10,13 @@ import type {
 } from "../types";
 import type { MemoryStore } from "./store";
 import { createInMemoryDocumentRepository } from "./documents";
+import { matchesDocumentSearch, sortInvoicesInMemory } from "../../lib/list-query";
 
 export function createInMemoryInvoiceRepository(
   store: MemoryStore,
 ): InvoiceRepository {
   const rows = store.invoices;
+  const clients = store.clients;
   // Use documents from the same store
   const documents = createInMemoryDocumentRepository(store);
 
@@ -90,14 +92,19 @@ export function createInMemoryInvoiceRepository(
         if (args.issueDateFrom && doc.issueDate < args.issueDateFrom) continue;
         if (args.issueDateTo && doc.issueDate > args.issueDateTo) continue;
 
+        // Apply dueBefore filter (overdue = past the due date)
+        if (args.dueBefore && (!doc.dueDate || doc.dueDate >= args.dueBefore)) continue;
+
+        // Apply free-text search
+        if (!matchesDocumentSearch(doc, clients.get(doc.clientId), args.query)) continue;
+
         results.push({ ...invoice, document: doc });
       }
 
-      // Sort by document.createdAt desc
-      results.sort((a, b) => b.document.createdAt.getTime() - a.document.createdAt.getTime());
+      const sorted = sortInvoicesInMemory(results, args.sortBy, args.sortDir);
 
-      const totalCount = results.length;
-      const data = results.slice((page - 1) * perPage, page * perPage);
+      const totalCount = sorted.length;
+      const data = sorted.slice((page - 1) * perPage, page * perPage);
 
       return {
         data,

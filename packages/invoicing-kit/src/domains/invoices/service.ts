@@ -120,6 +120,12 @@ export class InvoiceService {
       perPage: query.perPage,
       status: query.status ? (query.status.split(",") as any) : undefined,
       clientId: query.clientId,
+      query: query.query,
+      sortBy: query.sortBy,
+      sortDir: query.sortDir,
+      issueDateFrom: query.issueDateFrom ? new Date(query.issueDateFrom) : undefined,
+      issueDateTo: query.issueDateTo ? new Date(query.issueDateTo) : undefined,
+      dueBefore: query.dueBefore ? new Date(query.dueBefore) : undefined,
     });
   }
 
@@ -221,6 +227,39 @@ export class InvoiceService {
       await tx.invoices.delete(i.id, ctx.organizationId);
       await tx.documents.delete(i.documentId, ctx.organizationId);
     });
+  }
+
+  async bulkDelete(ids: string[], ctx: AuthContext): Promise<{ count: number }> {
+    let count = 0;
+    await this.repos.tx(async (tx) => {
+      for (const id of ids) {
+        const i = await tx.invoices.findById(id, ctx.organizationId);
+        if (!i) continue;
+        await tx.invoices.delete(i.id, ctx.organizationId);
+        await tx.documents.delete(i.documentId, ctx.organizationId);
+        count++;
+      }
+    });
+    return { count };
+  }
+
+  async bulkUpdateStatus(
+    ids: string[],
+    status: "draft" | "sent" | "paid",
+    ctx: AuthContext,
+  ): Promise<{ count: number }> {
+    let count = 0;
+    await this.repos.tx(async (tx) => {
+      for (const id of ids) {
+        const i = await tx.invoices.findById(id, ctx.organizationId);
+        if (!i) continue;
+        const patch: { status: typeof status; paidDate?: Date | null } = { status };
+        if (status === "paid" && i.paidDate === null) patch.paidDate = new Date();
+        await tx.invoices.update(id, ctx.organizationId, patch);
+        count++;
+      }
+    });
+    return { count };
   }
 
   async convertFromQuote(

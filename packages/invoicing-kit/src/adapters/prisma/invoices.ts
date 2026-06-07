@@ -12,6 +12,7 @@ import {
   invoiceRowToDomain,
   invoiceWithDocumentRowToDomain,
 } from "./mappers";
+import { documentSearchWhere, invoiceListOrderBy } from "../../lib/list-query";
 
 const FULL_INCLUDE = {
   document: {
@@ -80,6 +81,9 @@ export function createPrismaInvoiceRepository(
         if (args.issueDateFrom) documentWhere.issueDate.gte = args.issueDateFrom;
         if (args.issueDateTo) documentWhere.issueDate.lte = args.issueDateTo;
       }
+      if (args.dueBefore) documentWhere.dueDate = { lt: args.dueBefore };
+      const search = documentSearchWhere(args.query);
+      if (search) Object.assign(documentWhere, search);
       const where: any = { document: documentWhere };
       if (args.status) {
         where.status = Array.isArray(args.status)
@@ -92,7 +96,7 @@ export function createPrismaInvoiceRepository(
           include: FULL_INCLUDE,
           skip: (page - 1) * perPage,
           take: perPage,
-          orderBy: { document: { createdAt: "desc" } },
+          orderBy: invoiceListOrderBy(args.sortBy, args.sortDir),
         }),
         db.count({ where }),
       ]);

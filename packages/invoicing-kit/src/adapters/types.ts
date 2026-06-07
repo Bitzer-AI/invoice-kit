@@ -270,6 +270,12 @@ export interface ListInvoicesArgs extends PageRequest {
   /** Inclusive date range on Document.issueDate. */
   issueDateFrom?: Date;
   issueDateTo?: Date;
+  /** Document.dueDate strictly before this date (for "overdue" filtering). */
+  dueBefore?: Date;
+  /** Free-text search over document number, prefix, client name and taxId. */
+  query?: string;
+  sortBy?: "issueDate" | "dueDate" | "total" | "documentNumber" | "status";
+  sortDir?: "asc" | "desc";
 }
 
 export interface InvoiceRepository {
@@ -306,6 +312,13 @@ export interface ListQuotesArgs extends PageRequest {
   organizationId: string;
   status?: QuoteStatus | QuoteStatus[];
   clientId?: string;
+  /** Inclusive date range on Document.issueDate. */
+  issueDateFrom?: Date;
+  issueDateTo?: Date;
+  /** Free-text search over document number, prefix, client name and taxId. */
+  query?: string;
+  sortBy?: "issueDate" | "validUntil" | "total" | "documentNumber" | "status";
+  sortDir?: "asc" | "desc";
 }
 
 export interface QuoteRepository {

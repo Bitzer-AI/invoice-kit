@@ -220,4 +220,47 @@ describe("quotes integration", () => {
     const after = await request(`/api/bills/quotes/${created.id}`);
     expect(after.status).toBe(404);
   });
+
+  test("bulk-status then bulk-delete act on many quotes at once", async () => {
+    const { request } = await buildHarness(createInvoicingKit);
+    const { clientId, productId } = await createPrereqs(request);
+
+    const ids: string[] = [];
+    for (let n = 0; n < 3; n++) {
+      const created = await (
+        await request("/api/bills/quotes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            clientId,
+            issueDate: "2025-07-01",
+            lineItems: [{ productId, quantity: "1", price: "1000", taxIds: [] }],
+          }),
+        })
+      ).json();
+      ids.push(created.id);
+    }
+
+    const statusRes = await request("/api/bills/quotes/bulk-status", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids, status: "accepted" }),
+    });
+    expect(statusRes.status).toBe(200);
+    expect((await statusRes.json()).count).toBe(3);
+
+    const accepted = await (await request("/api/bills/quotes?status=accepted")).json();
+    expect(accepted.data.length).toBe(3);
+
+    const delRes = await request("/api/bills/quotes/bulk-delete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: ids.slice(0, 2) }),
+    });
+    expect(delRes.status).toBe(200);
+    expect((await delRes.json()).count).toBe(2);
+
+    const remaining = await (await request("/api/bills/quotes")).json();
+    expect(remaining.data.length).toBe(1);
+  });
 });

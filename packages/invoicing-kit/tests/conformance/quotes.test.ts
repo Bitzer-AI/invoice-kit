@@ -11,11 +11,12 @@ async function createQuoteFixture(
     documentNumberPrefix: string | null;
     status: "draft" | "sent" | "accepted" | "rejected" | "converted";
     validUntil: Date | null;
+    clientName: string;
   }> = {},
 ) {
   const client = await ctx.repos.clients.create({
     organizationId,
-    name: "Test client",
+    name: overrides.clientName ?? "Test client",
   });
   const product = await ctx.repos.products.create({
     organizationId,
@@ -108,6 +109,31 @@ describeForEachAdapter("QuoteRepository", allFactories, (ctx) => {
       clientId: f1.client.id,
     });
     expect(byClient.data.length).toBeGreaterThanOrEqual(1);
+  });
+
+  test("list searches by client name and sorts by documentNumber", async () => {
+    const { organizationId } = await seed(ctx.repos);
+    await createQuoteFixture(ctx, organizationId, {
+      documentNumber: 10,
+      documentNumberPrefix: "QA",
+      clientName: "Wayne Enterprises",
+    });
+    await createQuoteFixture(ctx, organizationId, {
+      documentNumber: 20,
+      documentNumberPrefix: "QB",
+      clientName: "Stark Industries",
+    });
+
+    const byClient = await ctx.repos.quotes.list({ organizationId, query: "stark" });
+    expect(byClient.data).toHaveLength(1);
+    expect(byClient.data[0].document.documentNumber).toBe(20);
+
+    const desc = await ctx.repos.quotes.list({
+      organizationId,
+      sortBy: "documentNumber",
+      sortDir: "desc",
+    });
+    expect(desc.data.map((q) => q.document.documentNumber)).toEqual([20, 10]);
   });
 
   test("update patches status and validUntil", async () => {

@@ -8,6 +8,9 @@ import {
   listInvoicesQuery,
   updateInvoiceBody,
   convertFromQuoteBody,
+  bulkDeleteInvoicesBody,
+  bulkUpdateInvoiceStatusBody,
+  bulkResultResponse,
 } from "./validation";
 import { invoiceToResponse } from "./mappers";
 import type { AuthVariables } from "../../auth/types";
@@ -58,6 +61,50 @@ export function buildInvoicesRouter(service: InvoiceService, auth: BetterAuthLik
         data: page.data.map(invoiceToResponse),
         pageInfo: page.pageInfo,
       });
+    },
+  );
+
+  app.openapi(
+    createRoute({
+      method: "post",
+      path: "/invoices/bulk-delete",
+      tags: ["Invoices"],
+      request: { body: { content: { "application/json": { schema: bulkDeleteInvoicesBody } } } },
+      responses: {
+        200: {
+          content: { "application/json": { schema: bulkResultResponse } },
+          description: "Deleted",
+        },
+        401: { description: "Unauthorized" },
+      },
+    }),
+    async (c) => {
+      const { ids } = c.req.valid("json");
+      const result = await service.bulkDelete(ids, c.var.authContext);
+      return c.json(result);
+    },
+  );
+
+  app.openapi(
+    createRoute({
+      method: "post",
+      path: "/invoices/bulk-status",
+      tags: ["Invoices"],
+      request: {
+        body: { content: { "application/json": { schema: bulkUpdateInvoiceStatusBody } } },
+      },
+      responses: {
+        200: {
+          content: { "application/json": { schema: bulkResultResponse } },
+          description: "Updated",
+        },
+        401: { description: "Unauthorized" },
+      },
+    }),
+    async (c) => {
+      const { ids, status } = c.req.valid("json");
+      const result = await service.bulkUpdateStatus(ids, status, c.var.authContext);
+      return c.json(result);
     },
   );
 
