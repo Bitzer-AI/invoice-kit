@@ -19,6 +19,11 @@ import type {
   QuoteStatus,
   Tax,
   TaxType,
+  Vendor,
+  VendorBill,
+  VendorBillStatus,
+  VendorBillPayment,
+  VendorBillPaymentStatus,
   BigintMinor,
   DecimalString,
 } from "../types";
@@ -66,6 +71,33 @@ export interface ClientRepository {
   findById(id: string, organizationId: string): Promise<Client | null>;
   list(args: ListClientsArgs): Promise<Page<Client>>;
   update(id: string, organizationId: string, patch: ClientUpdate): Promise<Client>;
+  delete(id: string, organizationId: string): Promise<void>;
+}
+
+// ============== Vendor ==============
+
+export interface NewVendor {
+  organizationId: string;
+  name: string;
+  email?: string | null;
+  phone?: string | null;
+  taxId?: string | null;
+  taxIdType?: string | null;
+  isActive?: boolean;
+}
+
+export type VendorUpdate = Partial<Omit<NewVendor, "organizationId">>;
+
+export interface ListVendorsArgs extends PageRequest {
+  organizationId: string;
+  query?: string;
+}
+
+export interface VendorRepository {
+  create(data: NewVendor): Promise<Vendor>;
+  findById(id: string, organizationId: string): Promise<Vendor | null>;
+  list(args: ListVendorsArgs): Promise<Page<Vendor>>;
+  update(id: string, organizationId: string, patch: VendorUpdate): Promise<Vendor>;
   delete(id: string, organizationId: string): Promise<void>;
 }
 
@@ -195,7 +227,9 @@ export interface NewDocumentLineItem {
 export interface NewDocument {
   type: DocumentType;
   organizationId: string;
-  clientId: string;
+  clientId?: string | null;
+  vendorId?: string | null;
+  externalDocumentNumber?: string | null;
   documentNumberPrefix?: string | null;
   documentNumber: number;
   issueDate: Date;
@@ -210,7 +244,9 @@ export interface NewDocument {
 }
 
 export type DocumentUpdate = Partial<{
-  clientId: string;
+  clientId: string | null;
+  vendorId: string | null;
+  externalDocumentNumber: string | null;
   documentNumberPrefix: string | null;
   documentNumber: number;
   issueDate: Date;
@@ -290,6 +326,38 @@ export interface InvoiceRepository {
   }): Promise<Invoice | null>;
   list(args: ListInvoicesArgs): Promise<Page<InvoiceWithDocument>>;
   update(id: string, organizationId: string, patch: InvoiceUpdate): Promise<Invoice>;
+  delete(id: string, organizationId: string): Promise<void>;
+}
+
+// ============== VendorBill (status over Document) ==============
+
+export interface NewVendorBill {
+  documentId: string;
+  status: VendorBillStatus;
+}
+
+export type VendorBillUpdate = Partial<{ status: VendorBillStatus }>;
+
+export interface VendorBillWithDocument extends VendorBill {
+  document: DocumentWithRelations;
+}
+
+export interface ListVendorBillsArgs extends PageRequest {
+  organizationId: string;
+  status?: VendorBillStatus | VendorBillStatus[];
+  vendorId?: string;
+  issueDateFrom?: Date;
+  issueDateTo?: Date;
+  query?: string;
+  sortBy?: "issueDate" | "total" | "status";
+  sortDir?: "asc" | "desc";
+}
+
+export interface VendorBillRepository {
+  create(data: NewVendorBill): Promise<VendorBill>;
+  findById(id: string, organizationId: string): Promise<VendorBillWithDocument | null>;
+  list(args: ListVendorBillsArgs): Promise<Page<VendorBillWithDocument>>;
+  update(id: string, organizationId: string, patch: VendorBillUpdate): Promise<VendorBill>;
   delete(id: string, organizationId: string): Promise<void>;
 }
 
@@ -403,6 +471,40 @@ export interface PaymentRepository {
   totalPaidForInvoice(invoiceId: string, organizationId: string): Promise<BigintMinor>;
 }
 
+// ============== VendorBillPayment ==============
+
+export interface NewVendorBillPayment {
+  organizationId: string;
+  vendorBillId: string;
+  paymentMethodId?: string | null;
+  amount: BigintMinor;
+  currency: string;
+  status: VendorBillPaymentStatus;
+  provider: string;
+  paidAt?: Date | null;
+  reference?: string | null;
+  notes?: string | null;
+  recordedBy?: string | null;
+}
+
+export type VendorBillPaymentUpdate = Partial<Omit<NewVendorBillPayment, "organizationId" | "vendorBillId">>;
+
+export interface ListVendorBillPaymentsArgs extends PageRequest {
+  organizationId: string;
+  vendorBillId?: string;
+  status?: VendorBillPaymentStatus;
+}
+
+export interface VendorBillPaymentRepository {
+  create(data: NewVendorBillPayment): Promise<VendorBillPayment>;
+  findById(id: string, organizationId: string): Promise<VendorBillPayment | null>;
+  list(args: ListVendorBillPaymentsArgs): Promise<Page<VendorBillPayment>>;
+  update(id: string, organizationId: string, patch: VendorBillPaymentUpdate): Promise<VendorBillPayment>;
+  delete(id: string, organizationId: string): Promise<void>;
+  /** Sum of `amount` for succeeded payments on the given vendor bill, in the bill's currency. */
+  totalPaidForBill(vendorBillId: string, organizationId: string): Promise<BigintMinor>;
+}
+
 // ============== FiscalDocument ==============
 
 export interface NewFiscalDocument {
@@ -429,14 +531,17 @@ export interface FiscalDocumentRepository {
 
 export interface Repositories {
   clients: ClientRepository;
+  vendors: VendorRepository;
   products: ProductRepository;
   taxes: TaxRepository;
   documentSequences: DocumentSequenceRepository;
   documents: DocumentRepository;
   invoices: InvoiceRepository;
+  vendorBills: VendorBillRepository;
   quotes: QuoteRepository;
   paymentMethods: PaymentMethodRepository;
   payments: PaymentRepository;
+  vendorBillPayments: VendorBillPaymentRepository;
   fiscalDocuments: FiscalDocumentRepository;
   /** Runs `fn` inside a transaction; the `txRepos` passed in share the transaction. Nested calls must reuse the outer transaction (no nested savepoints in v0). */
   tx<T>(fn: (txRepos: Repositories) => Promise<T>): Promise<T>;
