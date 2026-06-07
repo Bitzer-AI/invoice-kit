@@ -9,6 +9,14 @@ export interface PaymentSucceededContext {
   organizationId: string;
   paymentId: string;
 }
+export interface VendorBillRecordedContext {
+  organizationId: string;
+  vendorBillId: string;
+}
+export interface VendorBillPaymentSucceededContext {
+  organizationId: string;
+  vendorBillPaymentId: string;
+}
 
 /**
  * Lifecycle hooks. Fired AFTER the originating repo transaction commits, and
@@ -19,6 +27,10 @@ export interface PaymentSucceededContext {
 export interface InvoicingKitHooks {
   onInvoiceIssued?: (ctx: InvoiceIssuedContext) => void | Promise<void>;
   onPaymentSucceeded?: (ctx: PaymentSucceededContext) => void | Promise<void>;
+  onVendorBillRecorded?: (ctx: VendorBillRecordedContext) => void | Promise<void>;
+  onVendorBillPaymentSucceeded?: (
+    ctx: VendorBillPaymentSucceededContext,
+  ) => void | Promise<void>;
 }
 
 export interface InvoicingKitConfig {
