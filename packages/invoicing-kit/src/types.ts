@@ -79,6 +79,7 @@ export interface Document {
   issueDate: Date;
   dueDate: Date | null;
   notes: string | null;
+  currency: string;
   subtotal: BigintMinor | null;
   tax: BigintMinor | null;
   total: BigintMinor | null;

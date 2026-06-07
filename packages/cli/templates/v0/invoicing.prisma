@@ -67,6 +67,7 @@ model Document {
   issueDate            DateTime     @map("issue_date") @db.Date
   dueDate              DateTime?    @map("due_date") @db.Date
   notes                String?      @db.Text
+  currency             String       @default("usd") @db.VarChar(3)
   subtotal             BigInt? // Amount in minor units (cents)
   tax                  BigInt? // Amount in minor units (cents)
   total                BigInt? // Amount in minor units (cents)

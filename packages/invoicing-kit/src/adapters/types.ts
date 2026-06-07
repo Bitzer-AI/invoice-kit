@@ -201,6 +201,7 @@ export interface NewDocument {
   issueDate: Date;
   dueDate?: Date | null;
   notes?: string | null;
+  currency?: string;
   subtotal: BigintMinor;
   tax: BigintMinor;
   total: BigintMinor;
@@ -215,6 +216,7 @@ export type DocumentUpdate = Partial<{
   issueDate: Date;
   dueDate: Date | null;
   notes: string | null;
+  currency: string;
   subtotal: BigintMinor;
   tax: BigintMinor;
   total: BigintMinor;
