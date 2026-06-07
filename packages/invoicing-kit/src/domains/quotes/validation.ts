@@ -9,6 +9,7 @@ export const createQuoteBody = z.object({
   issueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "YYYY-MM-DD"),
   validUntil: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
   notes: z.string().optional().nullable(),
+  currency: z.string().length(3).optional(),
   status: z.enum(["draft", "sent", "accepted", "rejected", "converted"]).default("draft"),
   lineItems: z.array(lineItemSchema).min(1),
   paymentMethodIds: z.array(z.string()).default([]),

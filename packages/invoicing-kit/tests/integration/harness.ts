@@ -104,15 +104,20 @@ export async function buildHarness(
     adapter,
     auth,
     basePath: opts.basePath ?? "/api/bills",
-  });
+  }) as { router: any; services?: any; repos?: any };
 
   const app = new Hono();
   app.route("/", kit.router);
+
+  const ctx: AuthContext = { userId, organizationId, role: session.user.role ?? null };
 
   return {
     app,
     organizationId,
     userId,
+    services: kit.services,
+    repos: kit.repos,
+    ctx,
     request: (input: string, init?: RequestInit) =>
       app.request(input, {
         ...init,

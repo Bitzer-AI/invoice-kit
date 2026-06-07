@@ -75,6 +75,7 @@ export class QuoteService {
         documentNumber: number,
         issueDate: new Date(body.issueDate),
         notes: body.notes ?? null,
+        currency: body.currency ?? "usd",
         subtotal: docTotals.subtotal,
         tax: docTotals.tax,
         total: docTotals.total,

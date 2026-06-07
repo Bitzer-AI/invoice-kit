@@ -89,6 +89,26 @@ describe("invoices integration", () => {
     expect(body.document.lineItems[0].taxes[0].taxAmount).toBe("2100");
   });
 
+  test("invoices.create accepts and stores currency", async () => {
+    const { request, services, ctx } = await buildHarness(createInvoicingKit);
+    const { clientId, productId, taxId } = await createPrereqs(request);
+
+    const invoice = await services.invoices.create(
+      {
+        clientId,
+        issueDate: "2025-01-01",
+        currency: "DOP",
+        status: "draft",
+        paymentMethodIds: [],
+        lineItems: [{ productId, quantity: "1", price: "10000", taxIds: [taxId] }],
+      },
+      ctx,
+    );
+
+    const found = await services.invoices.findById(invoice.id, ctx);
+    expect(found.document.currency).toBe("DOP");
+  });
+
   test("POST /invoices honors a one-off documentNumber override without advancing the series", async () => {
     const { request } = await buildHarness(createInvoicingKit);
     const { clientId, productId, taxId } = await createPrereqs(request);
