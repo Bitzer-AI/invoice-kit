@@ -30,7 +30,9 @@ export function createPrismaDocumentRepository(
         data: {
           type: data.type,
           organizationId: data.organizationId,
-          clientId: data.clientId,
+          clientId: data.clientId ?? null,
+          vendorId: data.vendorId ?? null,
+          externalDocumentNumber: data.externalDocumentNumber ?? null,
           documentNumberPrefix: data.documentNumberPrefix ?? null,
           documentNumber: data.documentNumber,
           issueDate: data.issueDate,

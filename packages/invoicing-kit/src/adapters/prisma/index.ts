@@ -11,6 +11,9 @@ import { createPrismaQuoteRepository } from "./quotes";
 import { createPrismaPaymentMethodRepository } from "./payment-methods";
 import { createPrismaPaymentRepository } from "./payments";
 import { createPrismaFiscalDocumentRepository } from "./fiscal-documents";
+import { createPrismaVendorRepository } from "./vendors";
+import { createPrismaVendorBillRepository } from "./vendor-bills";
+import { createPrismaVendorBillPaymentRepository } from "./vendor-bill-payments";
 
 export function prismaAdapter(
   prisma: AnyPrismaClient,
@@ -24,14 +27,17 @@ export function prismaAdapter(
   function buildRepos(client: AnyPrismaClient, depth: number): Repositories {
     return {
       clients: createPrismaClientRepository(client, modelNames),
+      vendors: createPrismaVendorRepository(client, modelNames),
       products: createPrismaProductRepository(client, modelNames),
       taxes: createPrismaTaxRepository(client, modelNames),
       documentSequences: createPrismaDocumentSequenceRepository(client, modelNames),
       documents: createPrismaDocumentRepository(client, modelNames),
       invoices: createPrismaInvoiceRepository(client, modelNames),
+      vendorBills: createPrismaVendorBillRepository(client, modelNames),
       quotes: createPrismaQuoteRepository(client, modelNames),
       paymentMethods: createPrismaPaymentMethodRepository(client, modelNames),
       payments: createPrismaPaymentRepository(client, modelNames),
+      vendorBillPayments: createPrismaVendorBillPaymentRepository(client, modelNames),
       fiscalDocuments: createPrismaFiscalDocumentRepository(client, modelNames),
       tx: async (fn) => {
         if (depth > 0) {

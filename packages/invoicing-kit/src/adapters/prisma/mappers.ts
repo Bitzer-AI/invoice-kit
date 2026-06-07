@@ -27,8 +27,18 @@ import type {
   QuoteStatus,
   Tax,
   TaxType,
+  Vendor,
+  VendorBill,
+  VendorBillStatus,
+  VendorBillPayment,
+  VendorBillPaymentStatus,
 } from "../../types";
-import type { DocumentWithRelations, InvoiceWithDocument, QuoteWithDocument } from "../types";
+import type {
+  DocumentWithRelations,
+  InvoiceWithDocument,
+  QuoteWithDocument,
+  VendorBillWithDocument,
+} from "../types";
 
 export function clientRowToDomain(row: any): Client {
   return {
@@ -112,7 +122,9 @@ export function documentRowToDomain(row: any): Document {
     id: row.id,
     type: row.type as DocumentType,
     organizationId: row.organizationId,
-    clientId: row.clientId,
+    clientId: row.clientId ?? null,
+    vendorId: row.vendorId ?? null,
+    externalDocumentNumber: row.externalDocumentNumber ?? null,
     documentNumberPrefix: row.documentNumberPrefix ?? null,
     documentNumber: row.documentNumber,
     issueDate: row.issueDate,
@@ -246,6 +258,55 @@ export function paymentRowToDomain(row: any): Payment {
     notes: row.notes ?? null,
     recordedBy: row.recordedBy ?? null,
     metadata: row.metadata ?? null,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+}
+
+export function vendorRowToDomain(row: any): Vendor {
+  return {
+    id: row.id,
+    organizationId: row.organizationId,
+    name: row.name,
+    email: row.email ?? null,
+    phone: row.phone ?? null,
+    taxId: row.taxId ?? null,
+    taxIdType: row.taxIdType ?? null,
+    isActive: row.isActive,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+}
+
+export function vendorBillRowToDomain(row: any): VendorBill {
+  return {
+    id: row.id,
+    documentId: row.documentId,
+    status: row.status as VendorBillStatus,
+  };
+}
+
+export function vendorBillWithDocumentRowToDomain(row: any): VendorBillWithDocument {
+  return {
+    ...vendorBillRowToDomain(row),
+    document: documentWithRelationsRowToDomain(row.document),
+  };
+}
+
+export function vendorBillPaymentRowToDomain(row: any): VendorBillPayment {
+  return {
+    id: row.id,
+    organizationId: row.organizationId,
+    vendorBillId: row.vendorBillId,
+    paymentMethodId: row.paymentMethodId ?? null,
+    amount: row.amount,
+    currency: row.currency,
+    status: row.status as VendorBillPaymentStatus,
+    provider: row.provider,
+    paidAt: row.paidAt ?? null,
+    reference: row.reference ?? null,
+    notes: row.notes ?? null,
+    recordedBy: row.recordedBy ?? null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
