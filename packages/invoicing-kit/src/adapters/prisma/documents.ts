@@ -36,6 +36,7 @@ export function createPrismaDocumentRepository(
           issueDate: data.issueDate,
           dueDate: data.dueDate ?? null,
           notes: data.notes ?? null,
+          currency: data.currency ?? "usd",
           subtotal: data.subtotal,
           tax: data.tax,
           total: data.total,

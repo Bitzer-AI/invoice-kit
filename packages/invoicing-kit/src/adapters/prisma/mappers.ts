@@ -118,6 +118,7 @@ export function documentRowToDomain(row: any): Document {
     issueDate: row.issueDate,
     dueDate: row.dueDate ?? null,
     notes: row.notes ?? null,
+    currency: row.currency,
     subtotal: row.subtotal ?? null,
     tax: row.tax ?? null,
     total: row.total ?? null,

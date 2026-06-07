@@ -190,6 +190,61 @@ describeForEachAdapter("DocumentRepository", allFactories, (ctx) => {
     expect(updated.total).toBe(150n);
   });
 
+  test("create persists currency and round-trips it", async () => {
+    const { organizationId } = await seed(ctx.repos);
+    const { client, product } = await setup(ctx, organizationId);
+    const doc = await ctx.repos.documents.create({
+      type: "INVOICE",
+      organizationId,
+      clientId: client.id,
+      documentNumber: 1,
+      issueDate: new Date("2026-01-15"),
+      currency: "DOP",
+      subtotal: 100n,
+      tax: 0n,
+      total: 100n,
+      lineItems: [
+        {
+          productId: product.id,
+          quantity: "1",
+          price: 100n,
+          taxes: [],
+          taxAmount: 0n,
+          total: 100n,
+        },
+      ],
+    });
+    expect(doc.currency).toBe("DOP");
+    const found = await ctx.repos.documents.findById(doc.id, organizationId);
+    expect(found!.currency).toBe("DOP");
+  });
+
+  test("create defaults currency to usd when omitted", async () => {
+    const { organizationId } = await seed(ctx.repos);
+    const { client, product } = await setup(ctx, organizationId);
+    const doc = await ctx.repos.documents.create({
+      type: "INVOICE",
+      organizationId,
+      clientId: client.id,
+      documentNumber: 1,
+      issueDate: new Date("2026-01-15"),
+      subtotal: 100n,
+      tax: 0n,
+      total: 100n,
+      lineItems: [
+        {
+          productId: product.id,
+          quantity: "1",
+          price: 100n,
+          taxes: [],
+          taxAmount: 0n,
+          total: 100n,
+        },
+      ],
+    });
+    expect(doc.currency).toBe("usd");
+  });
+
   test("delete cascades to line items", async () => {
     const { organizationId } = await seed(ctx.repos);
     const { client, product } = await setup(ctx, organizationId);
