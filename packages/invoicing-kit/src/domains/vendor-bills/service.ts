@@ -6,10 +6,7 @@ import type {
   UpdateVendorBillBody,
   ListVendorBillsQuery,
 } from "./validation";
-import {
-  VendorBillNotFoundException,
-  DocumentPartyInvalidException,
-} from "./exceptions";
+import { VendorBillNotFoundException } from "./exceptions";
 import { VendorNotFoundException } from "../vendors/exceptions";
 import { DocumentCalculator } from "../../lib/calculator";
 import { DocumentNumberingService } from "../../lib/numbering";
