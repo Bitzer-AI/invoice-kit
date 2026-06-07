@@ -29,8 +29,21 @@ export class InvoiceService {
     private readonly hooks?: InvoicingKitHooks,
   ) {}
 
+  /**
+   * Fire the onInvoiceIssued hook. Caller invokes this AFTER the repo
+   * transaction commits. Wrapped so a throwing handler never fails the op.
+   */
+  private async emitIssued(organizationId: string, invoiceId: string): Promise<void> {
+    if (!this.hooks?.onInvoiceIssued) return;
+    try {
+      await this.hooks.onInvoiceIssued({ organizationId, invoiceId });
+    } catch (err) {
+      console.error("[invoicing-kit] onInvoiceIssued handler failed", err);
+    }
+  }
+
   async create(body: CreateInvoiceBody, ctx: AuthContext): Promise<Invoice> {
-    return this.repos.tx(async (tx) => {
+    const invoice = await this.repos.tx(async (tx) => {
       const resolvedPrefix = body.documentNumberPrefix ?? null;
       // A caller-supplied documentNumber is a one-off override for THIS document
       // (the series counter is left untouched); otherwise the series assigns it.
@@ -108,6 +121,12 @@ export class InvoiceService {
         convertedFromQuoteId: null,
       });
     });
+
+    // Post-commit: a non-draft invoice is "issued" the moment it's created.
+    if (invoice.status !== "draft") {
+      await this.emitIssued(ctx.organizationId, invoice.id);
+    }
+    return invoice;
   }
 
   async findById(id: string, ctx: AuthContext): Promise<InvoiceWithDocument> {
@@ -133,9 +152,10 @@ export class InvoiceService {
   }
 
   async update(id: string, body: UpdateInvoiceBody, ctx: AuthContext): Promise<Invoice> {
-    return this.repos.tx(async (tx) => {
+    const { updated, wasDraft } = await this.repos.tx(async (tx) => {
       const existing = await tx.invoices.findById(id, ctx.organizationId);
       if (!existing) throw InvoiceNotFoundException();
+      const wasDraft = existing.status === "draft";
 
       // Patch scalar invoice fields.
       const invoiceUpdate: { status?: any; paidDate?: Date | null } = {};
@@ -220,8 +240,14 @@ export class InvoiceService {
         await tx.documents.update(existing.documentId, ctx.organizationId, documentUpdate);
       }
 
-      return updated;
+      return { updated, wasDraft };
     });
+
+    // Post-commit: emit only on the first transition out of draft.
+    if (wasDraft && updated.status !== "draft") {
+      await this.emitIssued(ctx.organizationId, updated.id);
+    }
+    return updated;
   }
 
   async delete(id: string, ctx: AuthContext): Promise<void> {
@@ -252,6 +278,7 @@ export class InvoiceService {
     ctx: AuthContext,
   ): Promise<{ count: number }> {
     let count = 0;
+    const issuedIds: string[] = [];
     await this.repos.tx(async (tx) => {
       for (const id of ids) {
         const i = await tx.invoices.findById(id, ctx.organizationId);
@@ -259,9 +286,16 @@ export class InvoiceService {
         const patch: { status: typeof status; paidDate?: Date | null } = { status };
         if (status === "paid" && i.paidDate === null) patch.paidDate = new Date();
         await tx.invoices.update(id, ctx.organizationId, patch);
+        // First transition out of draft → issued.
+        if (i.status === "draft" && status !== "draft") issuedIds.push(id);
         count++;
       }
     });
+
+    // Post-commit: emit once per invoice that transitioned out of draft.
+    for (const id of issuedIds) {
+      await this.emitIssued(ctx.organizationId, id);
+    }
     return { count };
   }
 
