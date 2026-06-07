@@ -4,7 +4,12 @@ export type BigintMinor = bigint;
 // Decimals (rates, quantities): string in canonical Prisma Decimal format.
 export type DecimalString = string;
 
-export type DocumentType = "INVOICE" | "QUOTE" | "VENDOR_BILL";
+export type DocumentType =
+  | "INVOICE"
+  | "QUOTE"
+  | "VENDOR_BILL"
+  | "CREDIT_NOTE"
+  | "DEBIT_NOTE";
 export type InvoiceStatus = "draft" | "sent" | "paid" | "partially_paid";
 export type QuoteStatus = "draft" | "sent" | "accepted" | "rejected" | "converted";
 export type TaxType = "PERCENTAGE" | "FIXED";
@@ -50,6 +55,16 @@ export interface VendorBill {
   id: string;
   documentId: string;
   status: VendorBillStatus;
+}
+
+export type NoteStatus = "draft" | "issued";
+
+/** A credit or debit note. Direction is carried by Document.type
+ * (CREDIT_NOTE reduces, DEBIT_NOTE increases the referenced document). */
+export interface Note {
+  id: string;
+  documentId: string;
+  status: NoteStatus;
 }
 
 export type VendorBillPaymentStatus = "succeeded" | "failed" | "canceled";
@@ -119,6 +134,8 @@ export interface Document {
   vendorId: string | null;
   /** Received supplier NCF / e-CF number (vendor bills). Null for invoices/quotes. */
   externalDocumentNumber: string | null;
+  /** For notes: the Document this note modifies (an INVOICE or VENDOR_BILL). Null otherwise. */
+  referencedDocumentId: string | null;
   documentNumberPrefix: string | null;
   documentNumber: number;
   issueDate: Date;
