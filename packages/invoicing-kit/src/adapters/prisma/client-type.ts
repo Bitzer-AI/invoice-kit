@@ -53,6 +53,7 @@ export interface PrismaModelNames {
   vendor: string;
   vendorBill: string;
   vendorBillPayment: string;
+  note: string;
 }
 
 export const DEFAULT_PRISMA_MODEL_NAMES: PrismaModelNames = {
@@ -72,6 +73,7 @@ export const DEFAULT_PRISMA_MODEL_NAMES: PrismaModelNames = {
   vendor: "vendor",
   vendorBill: "vendorBill",
   vendorBillPayment: "vendorBillPayment",
+  note: "note",
 };
 
 export interface PrismaAdapterConfig {

@@ -18,6 +18,8 @@ import type {
   FiscalStatus,
   Invoice,
   InvoiceStatus,
+  Note,
+  NoteStatus,
   Payment,
   PaymentMethod,
   PaymentMethodType,
@@ -36,6 +38,7 @@ import type {
 import type {
   DocumentWithRelations,
   InvoiceWithDocument,
+  NoteWithDocument,
   QuoteWithDocument,
   VendorBillWithDocument,
 } from "../types";
@@ -124,6 +127,7 @@ export function documentRowToDomain(row: any): Document {
     organizationId: row.organizationId,
     clientId: row.clientId ?? null,
     vendorId: row.vendorId ?? null,
+    referencedDocumentId: row.referencedDocumentId ?? null,
     externalDocumentNumber: row.externalDocumentNumber ?? null,
     documentNumberPrefix: row.documentNumberPrefix ?? null,
     documentNumber: row.documentNumber,
@@ -289,6 +293,21 @@ export function vendorBillRowToDomain(row: any): VendorBill {
 export function vendorBillWithDocumentRowToDomain(row: any): VendorBillWithDocument {
   return {
     ...vendorBillRowToDomain(row),
+    document: documentWithRelationsRowToDomain(row.document),
+  };
+}
+
+export function noteRowToDomain(row: any): Note {
+  return {
+    id: row.id,
+    documentId: row.documentId,
+    status: row.status as NoteStatus,
+  };
+}
+
+export function noteWithDocumentRowToDomain(row: any): NoteWithDocument {
+  return {
+    ...noteRowToDomain(row),
     document: documentWithRelationsRowToDomain(row.document),
   };
 }

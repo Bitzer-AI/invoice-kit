@@ -14,6 +14,7 @@ import { createPrismaFiscalDocumentRepository } from "./fiscal-documents";
 import { createPrismaVendorRepository } from "./vendors";
 import { createPrismaVendorBillRepository } from "./vendor-bills";
 import { createPrismaVendorBillPaymentRepository } from "./vendor-bill-payments";
+import { createPrismaNoteRepository } from "./notes";
 
 export function prismaAdapter(
   prisma: AnyPrismaClient,
@@ -34,6 +35,7 @@ export function prismaAdapter(
       documents: createPrismaDocumentRepository(client, modelNames),
       invoices: createPrismaInvoiceRepository(client, modelNames),
       vendorBills: createPrismaVendorBillRepository(client, modelNames),
+      notes: createPrismaNoteRepository(client, modelNames),
       quotes: createPrismaQuoteRepository(client, modelNames),
       paymentMethods: createPrismaPaymentMethodRepository(client, modelNames),
       payments: createPrismaPaymentRepository(client, modelNames),
