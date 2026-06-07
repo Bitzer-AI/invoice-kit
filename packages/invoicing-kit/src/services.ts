@@ -1,6 +1,7 @@
 import type { Repositories } from "./adapters/types";
 import type { InvoicingKitHooks } from "./config";
 import { ClientService } from "./domains/clients/service";
+import { VendorService } from "./domains/vendors/service";
 import { ProductService } from "./domains/products/service";
 import { TaxService } from "./domains/taxes/service";
 import { PaymentMethodService } from "./domains/payment-methods/service";
@@ -11,6 +12,7 @@ import { NumberingService } from "./domains/numbering/service";
 
 export interface Services {
   clients: ClientService;
+  vendors: VendorService;
   products: ProductService;
   taxes: TaxService;
   paymentMethods: PaymentMethodService;
@@ -23,6 +25,7 @@ export interface Services {
 export function buildServices(repos: Repositories, hooks?: InvoicingKitHooks): Services {
   return {
     clients: new ClientService(repos),
+    vendors: new VendorService(repos),
     products: new ProductService(repos),
     taxes: new TaxService(repos),
     paymentMethods: new PaymentMethodService(repos),
