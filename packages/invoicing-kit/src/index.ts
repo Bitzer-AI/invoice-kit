@@ -9,6 +9,7 @@ export type {
   PaymentSucceededContext,
   VendorBillRecordedContext,
   VendorBillPaymentSucceededContext,
+  NoteRecordedContext,
 } from "./config";
 export type { AuthContext } from "./auth/types";
 
@@ -41,6 +42,8 @@ export type {
   VendorBillStatus,
   VendorBillPayment,
   VendorBillPaymentStatus,
+  Note,
+  NoteStatus,
 } from "./types";
 
 // Repository interfaces and input/output shapes
@@ -100,6 +103,11 @@ export type {
   VendorBillPaymentUpdate,
   NewVendorBillPayment,
   ListVendorBillPaymentsArgs,
+  NoteRepository,
+  NoteUpdate,
+  NewNote,
+  NoteWithDocument,
+  ListNotesArgs,
 } from "./adapters/types";
 
 // Default adapter
