@@ -14,6 +14,7 @@ import { createInMemoryFiscalDocumentRepository } from "./fiscal-documents";
 import { createInMemoryVendorRepository } from "./vendors";
 import { createInMemoryVendorBillRepository } from "./vendor-bills";
 import { createInMemoryVendorBillPaymentRepository } from "./vendor-bill-payments";
+import { createInMemoryNoteRepository } from "./notes";
 
 export function inMemoryAdapter(): Repositories {
   const store = createStore();
@@ -29,6 +30,7 @@ export function inMemoryAdapter(): Repositories {
       documents: createInMemoryDocumentRepository(s),
       invoices: createInMemoryInvoiceRepository(s),
       vendorBills: createInMemoryVendorBillRepository(s),
+      notes: createInMemoryNoteRepository(s),
       quotes: createInMemoryQuoteRepository(s),
       paymentMethods: createInMemoryPaymentMethodRepository(s),
       payments: createInMemoryPaymentRepository(s),

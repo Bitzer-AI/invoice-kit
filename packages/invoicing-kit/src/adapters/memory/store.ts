@@ -7,6 +7,7 @@ import type {
   DocumentPaymentMethod,
   FiscalDocument,
   Invoice,
+  Note,
   Payment,
   PaymentMethod,
   Product,
@@ -34,6 +35,7 @@ export interface MemoryStore {
   vendors: Map<string, Vendor>;
   vendorBills: Map<string, VendorBill>;
   vendorBillPayments: Map<string, VendorBillPayment>;
+  notes: Map<string, Note>;
 }
 
 export function createStore(): MemoryStore {
@@ -54,6 +56,7 @@ export function createStore(): MemoryStore {
     vendors: new Map(),
     vendorBills: new Map(),
     vendorBillPayments: new Map(),
+    notes: new Map(),
   };
 }
 
@@ -75,6 +78,7 @@ export function snapshot(store: MemoryStore): MemoryStore {
     vendors: new Map(store.vendors),
     vendorBills: new Map(store.vendorBills),
     vendorBillPayments: new Map(store.vendorBillPayments),
+    notes: new Map(store.notes),
   };
 }
 
