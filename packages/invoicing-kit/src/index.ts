@@ -2,7 +2,12 @@
 // Plan 2 adds `createInvoicingKit`, services, and routes.
 
 export { createInvoicingKit } from "./create";
-export type { InvoicingKitConfig } from "./config";
+export type {
+  InvoicingKitConfig,
+  InvoicingKitHooks,
+  InvoiceIssuedContext,
+  PaymentSucceededContext,
+} from "./config";
 export type { AuthContext } from "./auth/types";
 
 // Domain types
