@@ -16,6 +16,8 @@ export type QuoteSortField =
 
 export type VendorBillSortField = "issueDate" | "total" | "status";
 
+export type NoteSortField = "issueDate" | "total" | "status";
+
 interface SearchableDocument {
   documentNumberPrefix: string | null;
   documentNumber: number;
@@ -178,6 +180,37 @@ interface VendorBillSortRow {
 export function sortVendorBillsInMemory<T extends VendorBillSortRow>(
   rows: T[],
   sortBy: VendorBillSortField | undefined,
+  sortDir: SortDir | undefined,
+): T[] {
+  const d = dir(sortDir);
+  const sorted = [...rows];
+  // Default to issueDate (matches the prisma adapter's `args.sortBy ?? "issueDate"`).
+  const by = sortBy ?? "issueDate";
+  switch (by) {
+    case "total":
+      sorted.sort((a, b) => signed(big(a.document.total) - big(b.document.total), d));
+      break;
+    case "status":
+      sorted.sort((a, b) => signed(a.status.localeCompare(b.status), d));
+      break;
+    case "issueDate":
+    default:
+      sorted.sort((a, b) => signed(ms(a.document.issueDate) - ms(b.document.issueDate), d));
+  }
+  return sorted;
+}
+
+interface NoteSortRow {
+  status: string;
+  document: {
+    issueDate: Date;
+    total: bigint | null;
+  };
+}
+
+export function sortNotesInMemory<T extends NoteSortRow>(
+  rows: T[],
+  sortBy: NoteSortField | undefined,
   sortDir: SortDir | undefined,
 ): T[] {
   const d = dir(sortDir);
