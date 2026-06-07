@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const documentTypeParam = z.enum(["INVOICE", "QUOTE"]);
+export const documentTypeParam = z.enum(["INVOICE", "QUOTE", "VENDOR_BILL"]);
 
 export const getSequenceQuery = z.object({
   documentType: documentTypeParam,

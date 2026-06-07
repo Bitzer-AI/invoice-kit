@@ -183,18 +183,18 @@ export function sortVendorBillsInMemory<T extends VendorBillSortRow>(
 ): T[] {
   const d = dir(sortDir);
   const sorted = [...rows];
-  switch (sortBy) {
-    case "issueDate":
-      sorted.sort((a, b) => signed(ms(a.document.issueDate) - ms(b.document.issueDate), d));
-      break;
+  // Default to issueDate (matches the prisma adapter's `args.sortBy ?? "issueDate"`).
+  const by = sortBy ?? "issueDate";
+  switch (by) {
     case "total":
       sorted.sort((a, b) => signed(big(a.document.total) - big(b.document.total), d));
       break;
     case "status":
       sorted.sort((a, b) => signed(a.status.localeCompare(b.status), d));
       break;
+    case "issueDate":
     default:
-      sorted.sort((a, b) => ms(b.document.createdAt) - ms(a.document.createdAt));
+      sorted.sort((a, b) => signed(ms(a.document.issueDate) - ms(b.document.issueDate), d));
   }
   return sorted;
 }

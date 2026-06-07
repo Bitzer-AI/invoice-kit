@@ -92,7 +92,7 @@ export function createInMemoryQuoteRepository(
         if (args.issueDateTo && doc.issueDate > args.issueDateTo) continue;
 
         // Apply free-text search
-        if (!matchesDocumentSearch(doc, clients.get(doc.clientId), args.query)) continue;
+        if (!matchesDocumentSearch(doc, clients.get(doc.clientId ?? ""), args.query)) continue;
 
         results.push({ ...quote, document: doc });
       }

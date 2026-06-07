@@ -7,7 +7,13 @@ const ORG = "org1";
 
 async function makeBill(
   repos: Repositories,
-  opts: { total: bigint; status: VendorBillStatus; ncf: string; documentNumber: number },
+  opts: {
+    total: bigint;
+    status: VendorBillStatus;
+    ncf: string;
+    documentNumber: number;
+    issueDate?: Date;
+  },
 ) {
   return repos.tx(async (tx) => {
     const doc = await tx.documents.create({
@@ -17,7 +23,7 @@ async function makeBill(
       vendorId: "v1",
       externalDocumentNumber: opts.ncf,
       documentNumber: opts.documentNumber,
-      issueDate: new Date("2026-01-15"),
+      issueDate: opts.issueDate ?? new Date("2026-01-15"),
       currency: "DOP",
       subtotal: opts.total,
       tax: 0n,
@@ -74,19 +80,38 @@ describe("vendor bill list() sorting (memory)", () => {
     expect(page.data.map((b) => b.status)).toEqual(["draft", "paid", "received"]);
   });
 
-  it("defaults to createdAt desc when no sortBy is given", async () => {
+  it("defaults to issueDate desc when no sortBy is given (matches prisma adapter)", async () => {
     const repos = inMemoryAdapter();
-    const first = await makeBill(repos, { total: 300n, status: "paid", ncf: "B0100000001", documentNumber: 1 });
-    const second = await makeBill(repos, { total: 100n, status: "draft", ncf: "B0100000002", documentNumber: 2 });
-    const third = await makeBill(repos, { total: 200n, status: "received", ncf: "B0100000003", documentNumber: 3 });
+    await makeBill(repos, {
+      total: 300n,
+      status: "paid",
+      ncf: "B0100000001",
+      documentNumber: 1,
+      issueDate: new Date("2026-01-10"),
+    });
+    await makeBill(repos, {
+      total: 100n,
+      status: "draft",
+      ncf: "B0100000002",
+      documentNumber: 2,
+      issueDate: new Date("2026-03-15"),
+    });
+    await makeBill(repos, {
+      total: 200n,
+      status: "received",
+      ncf: "B0100000003",
+      documentNumber: 3,
+      issueDate: new Date("2026-02-20"),
+    });
 
     const page = await repos.vendorBills.list({ organizationId: ORG });
 
-    // Newest-created first. createdAt may collide in fast runs, so just assert
-    // every bill is present rather than a brittle exact order.
-    expect(page.data.map((b) => b.id).sort()).toEqual(
-      [first.id, second.id, third.id].sort(),
-    );
+    // Newest issueDate first (issueDate desc default, consistent with the prisma adapter).
+    expect(page.data.map((b) => b.document.issueDate.toISOString().slice(0, 10))).toEqual([
+      "2026-03-15",
+      "2026-02-20",
+      "2026-01-10",
+    ]);
     expect(page.pageInfo.totalCount).toBe(3);
   });
 });

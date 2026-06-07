@@ -21,7 +21,8 @@ function lineItemToResponse(li: DocumentLineItem & { taxes: DocumentLineItemTax[
 
 function documentToResponse(doc: DocumentWithRelations) {
   return {
-    clientId: doc.clientId,
+    // invoices/quotes always have a client (party invariant); vendor bills use vendorId instead
+    clientId: doc.clientId!,
     documentNumberPrefix: doc.documentNumberPrefix,
     documentNumber: doc.documentNumber,
     issueDate: doc.issueDate.toISOString().slice(0, 10),

@@ -96,7 +96,7 @@ export function createInMemoryInvoiceRepository(
         if (args.dueBefore && (!doc.dueDate || doc.dueDate >= args.dueBefore)) continue;
 
         // Apply free-text search
-        if (!matchesDocumentSearch(doc, clients.get(doc.clientId), args.query)) continue;
+        if (!matchesDocumentSearch(doc, clients.get(doc.clientId ?? ""), args.query)) continue;
 
         results.push({ ...invoice, document: doc });
       }
