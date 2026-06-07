@@ -12,6 +12,9 @@ import type {
   Product,
   Quote,
   Tax,
+  Vendor,
+  VendorBill,
+  VendorBillPayment,
 } from "../../types";
 
 export interface MemoryStore {
@@ -28,6 +31,9 @@ export interface MemoryStore {
   paymentMethods: Map<string, PaymentMethod>;
   payments: Map<string, Payment>;
   fiscalDocuments: Map<string, FiscalDocument>;
+  vendors: Map<string, Vendor>;
+  vendorBills: Map<string, VendorBill>;
+  vendorBillPayments: Map<string, VendorBillPayment>;
 }
 
 export function createStore(): MemoryStore {
@@ -45,6 +51,9 @@ export function createStore(): MemoryStore {
     paymentMethods: new Map(),
     payments: new Map(),
     fiscalDocuments: new Map(),
+    vendors: new Map(),
+    vendorBills: new Map(),
+    vendorBillPayments: new Map(),
   };
 }
 
@@ -63,6 +72,9 @@ export function snapshot(store: MemoryStore): MemoryStore {
     paymentMethods: new Map(store.paymentMethods),
     payments: new Map(store.payments),
     fiscalDocuments: new Map(store.fiscalDocuments),
+    vendors: new Map(store.vendors),
+    vendorBills: new Map(store.vendorBills),
+    vendorBillPayments: new Map(store.vendorBillPayments),
   };
 }
 

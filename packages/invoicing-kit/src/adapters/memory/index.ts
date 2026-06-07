@@ -11,6 +11,9 @@ import { createInMemoryQuoteRepository } from "./quotes";
 import { createInMemoryPaymentMethodRepository } from "./payment-methods";
 import { createInMemoryPaymentRepository } from "./payments";
 import { createInMemoryFiscalDocumentRepository } from "./fiscal-documents";
+import { createInMemoryVendorRepository } from "./vendors";
+import { createInMemoryVendorBillRepository } from "./vendor-bills";
+import { createInMemoryVendorBillPaymentRepository } from "./vendor-bill-payments";
 
 export function inMemoryAdapter(): Repositories {
   const store = createStore();
@@ -19,14 +22,17 @@ export function inMemoryAdapter(): Repositories {
   function build(s: MemoryStore): Repositories {
     return {
       clients: createInMemoryClientRepository(s),
+      vendors: createInMemoryVendorRepository(s),
       products: createInMemoryProductRepository(s),
       taxes: createInMemoryTaxRepository(s),
       documentSequences: createInMemoryDocumentSequenceRepository(s),
       documents: createInMemoryDocumentRepository(s),
       invoices: createInMemoryInvoiceRepository(s),
+      vendorBills: createInMemoryVendorBillRepository(s),
       quotes: createInMemoryQuoteRepository(s),
       paymentMethods: createInMemoryPaymentMethodRepository(s),
       payments: createInMemoryPaymentRepository(s),
+      vendorBillPayments: createInMemoryVendorBillPaymentRepository(s),
       fiscalDocuments: createInMemoryFiscalDocumentRepository(s),
       tx: async (fn) => {
         if (txDepth > 0) {
