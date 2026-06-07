@@ -43,6 +43,7 @@ export const prismaFactory: AdapterFactory = {
     // Truncate all billing tables before each test.
     await sharedPrisma.$executeRawUnsafe(`
       TRUNCATE TABLE
+        "notes",
         "fiscal_documents",
         "document_line_item_taxes",
         "document_line_items",
