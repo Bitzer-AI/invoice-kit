@@ -155,6 +155,7 @@ export function documentLineItemRowToDomain(row: any): DocumentLineItem {
     taxAmount: row.taxAmount ?? 0n,
     total: row.total,
     description: row.description ?? null,
+    metadata: row.metadata ?? null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -186,6 +187,11 @@ export function documentWithRelationsRowToDomain(row: any): DocumentWithRelation
     lineItems: (row.lineItems ?? []).map((li: any) => ({
       ...documentLineItemRowToDomain(li),
       taxes: (li.taxes ?? []).map(documentLineItemTaxRowToDomain),
+      product: {
+        name: li.product?.name ?? "",
+        sourceType: li.product?.sourceType ?? null,
+        sourceId: li.product?.sourceId ?? null,
+      },
     })),
     paymentMethods: (row.paymentMethods ?? []).map(documentPaymentMethodRowToDomain),
   };

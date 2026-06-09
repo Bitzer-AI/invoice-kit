@@ -29,9 +29,11 @@ export const lineItemSchema = z
     quantity: z.string().regex(/^\d+(\.\d{1,4})?$/, "Invalid quantity"),
     price: z.string().regex(/^\d+$/, "Price must be integer minor units"), // BigInt as string in body
     description: z.string().optional().nullable(),
+    /** Opaque per-line app metadata (e.g. booking intent). Persisted as JSON. */
+    metadata: z.record(z.string(), z.unknown()).optional().nullable(),
     taxIds: z.array(z.string()).default([]),
   })
-  .refine((li) => (li.productId == null) !== (li.source == null), {
+  .refine((lineItem) => (lineItem.productId == null) !== (lineItem.source == null), {
     message: "Provide exactly one of productId or source",
   });
 export type LineItemInput = z.infer<typeof lineItemSchema>;

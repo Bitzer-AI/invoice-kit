@@ -28,7 +28,16 @@ export function createInMemoryDocumentRepository(store: MemoryStore): DocumentRe
       const taxes = Array.from(lineItemTaxes.values()).filter(
         (t) => t.lineItemId === li.id,
       );
-      return { ...li, taxes };
+      const product = store.products.get(li.productId);
+      return {
+        ...li,
+        taxes,
+        product: {
+          name: product?.name ?? "",
+          sourceType: product?.sourceType ?? null,
+          sourceId: product?.sourceId ?? null,
+        },
+      };
     });
     const paymentMethods = Array.from(paymentMethodLinks.values()).filter(
       (pm) => pm.documentId === doc.id,
@@ -41,29 +50,30 @@ export function createInMemoryDocumentRepository(store: MemoryStore): DocumentRe
     items: NewDocumentLineItem[],
   ): void {
     const now = new Date();
-    for (const li of items) {
+    for (const item of items) {
       const lineItemId = randomUUID();
       const lineItem: DocumentLineItem = {
         id: lineItemId,
         documentId,
-        productId: li.productId,
-        quantity: li.quantity,
-        price: li.price,
-        taxAmount: li.taxAmount,
-        total: li.total,
-        description: li.description ?? null,
+        productId: item.productId,
+        quantity: item.quantity,
+        price: item.price,
+        taxAmount: item.taxAmount,
+        total: item.total,
+        description: item.description ?? null,
+        metadata: item.metadata ?? null,
         createdAt: now,
         updatedAt: now,
       };
       lineItems.set(lineItemId, lineItem);
 
-      for (const t of li.taxes) {
+      for (const tax of item.taxes) {
         const taxRowId = randomUUID();
         const taxRow: DocumentLineItemTax = {
           id: taxRowId,
           lineItemId,
-          taxId: t.taxId,
-          taxAmount: t.taxAmount,
+          taxId: tax.taxId,
+          taxAmount: tax.taxAmount,
           createdAt: now,
           updatedAt: now,
         };

@@ -70,6 +70,10 @@ const lineItemResponse = z.object({
   taxAmount: z.string(),
   total: z.string(),
   description: z.string().nullable(),
+  metadata: z.record(z.string(), z.unknown()).nullable(),
+  source: z
+    .object({ type: z.string(), id: z.string(), name: z.string() })
+    .nullable(),
   taxes: z.array(z.object({ id: z.string(), taxId: z.string(), taxAmount: z.string() })),
 });
 
@@ -86,6 +90,7 @@ export const invoiceResponse = z.object({
     issueDate: z.string(),
     dueDate: z.string().nullable(),
     notes: z.string().nullable(),
+    currency: z.string(),
     subtotal: z.string().nullable(),
     tax: z.string().nullable(),
     total: z.string().nullable(),

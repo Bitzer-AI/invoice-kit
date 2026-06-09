@@ -14,7 +14,12 @@ import { documentSearchWhere, quoteListOrderBy } from "../../lib/list-query";
 const FULL_INCLUDE = {
   document: {
     include: {
-      lineItems: { include: { taxes: true } },
+      lineItems: {
+        include: {
+          taxes: true,
+          product: { select: { name: true, sourceType: true, sourceId: true } },
+        },
+      },
       paymentMethods: true,
     },
   },

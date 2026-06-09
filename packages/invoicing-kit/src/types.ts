@@ -158,6 +158,7 @@ export interface DocumentLineItem {
   taxAmount: BigintMinor;
   total: BigintMinor;
   description: string | null;
+  metadata: Record<string, unknown> | null;
   createdAt: Date;
   updatedAt: Date;
 }

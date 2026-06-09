@@ -14,7 +14,17 @@ import {
 } from "./mappers";
 
 const DOC_INCLUDE = {
-  document: { include: { lineItems: { include: { taxes: true } }, paymentMethods: true } },
+  document: {
+    include: {
+      lineItems: {
+        include: {
+          taxes: true,
+          product: { select: { name: true, sourceType: true, sourceId: true } },
+        },
+      },
+      paymentMethods: true,
+    },
+  },
 };
 
 export function createPrismaVendorBillRepository(

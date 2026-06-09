@@ -13,7 +13,12 @@ import {
 } from "./mappers";
 
 const FULL_INCLUDE = {
-  lineItems: { include: { taxes: true } },
+  lineItems: {
+    include: {
+      taxes: true,
+      product: { select: { name: true, sourceType: true, sourceId: true } },
+    },
+  },
   paymentMethods: true,
 };
 
@@ -44,17 +49,18 @@ export function createPrismaDocumentRepository(
           tax: data.tax,
           total: data.total,
           lineItems: {
-            create: data.lineItems.map((li: NewDocumentLineItem) => ({
-              productId: li.productId,
-              quantity: li.quantity,
-              price: li.price,
-              taxAmount: li.taxAmount,
-              total: li.total,
-              description: li.description ?? null,
+            create: data.lineItems.map((lineItem: NewDocumentLineItem) => ({
+              productId: lineItem.productId,
+              quantity: lineItem.quantity,
+              price: lineItem.price,
+              taxAmount: lineItem.taxAmount,
+              total: lineItem.total,
+              description: lineItem.description ?? null,
+              metadata: lineItem.metadata ?? null,
               taxes: {
-                create: li.taxes.map((t) => ({
-                  taxId: t.taxId,
-                  taxAmount: t.taxAmount,
+                create: lineItem.taxes.map((tax) => ({
+                  taxId: tax.taxId,
+                  taxAmount: tax.taxAmount,
                 })),
               },
             })),
@@ -109,20 +115,21 @@ export function createPrismaDocumentRepository(
       });
       if (!owns) throw new Error("document not found");
       await lineItemDb.deleteMany({ where: { documentId } });
-      for (const li of lineItems) {
+      for (const lineItem of lineItems) {
         await lineItemDb.create({
           data: {
             documentId,
-            productId: li.productId,
-            quantity: li.quantity,
-            price: li.price,
-            taxAmount: li.taxAmount,
-            total: li.total,
-            description: li.description ?? null,
+            productId: lineItem.productId,
+            quantity: lineItem.quantity,
+            price: lineItem.price,
+            taxAmount: lineItem.taxAmount,
+            total: lineItem.total,
+            description: lineItem.description ?? null,
+            metadata: lineItem.metadata ?? null,
             taxes: {
-              create: li.taxes.map((t) => ({
-                taxId: t.taxId,
-                taxAmount: t.taxAmount,
+              create: lineItem.taxes.map((tax) => ({
+                taxId: tax.taxId,
+                taxAmount: tax.taxAmount,
               })),
             },
           },

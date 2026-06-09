@@ -105,6 +105,73 @@ describe("line item source resolution", () => {
     expect(quoteProduct.sourceId).toBe("99");
   });
 
+  test("document reads surface `source` on each line item (round-trip)", async () => {
+    const { request } = await buildHarness(createInvoicingKit);
+    const clientId = await createClient(request);
+
+    // A catalog product WITHOUT a source, for the null case.
+    const catalogProduct = await (
+      await request("/api/bills/products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Plain Service", price: "10.00" }),
+      })
+    ).json();
+
+    const expectedSource = { type: "experience", id: "171", name: "Authentic Santo Domingo" };
+    const created = await (
+      await request("/api/bills/invoices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clientId,
+          issueDate: "2025-04-01",
+          lineItems: [
+            {
+              source: expectedSource,
+              quantity: "1",
+              price: "6500",
+              taxIds: [],
+              metadata: { booking: { availabilityId: 123, adults: 2, children: 1, infants: 0 } },
+            },
+            { productId: catalogProduct.id, quantity: "1", price: "1000", taxIds: [] },
+          ],
+        }),
+      })
+    ).json();
+
+    // Source surfaces on the create response...
+    const createdSourced = created.document.lineItems.find((line: any) => line.source !== null);
+    expect(createdSourced.source).toEqual(expectedSource);
+
+    // ...and on GET, alongside the booking metadata (the admin editor's exact need).
+    const fetched = await (await request(`/api/bills/invoices/${created.id}`)).json();
+    const sourcedLine = fetched.document.lineItems.find((line: any) => line.source !== null);
+    expect(sourcedLine.source).toEqual(expectedSource);
+    expect(sourcedLine.metadata).toEqual({
+      booking: { availabilityId: 123, adults: 2, children: 1, infants: 0 },
+    });
+    const plainLine = fetched.document.lineItems.find(
+      (line: any) => line.productId === catalogProduct.id,
+    );
+    expect(plainLine.source).toBeNull();
+
+    // Quotes round-trip the same way.
+    const quote = await (
+      await request("/api/bills/quotes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clientId,
+          issueDate: "2025-04-02",
+          lineItems: [{ source: expectedSource, quantity: "1", price: "6500", taxIds: [] }],
+        }),
+      })
+    ).json();
+    const fetchedQuote = await (await request(`/api/bills/quotes/${quote.id}`)).json();
+    expect(fetchedQuote.document.lineItems[0].source).toEqual(expectedSource);
+  });
+
   test("rejects a line item without exactly one of productId / source", async () => {
     const { request } = await buildHarness(createInvoicingKit);
     const clientId = await createClient(request);

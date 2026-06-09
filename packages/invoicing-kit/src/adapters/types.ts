@@ -219,6 +219,7 @@ export interface NewDocumentLineItem {
   quantity: DecimalString;
   price: BigintMinor;
   description?: string | null;
+  metadata?: Record<string, unknown> | null;
   /** Per-line tax breakdown (post-calculation). Empty array for no tax. */
   taxes: Array<{ taxId: string; taxAmount: BigintMinor }>;
   /** Pre-computed line totals. */
@@ -261,8 +262,19 @@ export type DocumentUpdate = Partial<{
   total: BigintMinor;
 }>;
 
+/**
+ * Product fields projected onto each line item so document reads can surface the
+ * line's `source` link (the host-app object the product was find-or-created
+ * from) without an extra products round-trip.
+ */
+export interface LineItemProduct {
+  name: string;
+  sourceType: string | null;
+  sourceId: string | null;
+}
+
 export interface DocumentWithRelations extends Document {
-  lineItems: Array<DocumentLineItem & { taxes: DocumentLineItemTax[] }>;
+  lineItems: Array<DocumentLineItem & { taxes: DocumentLineItemTax[]; product: LineItemProduct }>;
   paymentMethods: DocumentPaymentMethod[];
 }
 

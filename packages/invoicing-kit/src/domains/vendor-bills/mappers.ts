@@ -1,8 +1,7 @@
-import type { DocumentLineItem, DocumentLineItemTax } from "../../types";
 import type { VendorBillWithDocument, DocumentWithRelations } from "../../adapters/types";
 import type { VendorBillResponse } from "./validation";
 
-function lineItemToResponse(li: DocumentLineItem & { taxes: DocumentLineItemTax[] }) {
+function lineItemToResponse(li: DocumentWithRelations["lineItems"][number]) {
   return {
     id: li.id,
     productId: li.productId,
@@ -11,6 +10,10 @@ function lineItemToResponse(li: DocumentLineItem & { taxes: DocumentLineItemTax[
     taxAmount: li.taxAmount.toString(),
     total: li.total.toString(),
     description: li.description,
+    source:
+      li.product.sourceType !== null && li.product.sourceId !== null
+        ? { type: li.product.sourceType, id: li.product.sourceId, name: li.product.name }
+        : null,
     taxes: li.taxes.map((t) => ({ id: t.id, taxId: t.taxId, taxAmount: t.taxAmount.toString() })),
   };
 }

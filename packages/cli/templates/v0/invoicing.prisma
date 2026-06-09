@@ -211,6 +211,7 @@ model DocumentLineItem {
   taxAmount   BigInt?  @default(0) @map("tax_amount") // Amount in minor units (cents)
   total       BigInt // Amount in minor units (cents)
   description String?  @map("description") @db.VarChar(255)
+  metadata    Json?
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
 

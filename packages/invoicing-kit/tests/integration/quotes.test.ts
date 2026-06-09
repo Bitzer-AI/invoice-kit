@@ -68,6 +68,102 @@ describe("quotes integration", () => {
     expect(body.document.lineItems[0].taxes[0].taxAmount).toBe("2100");
   });
 
+  test("quote wire response includes document.currency (create + get)", async () => {
+    const { request } = await buildHarness(createInvoicingKit);
+    const { clientId, productId, taxId } = await createPrereqs(request);
+
+    const createRes = await request("/api/bills/quotes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId,
+        issueDate: "2025-01-01",
+        currency: "USD",
+        lineItems: [{ productId, quantity: "1", price: "10000", taxIds: [taxId] }],
+      }),
+    });
+    expect(createRes.status).toBe(201);
+    const created = await createRes.json();
+    // Regression guard: the serializer previously dropped currency from the wire document
+    // (vendor-bills/notes included it, invoices/quotes did not), so the client fell back to a default.
+    expect(created.document.currency).toBe("USD");
+
+    const getRes = await request(`/api/bills/quotes/${created.id}`, { method: "GET" });
+    expect(getRes.status).toBe(200);
+    const fetched = await getRes.json();
+    expect(fetched.document.currency).toBe("USD");
+  });
+
+  test("quotes.create persists per-line metadata and round-trips it on update", async () => {
+    const { request, services, ctx } = await buildHarness(createInvoicingKit);
+    const { clientId, productId, taxId } = await createPrereqs(request);
+
+    const bookingMetadata = {
+      booking: { availabilityId: 7, adults: 2, children: 0, infants: 0 },
+    };
+
+    const quote = await services.quotes.create(
+      {
+        clientId,
+        issueDate: "2025-01-01",
+        status: "draft",
+        paymentMethodIds: [],
+        lineItems: [
+          { productId, quantity: "1", price: "10000", taxIds: [taxId], metadata: bookingMetadata },
+        ],
+      },
+      ctx,
+    );
+
+    const found = await services.quotes.findById(quote.id, ctx);
+    expect(found.document.lineItems[0].metadata).toEqual(bookingMetadata);
+
+    const updatedMetadata = {
+      booking: { availabilityId: 9, adults: 3, children: 1, infants: 0 },
+    };
+    await services.quotes.update(
+      quote.id,
+      {
+        lineItems: [
+          { productId, quantity: "1", price: "10000", taxIds: [taxId], metadata: updatedMetadata },
+        ],
+      },
+      ctx,
+    );
+
+    const reread = await services.quotes.findById(quote.id, ctx);
+    expect(reread.document.lineItems[0].metadata).toEqual(updatedMetadata);
+  });
+
+  test("quote wire response includes line item metadata (create + get)", async () => {
+    const { request } = await buildHarness(createInvoicingKit);
+    const { clientId, productId, taxId } = await createPrereqs(request);
+
+    const bookingMetadata = {
+      booking: { availabilityId: 7, adults: 2, children: 0, infants: 0 },
+    };
+
+    const createRes = await request("/api/bills/quotes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId,
+        issueDate: "2025-01-01",
+        lineItems: [
+          { productId, quantity: "1", price: "10000", taxIds: [taxId], metadata: bookingMetadata },
+        ],
+      }),
+    });
+    expect(createRes.status).toBe(201);
+    const created = await createRes.json();
+    expect(created.document.lineItems[0].metadata).toEqual(bookingMetadata);
+
+    const getRes = await request(`/api/bills/quotes/${created.id}`, { method: "GET" });
+    expect(getRes.status).toBe(200);
+    const fetched = await getRes.json();
+    expect(fetched.document.lineItems[0].metadata).toEqual(bookingMetadata);
+  });
+
   test("GET /quotes/{id} returns the full joined document with line items", async () => {
     const { request } = await buildHarness(createInvoicingKit);
     const { clientId, productId, taxId } = await createPrereqs(request);

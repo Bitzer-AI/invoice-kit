@@ -271,4 +271,66 @@ describeForEachAdapter("DocumentRepository", allFactories, (ctx) => {
     await ctx.repos.documents.delete(doc.id, organizationId);
     expect(await ctx.repos.documents.findById(doc.id, organizationId)).toBeNull();
   });
+
+  test("line items carry the product projection (name + source link)", async () => {
+    const { organizationId } = await seed(ctx.repos);
+    const { client, product } = await setup(ctx, organizationId);
+    const sourcedProduct = await ctx.repos.products.create({
+      organizationId,
+      name: "Sunset Catamaran Tour",
+      price: "50.00",
+      sourceType: "experience",
+      sourceId: "42",
+    });
+
+    const doc = await ctx.repos.documents.create({
+      type: "INVOICE",
+      organizationId,
+      clientId: client.id,
+      documentNumber: 1,
+      issueDate: new Date("2026-01-15"),
+      subtotal: 15000n,
+      tax: 0n,
+      total: 15000n,
+      lineItems: [
+        {
+          productId: sourcedProduct.id,
+          quantity: "1",
+          price: 5000n,
+          taxes: [],
+          taxAmount: 0n,
+          total: 5000n,
+        },
+        {
+          productId: product.id,
+          quantity: "1",
+          price: 10000n,
+          taxes: [],
+          taxAmount: 0n,
+          total: 10000n,
+        },
+      ],
+    });
+
+    // Both on create() and findById(), each line exposes its product's
+    // name/sourceType/sourceId so document reads can surface `source`.
+    for (const document of [doc, (await ctx.repos.documents.findById(doc.id, organizationId))!]) {
+      const sourcedLine = document.lineItems.find(
+        (lineItem: any) => lineItem.productId === sourcedProduct.id,
+      )!;
+      expect(sourcedLine.product).toEqual({
+        name: "Sunset Catamaran Tour",
+        sourceType: "experience",
+        sourceId: "42",
+      });
+      const plainLine = document.lineItems.find(
+        (lineItem: any) => lineItem.productId === product.id,
+      )!;
+      expect(plainLine.product).toEqual({
+        name: "Test product",
+        sourceType: null,
+        sourceId: null,
+      });
+    }
+  });
 });
