@@ -13,7 +13,10 @@ function makeKit(hooks: InvoicingKitHooks) {
 
 async function seedClientAndProduct(k: ReturnType<typeof makeKit>) {
   const client = await k.services.clients.create({ name: "C" }, ctx);
-  const product = await k.services.products.create({ name: "P", price: "100" }, ctx);
+  const product = await k.services.products.create(
+    { name: "P", price: "100", currency: "dop" },
+    ctx,
+  );
   return { clientId: client.id, productId: product.id };
 }
 

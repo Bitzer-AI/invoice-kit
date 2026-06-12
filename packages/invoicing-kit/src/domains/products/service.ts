@@ -13,6 +13,7 @@ export class ProductService {
       name: body.name,
       description: body.description ?? null,
       price: body.price,
+      currency: body.currency ?? "usd",
       sourceType: body.sourceType ?? null,
       sourceId: body.sourceId ?? null,
     });

@@ -82,7 +82,9 @@ describe("notes integration", () => {
         clientId,
         issueDate: "2026-02-01",
         currency: "DOP",
-        lineItems: [creditLine()],
+        lineItems: [
+          { source: { type: "experience", id: "exp1-dop", name: "Tour" }, quantity: "1", price: "20000", taxIds: [] },
+        ],
       }),
     });
     expect(res.status).toBe(201);
@@ -92,7 +94,7 @@ describe("notes integration", () => {
     expect(body.document.vendorId).toBeNull();
     expect(body.document.referencedDocumentId).toBe(refDocId);
     expect(body.document.total).toBe("20000");
-    expect(body.document.currency).toBe("DOP");
+    expect(body.document.currency).toBe("dop");
   });
 
   test("POST /notes creates a purchase debit note (vendorId + referenced vendor bill) -> 201, DEBIT_NOTE", async () => {

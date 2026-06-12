@@ -86,12 +86,12 @@ describe("quotes integration", () => {
     const created = await createRes.json();
     // Regression guard: the serializer previously dropped currency from the wire document
     // (vendor-bills/notes included it, invoices/quotes did not), so the client fell back to a default.
-    expect(created.document.currency).toBe("USD");
+    expect(created.document.currency).toBe("usd");
 
     const getRes = await request(`/api/bills/quotes/${created.id}`, { method: "GET" });
     expect(getRes.status).toBe(200);
     const fetched = await getRes.json();
-    expect(fetched.document.currency).toBe("USD");
+    expect(fetched.document.currency).toBe("usd");
   });
 
   test("quotes.create persists per-line metadata and round-trips it on update", async () => {

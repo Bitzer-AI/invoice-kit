@@ -21,6 +21,7 @@ export function createInMemoryProductRepository(store: MemoryStore): ProductRepo
         name: data.name,
         description: data.description ?? null,
         price: data.price,
+        currency: data.currency ?? "usd",
         sourceType: data.sourceType ?? null,
         sourceId: data.sourceId ?? null,
         createdAt: now,

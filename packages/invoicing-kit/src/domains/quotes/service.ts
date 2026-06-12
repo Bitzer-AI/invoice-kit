@@ -7,7 +7,8 @@ import { QuoteNotFoundException, QuoteNumberAlreadyExistsException } from "./exc
 import { DocumentCalculator } from "../../lib/calculator";
 import { DocumentNumberingService } from "../../lib/numbering";
 import { TaxStrategy } from "../../lib/tax-strategy";
-import { resolveLineItemProductId } from "../../lib/line-item";
+import { normalizeCurrency } from "../../lib/currency";
+import { resolveLineItemProduct } from "../../lib/line-item";
 
 export class QuoteService {
   constructor(
@@ -34,26 +35,33 @@ export class QuoteService {
       if (existing) throw QuoteNumberAlreadyExistsException();
 
       // Compute line items with taxes.
+      const documentCurrency = normalizeCurrency(body.currency ?? "usd");
       const lineItems = [];
-      for (const li of body.lineItems) {
-        const productId = await resolveLineItemProductId(tx, ctx.organizationId, li);
-        const price = BigInt(li.price);
+      for (const lineItem of body.lineItems) {
+        const product = await resolveLineItemProduct(
+          tx,
+          ctx.organizationId,
+          lineItem,
+          documentCurrency,
+        );
+        const price = BigInt(lineItem.price);
         const taxResult = await this.tax.computeForLine(tx, ctx.organizationId, {
-          quantity: li.quantity,
+          quantity: lineItem.quantity,
           price,
-          taxIds: li.taxIds,
+          taxIds: lineItem.taxIds,
         });
         const lineTotals = this.calc.lineTotal({
-          quantity: li.quantity,
+          quantity: lineItem.quantity,
           price,
           taxAmount: taxResult.taxAmount,
         });
         lineItems.push({
-          productId,
-          quantity: li.quantity,
+          productId: product.id,
+          quantity: lineItem.quantity,
           price,
-          description: li.description ?? null,
-          metadata: li.metadata ?? null,
+          currency: documentCurrency,
+          description: lineItem.description ?? null,
+          metadata: lineItem.metadata ?? null,
           taxes: taxResult.perTax,
           taxAmount: taxResult.taxAmount,
           total: lineTotals.total,
@@ -61,10 +69,10 @@ export class QuoteService {
       }
 
       const docTotals = this.calc.documentTotals(
-        lineItems.map((li) => ({
-          subtotal: li.total - li.taxAmount,
-          taxAmount: li.taxAmount,
-          total: li.total,
+        lineItems.map((line) => ({
+          subtotal: line.total - line.taxAmount,
+          taxAmount: line.taxAmount,
+          total: line.total,
         })),
       );
 
@@ -76,7 +84,7 @@ export class QuoteService {
         documentNumber: number,
         issueDate: new Date(body.issueDate),
         notes: body.notes ?? null,
-        currency: body.currency ?? "usd",
+        currency: documentCurrency,
         subtotal: docTotals.subtotal,
         tax: docTotals.tax,
         total: docTotals.total,
@@ -142,36 +150,43 @@ export class QuoteService {
 
       // If line items changed, recompute totals and replace.
       if (body.lineItems !== undefined) {
+        const documentCurrency = normalizeCurrency(existing.document.currency);
         const lineItems = [];
-        for (const li of body.lineItems) {
-          const productId = await resolveLineItemProductId(tx, ctx.organizationId, li);
-          const price = BigInt(li.price);
+        for (const lineItem of body.lineItems) {
+          const product = await resolveLineItemProduct(
+            tx,
+            ctx.organizationId,
+            lineItem,
+            documentCurrency,
+          );
+          const price = BigInt(lineItem.price);
           const taxResult = await this.tax.computeForLine(tx, ctx.organizationId, {
-            quantity: li.quantity,
+            quantity: lineItem.quantity,
             price,
-            taxIds: li.taxIds,
+            taxIds: lineItem.taxIds,
           });
           const lineTotals = this.calc.lineTotal({
-            quantity: li.quantity,
+            quantity: lineItem.quantity,
             price,
             taxAmount: taxResult.taxAmount,
           });
           lineItems.push({
-            productId,
-            quantity: li.quantity,
+            productId: product.id,
+            quantity: lineItem.quantity,
             price,
-            description: li.description ?? null,
-            metadata: li.metadata ?? null,
+            currency: documentCurrency,
+            description: lineItem.description ?? null,
+            metadata: lineItem.metadata ?? null,
             taxes: taxResult.perTax,
             taxAmount: taxResult.taxAmount,
             total: lineTotals.total,
           });
         }
         const docTotals = this.calc.documentTotals(
-          lineItems.map((l) => ({
-            subtotal: l.total - l.taxAmount,
-            taxAmount: l.taxAmount,
-            total: l.total,
+          lineItems.map((line) => ({
+            subtotal: line.total - line.taxAmount,
+            taxAmount: line.taxAmount,
+            total: line.total,
           })),
         );
         documentUpdate.subtotal = docTotals.subtotal;

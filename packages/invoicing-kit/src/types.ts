@@ -93,6 +93,8 @@ export interface Product {
   name: string;
   description: string | null;
   price: DecimalString;
+  /** Lowercase ISO 4217 code the catalog price is denominated in. */
+  currency: string;
   /** Opaque app-defined link to a host-app domain object (e.g. "experience"). */
   sourceType: string | null;
   /** Id of the linked source object, as a string. */
@@ -155,6 +157,8 @@ export interface DocumentLineItem {
   productId: string;
   quantity: DecimalString;
   price: BigintMinor;
+  /** Snapshot of the parent document's currency at sale time. */
+  currency: string;
   taxAmount: BigintMinor;
   total: BigintMinor;
   description: string | null;

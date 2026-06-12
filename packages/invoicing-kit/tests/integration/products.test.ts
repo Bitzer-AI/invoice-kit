@@ -16,6 +16,37 @@ describe("products integration", () => {
     expect(body.id).toBeTruthy();
   });
 
+  test("currency defaults to usd and an explicit code is stored lowercase", async () => {
+    const { request } = await buildHarness(createInvoicingKit);
+
+    const defaulted = await (
+      await request("/api/bills/products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Default currency", price: "10.00" }),
+      })
+    ).json();
+    expect(defaulted.currency).toBe("usd");
+
+    const peso = await (
+      await request("/api/bills/products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Peso product", price: "500.00", currency: "DOP" }),
+      })
+    ).json();
+    expect(peso.currency).toBe("dop");
+
+    const updated = await (
+      await request(`/api/bills/products/${defaulted.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currency: "EUR" }),
+      })
+    ).json();
+    expect(updated.currency).toBe("eur");
+  });
+
   test("GET /products/{id} returns the product", async () => {
     const { request } = await buildHarness(createInvoicingKit);
     const create = await request("/api/bills/products", {

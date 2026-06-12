@@ -7,6 +7,7 @@ function lineItemToResponse(lineItem: DocumentWithRelations["lineItems"][number]
     productId: lineItem.productId,
     quantity: lineItem.quantity,
     price: lineItem.price.toString(),
+    currency: lineItem.currency,
     taxAmount: lineItem.taxAmount.toString(),
     total: lineItem.total.toString(),
     description: lineItem.description,

@@ -208,6 +208,9 @@ model DocumentLineItem {
   productId   String   @map("product_id")
   quantity    Decimal  @db.Decimal(10, 4)
   price       BigInt // Unit price in minor units (cents)
+  // Snapshot of the parent document's currency at sale time (single-currency
+  // documents are enforced at the service layer).
+  currency    String   @default("usd") @db.VarChar(3)
   taxAmount   BigInt?  @default(0) @map("tax_amount") // Amount in minor units (cents)
   total       BigInt // Amount in minor units (cents)
   description String?  @map("description") @db.VarChar(255)

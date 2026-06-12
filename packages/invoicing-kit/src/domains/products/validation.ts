@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { currencyCodeSchema } from "../../lib/currency";
 
 const priceSchema = z.string().regex(/^\d+(\.\d{1,2})?$/, "Invalid decimal price");
 
@@ -6,6 +7,7 @@ export const createProductBody = z.object({
   name: z.string().min(1).max(255),
   description: z.string().optional().nullable(),
   price: priceSchema,
+  currency: currencyCodeSchema.optional(),
   sourceType: z.string().min(1).max(255).optional().nullable(),
   sourceId: z.string().min(1).max(255).optional().nullable(),
 });
@@ -26,6 +28,7 @@ export const productResponse = z.object({
   name: z.string(),
   description: z.string().nullable(),
   price: z.string(),
+  currency: z.string(),
   sourceType: z.string().nullable(),
   sourceId: z.string().nullable(),
   createdAt: z.string(),

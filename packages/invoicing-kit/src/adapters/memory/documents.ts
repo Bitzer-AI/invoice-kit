@@ -58,6 +58,7 @@ export function createInMemoryDocumentRepository(store: MemoryStore): DocumentRe
         productId: item.productId,
         quantity: item.quantity,
         price: item.price,
+        currency: item.currency,
         taxAmount: item.taxAmount,
         total: item.total,
         description: item.description ?? null,

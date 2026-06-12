@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { currencyCodeSchema } from "../../lib/currency";
 import { lineItemSchema } from "../../lib/line-item";
 
 export const vendorBillStatusEnum = z.enum(["draft", "received", "partially_paid", "paid"]);
@@ -9,7 +10,7 @@ export const createVendorBillBody = z.object({
   issueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "YYYY-MM-DD"),
   dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
   notes: z.string().optional().nullable(),
-  currency: z.string().length(3).optional(),
+  currency: currencyCodeSchema.optional(),
   status: vendorBillStatusEnum.default("draft"),
   lineItems: z.array(lineItemSchema).min(1),
 });
@@ -43,6 +44,7 @@ const lineItemResponse = z.object({
   productId: z.string(),
   quantity: z.string(),
   price: z.string(),
+  currency: z.string(),
   taxAmount: z.string(),
   total: z.string(),
   description: z.string().nullable(),

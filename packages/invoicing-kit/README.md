@@ -102,6 +102,8 @@ A line item normally references an existing product by `productId`. It can inste
 
 Provide exactly one of `productId` / `source`. The product is created once (price defaults from the line item's minor units) and reused on later sales; the line item still carries its own `price` / `description`, so it remains the immutable snapshot of the sale. `Product` exposes the same `sourceType` / `sourceId` on create and read for catalog lookups.
 
+Documents are single-currency: every line item's product must be denominated in the document's `currency` (compared case-insensitively; stored lowercase). Auto-created source products inherit the document currency; referencing a product priced in another currency fails with `422 LINE_ITEM_CURRENCY_MISMATCH`. Each line item also records a `currency` snapshot, and products accept an optional `currency` (ISO 4217, default `usd`) on create/update.
+
 ## Testing
 
 The `invoicing-kit/testing` entry point exports an in-memory adapter so you can exercise the full router without a database:

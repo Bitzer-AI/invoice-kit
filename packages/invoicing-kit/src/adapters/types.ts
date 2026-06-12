@@ -110,6 +110,8 @@ export interface NewProduct {
   name: string;
   description?: string | null;
   price: DecimalString;
+  /** Lowercase ISO 4217 code; defaults to "usd". */
+  currency?: string;
   sourceType?: string | null;
   sourceId?: string | null;
 }
@@ -218,6 +220,8 @@ export interface NewDocumentLineItem {
   productId: string;
   quantity: DecimalString;
   price: BigintMinor;
+  /** The parent document's currency (services stamp it; single-currency documents are enforced upstream). */
+  currency: string;
   description?: string | null;
   metadata?: Record<string, unknown> | null;
   /** Per-line tax breakdown (post-calculation). Empty array for no tax. */

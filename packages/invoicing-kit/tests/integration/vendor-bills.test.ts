@@ -45,7 +45,7 @@ describe("vendor bills integration", () => {
     expect(body.document.vendorId).toBe(vendorId);
     expect(body.document.clientId).toBeNull();
     expect(body.document.externalDocumentNumber).toBe("B0100000123");
-    expect(body.document.currency).toBe("DOP");
+    expect(body.document.currency).toBe("dop");
     expect(body.document.total).toBe("100000");
   });
 

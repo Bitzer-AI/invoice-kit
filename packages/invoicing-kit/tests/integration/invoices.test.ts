@@ -89,9 +89,17 @@ describe("invoices integration", () => {
     expect(body.document.lineItems[0].taxes[0].taxAmount).toBe("2100");
   });
 
-  test("invoices.create accepts and stores currency", async () => {
+  test("invoices.create accepts and stores currency (line items match the document currency)", async () => {
     const { request, services, ctx } = await buildHarness(createInvoicingKit);
-    const { clientId, productId, taxId } = await createPrereqs(request);
+    const { clientId, taxId } = await createPrereqs(request);
+
+    const pesoProductRes = await request("/api/bills/products", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Widget DOP", price: "100.00", currency: "DOP" }),
+    });
+    const pesoProduct = await pesoProductRes.json();
+    expect(pesoProduct.currency).toBe("dop");
 
     const invoice = await services.invoices.create(
       {
@@ -100,13 +108,33 @@ describe("invoices integration", () => {
         currency: "DOP",
         status: "draft",
         paymentMethodIds: [],
-        lineItems: [{ productId, quantity: "1", price: "10000", taxIds: [taxId] }],
+        lineItems: [{ productId: pesoProduct.id, quantity: "1", price: "10000", taxIds: [taxId] }],
       },
       ctx,
     );
 
     const found = await services.invoices.findById(invoice.id, ctx);
-    expect(found.document.currency).toBe("DOP");
+    expect(found.document.currency).toBe("dop");
+    expect(found.document.lineItems[0]!.currency).toBe("dop");
+  });
+
+  test("invoices.create rejects a line item whose product is in another currency", async () => {
+    const { request, services, ctx } = await buildHarness(createInvoicingKit);
+    const { clientId, productId, taxId } = await createPrereqs(request); // product defaults to usd
+
+    await expect(
+      services.invoices.create(
+        {
+          clientId,
+          issueDate: "2025-01-01",
+          currency: "DOP",
+          status: "draft",
+          paymentMethodIds: [],
+          lineItems: [{ productId, quantity: "1", price: "10000", taxIds: [taxId] }],
+        },
+        ctx,
+      ),
+    ).rejects.toThrowError(/LINE_ITEM_CURRENCY_MISMATCH/);
   });
 
   test("invoice wire response includes document.currency (create + get)", async () => {
@@ -127,12 +155,12 @@ describe("invoices integration", () => {
     const created = await createRes.json();
     // Regression guard: the serializer previously dropped currency from the wire document
     // (vendor-bills/notes included it, invoices/quotes did not), so the client fell back to a default.
-    expect(created.document.currency).toBe("USD");
+    expect(created.document.currency).toBe("usd");
 
     const getRes = await request(`/api/bills/invoices/${created.id}`, { method: "GET" });
     expect(getRes.status).toBe(200);
     const fetched = await getRes.json();
-    expect(fetched.document.currency).toBe("USD");
+    expect(fetched.document.currency).toBe("usd");
   });
 
   test("invoices.create persists per-line metadata and round-trips it on update", async () => {

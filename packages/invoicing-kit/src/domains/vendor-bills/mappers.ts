@@ -1,20 +1,25 @@
 import type { VendorBillWithDocument, DocumentWithRelations } from "../../adapters/types";
 import type { VendorBillResponse } from "./validation";
 
-function lineItemToResponse(li: DocumentWithRelations["lineItems"][number]) {
+function lineItemToResponse(lineItem: DocumentWithRelations["lineItems"][number]) {
   return {
-    id: li.id,
-    productId: li.productId,
-    quantity: li.quantity,
-    price: li.price.toString(),
-    taxAmount: li.taxAmount.toString(),
-    total: li.total.toString(),
-    description: li.description,
+    id: lineItem.id,
+    productId: lineItem.productId,
+    quantity: lineItem.quantity,
+    price: lineItem.price.toString(),
+    currency: lineItem.currency,
+    taxAmount: lineItem.taxAmount.toString(),
+    total: lineItem.total.toString(),
+    description: lineItem.description,
     source:
-      li.product.sourceType !== null && li.product.sourceId !== null
-        ? { type: li.product.sourceType, id: li.product.sourceId, name: li.product.name }
+      lineItem.product.sourceType !== null && lineItem.product.sourceId !== null
+        ? { type: lineItem.product.sourceType, id: lineItem.product.sourceId, name: lineItem.product.name }
         : null,
-    taxes: li.taxes.map((t) => ({ id: t.id, taxId: t.taxId, taxAmount: t.taxAmount.toString() })),
+    taxes: lineItem.taxes.map((tax) => ({
+      id: tax.id,
+      taxId: tax.taxId,
+      taxAmount: tax.taxAmount.toString(),
+    })),
   };
 }
 
@@ -34,11 +39,11 @@ function documentToResponse(doc: DocumentWithRelations) {
   };
 }
 
-export function vendorBillToResponse(b: VendorBillWithDocument): VendorBillResponse {
+export function vendorBillToResponse(vendorBill: VendorBillWithDocument): VendorBillResponse {
   return {
-    id: b.id,
-    documentId: b.documentId,
-    status: b.status,
-    document: documentToResponse(b.document),
+    id: vendorBill.id,
+    documentId: vendorBill.documentId,
+    status: vendorBill.status,
+    document: documentToResponse(vendorBill.document),
   };
 }

@@ -69,6 +69,7 @@ export function productRowToDomain(row: any): Product {
     name: row.name,
     description: row.description ?? null,
     price: row.price.toFixed(2), // Prisma Decimal -> string, preserve 2dp from Decimal(10,2) column
+    currency: row.currency,
     sourceType: row.sourceType ?? null,
     sourceId: row.sourceId ?? null,
     createdAt: row.createdAt,
@@ -152,6 +153,7 @@ export function documentLineItemRowToDomain(row: any): DocumentLineItem {
     // Callers that need "1.0000" form should store with trailing zeros.
     quantity: row.quantity.toString(),
     price: row.price,
+    currency: row.currency,
     taxAmount: row.taxAmount ?? 0n,
     total: row.total,
     description: row.description ?? null,

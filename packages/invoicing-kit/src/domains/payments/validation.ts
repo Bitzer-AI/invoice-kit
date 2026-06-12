@@ -1,9 +1,10 @@
 import { z } from "zod";
+import { currencyCodeSchema } from "../../lib/currency";
 
 export const createPaymentBody = z.object({
   paymentMethodId: z.string().optional().nullable(),
   amount: z.string().regex(/^\d+$/, "Amount must be integer minor units"),
-  currency: z.string().length(3),
+  currency: currencyCodeSchema,
   provider: z.string().min(1).max(50),
   paidAt: z.string().datetime().optional().nullable(),
   reference: z.string().optional().nullable(),

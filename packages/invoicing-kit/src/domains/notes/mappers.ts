@@ -1,20 +1,25 @@
 import type { NoteWithDocument, DocumentWithRelations } from "../../adapters/types";
 import type { NoteResponse } from "./validation";
 
-function lineItemToResponse(li: DocumentWithRelations["lineItems"][number]) {
+function lineItemToResponse(lineItem: DocumentWithRelations["lineItems"][number]) {
   return {
-    id: li.id,
-    productId: li.productId,
-    quantity: li.quantity,
-    price: li.price.toString(),
-    taxAmount: li.taxAmount.toString(),
-    total: li.total.toString(),
-    description: li.description,
+    id: lineItem.id,
+    productId: lineItem.productId,
+    quantity: lineItem.quantity,
+    price: lineItem.price.toString(),
+    currency: lineItem.currency,
+    taxAmount: lineItem.taxAmount.toString(),
+    total: lineItem.total.toString(),
+    description: lineItem.description,
     source:
-      li.product.sourceType !== null && li.product.sourceId !== null
-        ? { type: li.product.sourceType, id: li.product.sourceId, name: li.product.name }
+      lineItem.product.sourceType !== null && lineItem.product.sourceId !== null
+        ? { type: lineItem.product.sourceType, id: lineItem.product.sourceId, name: lineItem.product.name }
         : null,
-    taxes: li.taxes.map((t) => ({ id: t.id, taxId: t.taxId, taxAmount: t.taxAmount.toString() })),
+    taxes: lineItem.taxes.map((tax) => ({
+      id: tax.id,
+      taxId: tax.taxId,
+      taxAmount: tax.taxAmount.toString(),
+    })),
   };
 }
 
@@ -36,11 +41,11 @@ function documentToResponse(doc: DocumentWithRelations) {
   };
 }
 
-export function noteToResponse(n: NoteWithDocument): NoteResponse {
+export function noteToResponse(note: NoteWithDocument): NoteResponse {
   return {
-    id: n.id,
-    documentId: n.documentId,
-    status: n.status,
-    document: documentToResponse(n.document),
+    id: note.id,
+    documentId: note.documentId,
+    status: note.status,
+    document: documentToResponse(note.document),
   };
 }

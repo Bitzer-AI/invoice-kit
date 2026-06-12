@@ -208,4 +208,56 @@ describe("line item source resolution", () => {
     });
     expect(neither.status).toBe(400);
   });
+
+  test("auto-created source products inherit the document currency; cross-currency reuse is rejected", async () => {
+    const { request } = await buildHarness(createInvoicingKit);
+    const clientId = await createClient(request);
+
+    const pesoInvoice = await (
+      await request("/api/bills/invoices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clientId,
+          issueDate: "2025-01-01",
+          currency: "DOP",
+          lineItems: [
+            {
+              source: { type: "experience", id: "77", name: "Peso Tour" },
+              quantity: "1",
+              price: "150000",
+              taxIds: [],
+            },
+          ],
+        }),
+      })
+    ).json();
+    expect(pesoInvoice.document.currency).toBe("dop");
+    expect(pesoInvoice.document.lineItems[0].currency).toBe("dop");
+
+    const productId = pesoInvoice.document.lineItems[0].productId;
+    const product = await (await request(`/api/bills/products/${productId}`)).json();
+    expect(product.currency).toBe("dop");
+
+    // Selling the same source in a USD document must fail: one product, one currency.
+    const mismatch = await request("/api/bills/invoices", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId,
+        issueDate: "2025-02-01",
+        currency: "USD",
+        lineItems: [
+          {
+            source: { type: "experience", id: "77", name: "Peso Tour" },
+            quantity: "1",
+            price: "5000",
+            taxIds: [],
+          },
+        ],
+      }),
+    });
+    expect(mismatch.status).toBe(422);
+    expect(await mismatch.text()).toContain("LINE_ITEM_CURRENCY_MISMATCH");
+  });
 });

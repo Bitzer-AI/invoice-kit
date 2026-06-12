@@ -8,9 +8,17 @@
 //
 // The line item still carries its own `price`/`description`, so it remains the
 // immutable snapshot of the sale — the resolved product is only a catalog anchor.
+//
+// Currency invariant: a document is single-currency. Every resolved product must
+// be denominated in the document's currency; auto-created source products inherit
+// it. Violations throw LineItemCurrencyMismatchException (422).
 
 import { z } from "zod";
 import type { Repositories } from "../adapters/types";
+import type { Product } from "../types";
+import { normalizeCurrency } from "./currency";
+import { httpError, ErrorCode } from "./errors";
+import { ProductNotFoundException } from "../domains/products/exceptions";
 
 export const lineItemSourceSchema = z.object({
   /** Opaque app-defined kind, e.g. "experience". */
@@ -38,6 +46,17 @@ export const lineItemSchema = z
   });
 export type LineItemInput = z.infer<typeof lineItemSchema>;
 
+export const LineItemCurrencyMismatchException = (args: {
+  documentCurrency: string;
+  productCurrency: string;
+  productId: string;
+}) =>
+  httpError({
+    code: ErrorCode.LineItemCurrencyMismatch,
+    status: 422,
+    message: `Product ${args.productId} is priced in ${args.productCurrency} but the document is in ${args.documentCurrency}; a document must have a single currency`,
+  });
+
 /** Converts integer minor units (e.g. cents) to a Decimal(10,2) string: 5000n -> "50.00". */
 export function minorUnitsToDecimalString(minor: bigint): string {
   const negative = minor < 0n;
@@ -49,27 +68,51 @@ export function minorUnitsToDecimalString(minor: bigint): string {
 }
 
 /**
- * Resolves a line item to a concrete productId, find-or-creating a source-linked
+ * Resolves a line item to its concrete Product, find-or-creating a source-linked
  * product when `source` is supplied. Must be called with the transaction-scoped
  * repositories so the product and document are created atomically.
+ *
+ * Enforces the single-currency invariant: an existing product (referenced or
+ * source-matched) must be denominated in `documentCurrency`; a newly created
+ * source product inherits it.
  */
-export async function resolveLineItemProductId(
+export async function resolveLineItemProduct(
   repos: Repositories,
   organizationId: string,
-  li: Pick<LineItemInput, "productId" | "source" | "price" | "description">,
-): Promise<string> {
-  if (li.productId) return li.productId;
+  lineItem: Pick<LineItemInput, "productId" | "source" | "price" | "description">,
+  documentCurrency: string,
+): Promise<Product> {
+  const currency = normalizeCurrency(documentCurrency);
+
+  const assertCurrencyMatches = (product: Product): Product => {
+    if (normalizeCurrency(product.currency) !== currency) {
+      throw LineItemCurrencyMismatchException({
+        documentCurrency: currency,
+        productCurrency: normalizeCurrency(product.currency),
+        productId: product.id,
+      });
+    }
+    return product;
+  };
+
+  if (lineItem.productId) {
+    const product = await repos.products.findById(lineItem.productId, organizationId);
+    if (!product) throw ProductNotFoundException();
+    return assertCurrencyMatches(product);
+  }
+
   // `source` is guaranteed present by the schema's exactly-one refinement.
-  const { type, id, name } = li.source!;
+  const { type, id, name } = lineItem.source!;
   const existing = await repos.products.findBySource(organizationId, type, id);
-  if (existing) return existing.id;
-  const created = await repos.products.create({
+  if (existing) return assertCurrencyMatches(existing);
+
+  return repos.products.create({
     organizationId,
     name,
     description: null,
-    price: minorUnitsToDecimalString(BigInt(li.price)),
+    price: minorUnitsToDecimalString(BigInt(lineItem.price)),
+    currency,
     sourceType: type,
     sourceId: id,
   });
-  return created.id;
 }
