@@ -16,6 +16,13 @@ function lineItemToResponse(lineItem: DocumentWithRelations["lineItems"][number]
       lineItem.product.sourceType !== null && lineItem.product.sourceId !== null
         ? { type: lineItem.product.sourceType, id: lineItem.product.sourceId, name: lineItem.product.name }
         : null,
+    product: {
+      id: lineItem.productId,
+      name: lineItem.product.name,
+      description: lineItem.product.description,
+      price: lineItem.product.price,
+      currency: lineItem.product.currency,
+    },
     taxes: lineItem.taxes.map((tax) => ({
       id: tax.id,
       taxId: tax.taxId,

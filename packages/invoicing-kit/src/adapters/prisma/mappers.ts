@@ -186,13 +186,16 @@ export function documentPaymentMethodRowToDomain(row: any): DocumentPaymentMetho
 export function documentWithRelationsRowToDomain(row: any): DocumentWithRelations {
   return {
     ...documentRowToDomain(row),
-    lineItems: (row.lineItems ?? []).map((li: any) => ({
-      ...documentLineItemRowToDomain(li),
-      taxes: (li.taxes ?? []).map(documentLineItemTaxRowToDomain),
+    lineItems: (row.lineItems ?? []).map((lineItemRow: any) => ({
+      ...documentLineItemRowToDomain(lineItemRow),
+      taxes: (lineItemRow.taxes ?? []).map(documentLineItemTaxRowToDomain),
       product: {
-        name: li.product?.name ?? "",
-        sourceType: li.product?.sourceType ?? null,
-        sourceId: li.product?.sourceId ?? null,
+        name: lineItemRow.product?.name ?? "",
+        description: lineItemRow.product?.description ?? null,
+        price: lineItemRow.product?.price?.toFixed(2) ?? "0.00",
+        currency: lineItemRow.product?.currency ?? "usd",
+        sourceType: lineItemRow.product?.sourceType ?? null,
+        sourceId: lineItemRow.product?.sourceId ?? null,
       },
     })),
     paymentMethods: (row.paymentMethods ?? []).map(documentPaymentMethodRowToDomain),

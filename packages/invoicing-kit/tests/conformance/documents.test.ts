@@ -320,6 +320,9 @@ describeForEachAdapter("DocumentRepository", allFactories, (ctx) => {
       )!;
       expect(sourcedLine.product).toEqual({
         name: "Sunset Catamaran Tour",
+        description: null,
+        price: "50.00",
+        currency: "usd",
         sourceType: "experience",
         sourceId: "42",
       });
@@ -328,6 +331,9 @@ describeForEachAdapter("DocumentRepository", allFactories, (ctx) => {
       )!;
       expect(plainLine.product).toEqual({
         name: "Test product",
+        description: null,
+        price: "100.00",
+        currency: "usd",
         sourceType: null,
         sourceId: null,
       });

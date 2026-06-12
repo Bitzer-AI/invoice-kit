@@ -268,11 +268,16 @@ export type DocumentUpdate = Partial<{
 
 /**
  * Product fields projected onto each line item so document reads can surface the
- * line's `source` link (the host-app object the product was find-or-created
- * from) without an extra products round-trip.
+ * line's `source` link and a catalog summary (name, current catalog price and its
+ * currency) without an extra products round-trip.
  */
 export interface LineItemProduct {
   name: string;
+  description: string | null;
+  /** Current catalog price (DecimalString) — NOT the line's snapshot price. */
+  price: DecimalString;
+  /** Lowercase ISO 4217 code the catalog price is denominated in. */
+  currency: string;
   sourceType: string | null;
   sourceId: string | null;
 }

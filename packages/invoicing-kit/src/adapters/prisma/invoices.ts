@@ -12,21 +12,8 @@ import {
   invoiceRowToDomain,
   invoiceWithDocumentRowToDomain,
 } from "./mappers";
+import { WITH_DOCUMENT_INCLUDE } from "./documents";
 import { documentSearchWhere, invoiceListOrderBy } from "../../lib/list-query";
-
-const FULL_INCLUDE = {
-  document: {
-    include: {
-      lineItems: {
-        include: {
-          taxes: true,
-          product: { select: { name: true, sourceType: true, sourceId: true } },
-        },
-      },
-      paymentMethods: true,
-    },
-  },
-};
 
 export function createPrismaInvoiceRepository(
   prisma: AnyPrismaClient,
@@ -49,7 +36,7 @@ export function createPrismaInvoiceRepository(
     async findById(id: string, organizationId: string): Promise<InvoiceWithDocument | null> {
       const row = await db.findFirst({
         where: { id, document: { organizationId } },
-        include: FULL_INCLUDE,
+        include: WITH_DOCUMENT_INCLUDE,
       });
       return row ? invoiceWithDocumentRowToDomain(row) : null;
     },
@@ -98,7 +85,7 @@ export function createPrismaInvoiceRepository(
       const [rows, totalCount] = await Promise.all([
         db.findMany({
           where,
-          include: FULL_INCLUDE,
+          include: WITH_DOCUMENT_INCLUDE,
           skip: (page - 1) * perPage,
           take: perPage,
           orderBy: invoiceListOrderBy(args.sortBy, args.sortDir),

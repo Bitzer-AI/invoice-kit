@@ -44,6 +44,14 @@ describe("line item source resolution", () => {
     expect(productId).toBeTruthy();
     // Line item keeps its own snapshot price (minor units).
     expect(first.document.lineItems[0].price).toBe("5000");
+    // Embedded catalog summary spares the client a /products round-trip.
+    expect(first.document.lineItems[0].product).toEqual({
+      id: productId,
+      name: "Sunset Catamaran Tour",
+      description: null,
+      price: "50.00",
+      currency: "usd",
+    });
 
     const product = await (await request(`/api/bills/products/${productId}`)).json();
     expect(product.name).toBe("Sunset Catamaran Tour");

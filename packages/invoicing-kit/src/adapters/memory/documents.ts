@@ -22,18 +22,21 @@ export function createInMemoryDocumentRepository(store: MemoryStore): DocumentRe
 
   function composeWithRelations(doc: Document): DocumentWithRelations {
     const docLineItems = Array.from(lineItems.values()).filter(
-      (li) => li.documentId === doc.id,
+      (lineItem) => lineItem.documentId === doc.id,
     );
-    const enrichedLineItems = docLineItems.map((li) => {
+    const enrichedLineItems = docLineItems.map((lineItem) => {
       const taxes = Array.from(lineItemTaxes.values()).filter(
-        (t) => t.lineItemId === li.id,
+        (tax) => tax.lineItemId === lineItem.id,
       );
-      const product = store.products.get(li.productId);
+      const product = store.products.get(lineItem.productId);
       return {
-        ...li,
+        ...lineItem,
         taxes,
         product: {
           name: product?.name ?? "",
+          description: product?.description ?? null,
+          price: product?.price ?? "0.00",
+          currency: product?.currency ?? "usd",
           sourceType: product?.sourceType ?? null,
           sourceId: product?.sourceId ?? null,
         },

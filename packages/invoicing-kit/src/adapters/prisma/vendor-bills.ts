@@ -12,20 +12,7 @@ import {
   vendorBillRowToDomain,
   vendorBillWithDocumentRowToDomain,
 } from "./mappers";
-
-const DOC_INCLUDE = {
-  document: {
-    include: {
-      lineItems: {
-        include: {
-          taxes: true,
-          product: { select: { name: true, sourceType: true, sourceId: true } },
-        },
-      },
-      paymentMethods: true,
-    },
-  },
-};
+import { WITH_DOCUMENT_INCLUDE } from "./documents";
 
 export function createPrismaVendorBillRepository(
   prisma: AnyPrismaClient,
@@ -41,7 +28,7 @@ export function createPrismaVendorBillRepository(
     async findById(id, organizationId): Promise<VendorBillWithDocument | null> {
       const row = await db.findFirst({
         where: { id, document: { organizationId } },
-        include: DOC_INCLUDE,
+        include: WITH_DOCUMENT_INCLUDE,
       });
       return row ? vendorBillWithDocumentRowToDomain(row) : null;
     },
@@ -72,7 +59,7 @@ export function createPrismaVendorBillRepository(
       const [rows, totalCount] = await Promise.all([
         db.findMany({
           where,
-          include: DOC_INCLUDE,
+          include: WITH_DOCUMENT_INCLUDE,
           skip: (page - 1) * perPage,
           take: perPage,
           orderBy,

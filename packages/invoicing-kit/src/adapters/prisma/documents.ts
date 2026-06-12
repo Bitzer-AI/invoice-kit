@@ -12,15 +12,37 @@ import {
   documentWithRelationsRowToDomain,
 } from "./mappers";
 
-const FULL_INCLUDE = {
+/**
+ * Document relations loaded on every document read: line items with per-line
+ * taxes and the product projection (source link + catalog summary), plus
+ * payment-method links. Single source of truth — the invoice/quote/vendor-bill/
+ * note adapters wrap this via WITH_DOCUMENT_INCLUDE.
+ */
+export const DOCUMENT_RELATIONS_INCLUDE = {
   lineItems: {
     include: {
       taxes: true,
-      product: { select: { name: true, sourceType: true, sourceId: true } },
+      product: {
+        select: {
+          name: true,
+          description: true,
+          price: true,
+          currency: true,
+          sourceType: true,
+          sourceId: true,
+        },
+      },
     },
   },
   paymentMethods: true,
 };
+
+/** The same relations nested under `document:` for sidecar reads (invoice, quote, vendor bill, note). */
+export const WITH_DOCUMENT_INCLUDE = {
+  document: { include: DOCUMENT_RELATIONS_INCLUDE },
+};
+
+const FULL_INCLUDE = DOCUMENT_RELATIONS_INCLUDE;
 
 export function createPrismaDocumentRepository(
   prisma: AnyPrismaClient,

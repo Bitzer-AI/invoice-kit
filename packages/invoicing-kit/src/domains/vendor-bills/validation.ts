@@ -51,6 +51,13 @@ const lineItemResponse = z.object({
   source: z
     .object({ type: z.string(), id: z.string(), name: z.string() })
     .nullable(),
+  product: z.object({
+    id: z.string(),
+    name: z.string(),
+    description: z.string().nullable(),
+    price: z.string(),
+    currency: z.string(),
+  }),
   taxes: z.array(z.object({ id: z.string(), taxId: z.string(), taxAmount: z.string() })),
 });
 

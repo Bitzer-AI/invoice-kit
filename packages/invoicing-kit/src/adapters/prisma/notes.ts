@@ -9,21 +9,8 @@ import type {
 } from "../types";
 import type { AnyPrismaClient, PrismaModelNames } from "./client-type";
 import { noteRowToDomain, noteWithDocumentRowToDomain } from "./mappers";
+import { WITH_DOCUMENT_INCLUDE } from "./documents";
 import { documentSearchWhere } from "../../lib/list-query";
-
-const DOC_INCLUDE = {
-  document: {
-    include: {
-      lineItems: {
-        include: {
-          taxes: true,
-          product: { select: { name: true, sourceType: true, sourceId: true } },
-        },
-      },
-      paymentMethods: true,
-    },
-  },
-};
 
 export function createPrismaNoteRepository(
   prisma: AnyPrismaClient,
@@ -39,7 +26,7 @@ export function createPrismaNoteRepository(
     async findById(id, organizationId): Promise<NoteWithDocument | null> {
       const row = await db.findFirst({
         where: { id, document: { organizationId } },
-        include: DOC_INCLUDE,
+        include: WITH_DOCUMENT_INCLUDE,
       });
       return row ? noteWithDocumentRowToDomain(row) : null;
     },
@@ -74,7 +61,7 @@ export function createPrismaNoteRepository(
       const [rows, totalCount] = await Promise.all([
         db.findMany({
           where,
-          include: DOC_INCLUDE,
+          include: WITH_DOCUMENT_INCLUDE,
           skip: (page - 1) * perPage,
           take: perPage,
           orderBy,

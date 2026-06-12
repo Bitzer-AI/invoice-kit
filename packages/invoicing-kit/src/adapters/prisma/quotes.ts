@@ -9,21 +9,8 @@ import type {
 import type { Quote } from "../../types";
 import type { AnyPrismaClient, PrismaModelNames } from "./client-type";
 import { quoteRowToDomain, quoteWithDocumentRowToDomain } from "./mappers";
+import { WITH_DOCUMENT_INCLUDE } from "./documents";
 import { documentSearchWhere, quoteListOrderBy } from "../../lib/list-query";
-
-const FULL_INCLUDE = {
-  document: {
-    include: {
-      lineItems: {
-        include: {
-          taxes: true,
-          product: { select: { name: true, sourceType: true, sourceId: true } },
-        },
-      },
-      paymentMethods: true,
-    },
-  },
-};
 
 export function createPrismaQuoteRepository(
   prisma: AnyPrismaClient,
@@ -44,7 +31,7 @@ export function createPrismaQuoteRepository(
     async findById(id, organizationId) {
       const row = await db.findFirst({
         where: { id, document: { organizationId } },
-        include: FULL_INCLUDE,
+        include: WITH_DOCUMENT_INCLUDE,
       });
       return row ? quoteWithDocumentRowToDomain(row) : null;
     },
@@ -82,7 +69,7 @@ export function createPrismaQuoteRepository(
       const [rows, totalCount] = await Promise.all([
         db.findMany({
           where,
-          include: FULL_INCLUDE,
+          include: WITH_DOCUMENT_INCLUDE,
           skip: (page - 1) * perPage,
           take: perPage,
           orderBy: quoteListOrderBy(args.sortBy, args.sortDir),
