@@ -67,6 +67,16 @@ export const vendorBillResponse = z.object({
   status: vendorBillStatusEnum,
   document: z.object({
     vendorId: z.string().nullable(),
+    vendor: z
+      .object({
+        id: z.string(),
+        name: z.string(),
+        email: z.string().nullable(),
+        phone: z.string().nullable(),
+        taxId: z.string().nullable(),
+        taxIdType: z.string().nullable(),
+      })
+      .nullable(),
     clientId: z.string().nullable(),
     externalDocumentNumber: z.string().nullable(),
     issueDate: z.string(),

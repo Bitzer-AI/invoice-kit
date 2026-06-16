@@ -236,6 +236,41 @@ describeForEachAdapter("NoteRepository", allFactories, (ctx) => {
     expect(byVendor.data[0]!.document.vendorId).toBe(vendorId);
   });
 
+  test("list filters by party (CLIENT/VENDOR) independent of credit/debit type", async () => {
+    const { organizationId } = await seed(ctx.repos);
+    const { clientId, document: invoice } = await createInvoiceFixture(ctx, organizationId);
+    const { vendorId, document: bill } = await createVendorBillFixture(ctx, organizationId);
+    // All four combinations: both types on both parties.
+    await createNoteFixture(ctx, organizationId, {
+      type: "CREDIT_NOTE",
+      referencedDocumentId: invoice.id,
+      clientId,
+    });
+    await createNoteFixture(ctx, organizationId, {
+      type: "DEBIT_NOTE",
+      referencedDocumentId: invoice.id,
+      clientId,
+    });
+    await createNoteFixture(ctx, organizationId, {
+      type: "CREDIT_NOTE",
+      referencedDocumentId: bill.id,
+      vendorId,
+    });
+    await createNoteFixture(ctx, organizationId, {
+      type: "DEBIT_NOTE",
+      referencedDocumentId: bill.id,
+      vendorId,
+    });
+
+    const clientNotes = await ctx.repos.notes.list({ organizationId, party: "CLIENT" });
+    expect(clientNotes.data).toHaveLength(2);
+    expect(clientNotes.data.every((note: any) => note.document.clientId === clientId)).toBe(true);
+
+    const vendorNotes = await ctx.repos.notes.list({ organizationId, party: "VENDOR" });
+    expect(vendorNotes.data).toHaveLength(2);
+    expect(vendorNotes.data.every((note: any) => note.document.vendorId === vendorId)).toBe(true);
+  });
+
   test("list filters by referencedDocumentId", async () => {
     const { organizationId } = await seed(ctx.repos);
     const { clientId, document: invoiceA } = await createInvoiceFixture(ctx, organizationId, {

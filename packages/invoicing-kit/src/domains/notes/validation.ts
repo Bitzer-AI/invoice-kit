@@ -39,6 +39,9 @@ export const listNotesQuery = z.object({
   perPage: z.coerce.number().int().positive().max(100).optional(),
   status: z.string().optional(), // comma-separated
   type: z.enum(["CREDIT_NOTE", "DEBIT_NOTE"]).optional(),
+  // Filter by the note's party side, independent of the specific client/vendor:
+  // CLIENT = sales notes (any client), VENDOR = purchase notes (any vendor).
+  party: z.enum(["CLIENT", "VENDOR"]).optional(),
   clientId: z.string().optional(),
   vendorId: z.string().optional(),
   referencedDocumentId: z.string().optional(),
@@ -81,7 +84,22 @@ export const noteResponse = z.object({
     clientId: z.string().nullable(),
     vendorId: z.string().nullable(),
     referencedDocumentId: z.string().nullable(),
+    referencedDocument: z
+      .object({
+        id: z.string(),
+        entityId: z.string().nullable(),
+        type: z.string(),
+        documentNumber: z.number().int(),
+        documentNumberPrefix: z.string().nullable(),
+        externalDocumentNumber: z.string().nullable(),
+        total: z.string().nullable(),
+        currency: z.string(),
+        issueDate: z.string(),
+      })
+      .nullable(),
     externalDocumentNumber: z.string().nullable(),
+    documentNumberPrefix: z.string().nullable(),
+    documentNumber: z.number().int(),
     issueDate: z.string(),
     dueDate: z.string().nullable(),
     notes: z.string().nullable(),

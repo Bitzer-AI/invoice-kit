@@ -37,6 +37,8 @@ function documentToResponse(doc: DocumentWithRelations) {
     vendorId: doc.vendorId,
     referencedDocumentId: doc.referencedDocumentId,
     externalDocumentNumber: doc.externalDocumentNumber,
+    documentNumberPrefix: doc.documentNumberPrefix,
+    documentNumber: doc.documentNumber,
     issueDate: doc.issueDate.toISOString().slice(0, 10),
     dueDate: doc.dueDate ? doc.dueDate.toISOString().slice(0, 10) : null,
     notes: doc.notes,
@@ -48,11 +50,31 @@ function documentToResponse(doc: DocumentWithRelations) {
   };
 }
 
+function referencedDocumentToResponse(
+  referenced: NoteWithDocument["referencedDocument"],
+) {
+  if (!referenced) return null;
+  return {
+    id: referenced.id,
+    entityId: referenced.entityId,
+    type: referenced.type,
+    documentNumber: referenced.documentNumber,
+    documentNumberPrefix: referenced.documentNumberPrefix,
+    externalDocumentNumber: referenced.externalDocumentNumber,
+    total: referenced.total !== null ? referenced.total.toString() : null,
+    currency: referenced.currency,
+    issueDate: referenced.issueDate.toISOString().slice(0, 10),
+  };
+}
+
 export function noteToResponse(note: NoteWithDocument): NoteResponse {
   return {
     id: note.id,
     documentId: note.documentId,
     status: note.status,
-    document: documentToResponse(note.document),
+    document: {
+      ...documentToResponse(note.document),
+      referencedDocument: referencedDocumentToResponse(note.referencedDocument),
+    },
   };
 }

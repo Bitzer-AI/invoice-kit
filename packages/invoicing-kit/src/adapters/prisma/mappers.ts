@@ -186,6 +186,31 @@ export function documentPaymentMethodRowToDomain(row: any): DocumentPaymentMetho
 export function documentWithRelationsRowToDomain(row: any): DocumentWithRelations {
   return {
     ...documentRowToDomain(row),
+    client: row.client
+      ? {
+          id: row.client.id,
+          name: row.client.name,
+          email: row.client.email ?? null,
+          phone: row.client.phone ?? null,
+          taxId: row.client.taxId ?? null,
+          taxIdType: row.client.taxIdType ?? null,
+          country: row.client.country ?? null,
+          addressLine1: row.client.addressLine1 ?? null,
+          city: row.client.city ?? null,
+          state: row.client.state ?? null,
+          postalCode: row.client.postalCode ?? null,
+        }
+      : null,
+    vendor: row.vendor
+      ? {
+          id: row.vendor.id,
+          name: row.vendor.name,
+          email: row.vendor.email ?? null,
+          phone: row.vendor.phone ?? null,
+          taxId: row.vendor.taxId ?? null,
+          taxIdType: row.vendor.taxIdType ?? null,
+        }
+      : null,
     lineItems: (row.lineItems ?? []).map((lineItemRow: any) => ({
       ...documentLineItemRowToDomain(lineItemRow),
       taxes: (lineItemRow.taxes ?? []).map(documentLineItemTaxRowToDomain),
@@ -317,9 +342,23 @@ export function noteRowToDomain(row: any): Note {
 }
 
 export function noteWithDocumentRowToDomain(row: any): NoteWithDocument {
+  const referenced = row.document?.referencedDocument ?? null;
   return {
     ...noteRowToDomain(row),
     document: documentWithRelationsRowToDomain(row.document),
+    referencedDocument: referenced
+      ? {
+          id: referenced.id,
+          entityId: referenced.invoice?.id ?? referenced.vendorBill?.id ?? null,
+          type: referenced.type as DocumentType,
+          documentNumber: referenced.documentNumber,
+          documentNumberPrefix: referenced.documentNumberPrefix ?? null,
+          externalDocumentNumber: referenced.externalDocumentNumber ?? null,
+          total: referenced.total ?? null,
+          currency: referenced.currency,
+          issueDate: referenced.issueDate,
+        }
+      : null,
   };
 }
 

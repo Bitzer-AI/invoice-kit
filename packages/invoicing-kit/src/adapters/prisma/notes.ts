@@ -9,8 +9,32 @@ import type {
 } from "../types";
 import type { AnyPrismaClient, PrismaModelNames } from "./client-type";
 import { noteRowToDomain, noteWithDocumentRowToDomain } from "./mappers";
-import { WITH_DOCUMENT_INCLUDE } from "./documents";
+import { DOCUMENT_RELATIONS_INCLUDE } from "./documents";
 import { documentSearchWhere } from "../../lib/list-query";
+
+// Notes additionally load the document they reference (the invoice / vendor bill),
+// with that entity's id, so callers can show and open the source document.
+const NOTE_WITH_DOCUMENT_INCLUDE = {
+  document: {
+    include: {
+      ...DOCUMENT_RELATIONS_INCLUDE,
+      referencedDocument: {
+        select: {
+          id: true,
+          type: true,
+          documentNumber: true,
+          documentNumberPrefix: true,
+          externalDocumentNumber: true,
+          total: true,
+          currency: true,
+          issueDate: true,
+          invoice: { select: { id: true } },
+          vendorBill: { select: { id: true } },
+        },
+      },
+    },
+  },
+};
 
 export function createPrismaNoteRepository(
   prisma: AnyPrismaClient,
@@ -26,7 +50,7 @@ export function createPrismaNoteRepository(
     async findById(id, organizationId): Promise<NoteWithDocument | null> {
       const row = await db.findFirst({
         where: { id, document: { organizationId } },
-        include: WITH_DOCUMENT_INCLUDE,
+        include: NOTE_WITH_DOCUMENT_INCLUDE,
       });
       return row ? noteWithDocumentRowToDomain(row) : null;
     },
@@ -38,6 +62,8 @@ export function createPrismaNoteRepository(
         organizationId: args.organizationId,
         type: args.type ? args.type : { in: ["CREDIT_NOTE", "DEBIT_NOTE"] },
       };
+      if (args.party === "CLIENT") documentWhere.clientId = { not: null };
+      if (args.party === "VENDOR") documentWhere.vendorId = { not: null };
       if (args.clientId) documentWhere.clientId = args.clientId;
       if (args.vendorId) documentWhere.vendorId = args.vendorId;
       if (args.referencedDocumentId) documentWhere.referencedDocumentId = args.referencedDocumentId;
@@ -61,7 +87,7 @@ export function createPrismaNoteRepository(
       const [rows, totalCount] = await Promise.all([
         db.findMany({
           where,
-          include: WITH_DOCUMENT_INCLUDE,
+          include: NOTE_WITH_DOCUMENT_INCLUDE,
           skip: (page - 1) * perPage,
           take: perPage,
           orderBy,

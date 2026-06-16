@@ -86,6 +86,21 @@ export const quoteResponse = z.object({
   validUntil: z.string().nullable(),
   document: z.object({
     clientId: z.string(),
+    client: z
+      .object({
+        id: z.string(),
+        name: z.string(),
+        email: z.string().nullable(),
+        phone: z.string().nullable(),
+        taxId: z.string().nullable(),
+        taxIdType: z.string().nullable(),
+        country: z.string().nullable(),
+        addressLine1: z.string().nullable(),
+        city: z.string().nullable(),
+        state: z.string().nullable(),
+        postalCode: z.string().nullable(),
+      })
+      .nullable(),
     documentNumberPrefix: z.string().nullable(),
     documentNumber: z.number().int(),
     issueDate: z.string(),

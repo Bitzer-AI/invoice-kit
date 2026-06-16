@@ -1,6 +1,6 @@
 {
   "name": "@invoicing-kit/cli",
-  "version": "0.10.0",
+  "version": "0.13.0",
   "description": "Schema generator CLI for invoicing-kit",
   "type": "module",
   "bin": {

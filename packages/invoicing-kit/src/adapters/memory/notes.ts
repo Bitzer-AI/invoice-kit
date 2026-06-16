@@ -16,6 +16,46 @@ export function createInMemoryNoteRepository(store: MemoryStore): NoteRepository
   const rows = store.notes;
   const documents = createInMemoryDocumentRepository(store);
 
+  // Resolve the referenced invoice / vendor bill into the summary the response
+  // exposes, including the entity id (distinct from the document id).
+  async function referencedDocumentFor(
+    document: { referencedDocumentId: string | null },
+    organizationId: string,
+  ): Promise<NoteWithDocument["referencedDocument"]> {
+    if (!document.referencedDocumentId) return null;
+    const referenced = await documents.findById(
+      document.referencedDocumentId,
+      organizationId,
+    );
+    if (!referenced) return null;
+    let entityId: string | null = null;
+    for (const invoice of store.invoices.values()) {
+      if (invoice.documentId === referenced.id) {
+        entityId = invoice.id;
+        break;
+      }
+    }
+    if (entityId === null) {
+      for (const vendorBill of store.vendorBills.values()) {
+        if (vendorBill.documentId === referenced.id) {
+          entityId = vendorBill.id;
+          break;
+        }
+      }
+    }
+    return {
+      id: referenced.id,
+      entityId,
+      type: referenced.type,
+      documentNumber: referenced.documentNumber,
+      documentNumberPrefix: referenced.documentNumberPrefix ?? null,
+      externalDocumentNumber: referenced.externalDocumentNumber ?? null,
+      total: referenced.total ?? null,
+      currency: referenced.currency,
+      issueDate: referenced.issueDate,
+    };
+  }
+
   const repo: NoteRepository = {
     async create(data: NewNote): Promise<Note> {
       const row: Note = {
@@ -35,7 +75,11 @@ export function createInMemoryNoteRepository(store: MemoryStore): NoteRepository
       if (!row) return null;
       const document = await documents.findById(row.documentId, organizationId);
       if (!document) return null;
-      return { ...row, document };
+      return {
+        ...row,
+        document,
+        referencedDocument: await referencedDocumentFor(document, organizationId),
+      };
     },
 
     async list(args: ListNotesArgs): Promise<Page<NoteWithDocument>> {
@@ -50,6 +94,8 @@ export function createInMemoryNoteRepository(store: MemoryStore): NoteRepository
         if (!document) continue;
         if (document.type !== "CREDIT_NOTE" && document.type !== "DEBIT_NOTE") continue;
         if (args.type && document.type !== args.type) continue;
+        if (args.party === "CLIENT" && document.clientId == null) continue;
+        if (args.party === "VENDOR" && document.vendorId == null) continue;
         if (statusFilter && !statusFilter.includes(row.status)) continue;
         if (args.clientId && document.clientId !== args.clientId) continue;
         if (args.vendorId && document.vendorId !== args.vendorId) continue;
@@ -71,7 +117,11 @@ export function createInMemoryNoteRepository(store: MemoryStore): NoteRepository
           )
         )
           continue;
-        enriched.push({ ...row, document });
+        enriched.push({
+          ...row,
+          document,
+          referencedDocument: await referencedDocumentFor(document, args.organizationId),
+        });
       }
       const sorted = sortNotesInMemory(enriched, args.sortBy, args.sortDir);
       const page = args.page ?? 1;

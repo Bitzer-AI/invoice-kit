@@ -19,6 +19,31 @@ import {
  * note adapters wrap this via WITH_DOCUMENT_INCLUDE.
  */
 export const DOCUMENT_RELATIONS_INCLUDE = {
+  client: {
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      phone: true,
+      taxId: true,
+      taxIdType: true,
+      country: true,
+      addressLine1: true,
+      city: true,
+      state: true,
+      postalCode: true,
+    },
+  },
+  vendor: {
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      phone: true,
+      taxId: true,
+      taxIdType: true,
+    },
+  },
   lineItems: {
     include: {
       taxes: true,

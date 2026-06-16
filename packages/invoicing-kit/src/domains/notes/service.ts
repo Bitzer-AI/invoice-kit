@@ -133,6 +133,7 @@ export class NoteService {
       perPage: query.perPage,
       status: query.status ? (query.status.split(",") as any) : undefined,
       type: query.type,
+      party: query.party,
       clientId: query.clientId,
       vendorId: query.vendorId,
       referencedDocumentId: query.referencedDocumentId,

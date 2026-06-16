@@ -35,6 +35,21 @@ function documentToResponse(doc: DocumentWithRelations) {
   return {
     // invoices/quotes always have a client (party invariant); vendor bills use vendorId instead
     clientId: doc.clientId!,
+    client: doc.client
+      ? {
+          id: doc.client.id,
+          name: doc.client.name,
+          email: doc.client.email,
+          phone: doc.client.phone,
+          taxId: doc.client.taxId,
+          taxIdType: doc.client.taxIdType,
+          country: doc.client.country,
+          addressLine1: doc.client.addressLine1,
+          city: doc.client.city,
+          state: doc.client.state,
+          postalCode: doc.client.postalCode,
+        }
+      : null,
     documentNumberPrefix: doc.documentNumberPrefix,
     documentNumber: doc.documentNumber,
     issueDate: doc.issueDate.toISOString().slice(0, 10),

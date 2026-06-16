@@ -33,6 +33,16 @@ function lineItemToResponse(lineItem: DocumentWithRelations["lineItems"][number]
 function documentToResponse(doc: DocumentWithRelations) {
   return {
     vendorId: doc.vendorId,
+    vendor: doc.vendor
+      ? {
+          id: doc.vendor.id,
+          name: doc.vendor.name,
+          email: doc.vendor.email,
+          phone: doc.vendor.phone,
+          taxId: doc.vendor.taxId,
+          taxIdType: doc.vendor.taxIdType,
+        }
+      : null,
     clientId: doc.clientId,
     externalDocumentNumber: doc.externalDocumentNumber,
     issueDate: doc.issueDate.toISOString().slice(0, 10),

@@ -45,7 +45,38 @@ export function createInMemoryDocumentRepository(store: MemoryStore): DocumentRe
     const paymentMethods = Array.from(paymentMethodLinks.values()).filter(
       (pm) => pm.documentId === doc.id,
     );
-    return { ...doc, lineItems: enrichedLineItems, paymentMethods };
+    const client = doc.clientId ? store.clients.get(doc.clientId) : undefined;
+    const vendor = doc.vendorId ? store.vendors.get(doc.vendorId) : undefined;
+    return {
+      ...doc,
+      client: client
+        ? {
+            id: client.id,
+            name: client.name,
+            email: client.email,
+            phone: client.phone,
+            taxId: client.taxId,
+            taxIdType: client.taxIdType,
+            country: client.country,
+            addressLine1: client.addressLine1,
+            city: client.city,
+            state: client.state,
+            postalCode: client.postalCode,
+          }
+        : null,
+      vendor: vendor
+        ? {
+            id: vendor.id,
+            name: vendor.name,
+            email: vendor.email,
+            phone: vendor.phone,
+            taxId: vendor.taxId,
+            taxIdType: vendor.taxIdType,
+          }
+        : null,
+      lineItems: enrichedLineItems,
+      paymentMethods,
+    };
   }
 
   function insertLineItems(

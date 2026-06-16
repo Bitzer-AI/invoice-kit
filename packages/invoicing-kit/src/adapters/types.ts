@@ -282,7 +282,34 @@ export interface LineItemProduct {
   sourceId: string | null;
 }
 
+export interface DocumentClient {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  taxId: string | null;
+  taxIdType: string | null;
+  country: string | null;
+  addressLine1: string | null;
+  city: string | null;
+  state: string | null;
+  postalCode: string | null;
+}
+
+export interface DocumentVendor {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  taxId: string | null;
+  taxIdType: string | null;
+}
+
 export interface DocumentWithRelations extends Document {
+  /** The billed party. Null for vendor bills (which carry a vendor instead). */
+  client: DocumentClient | null;
+  /** The supplier. Set only on vendor bills; null for sales-side documents. */
+  vendor: DocumentVendor | null;
   lineItems: Array<DocumentLineItem & { taxes: DocumentLineItemTax[]; product: LineItemProduct }>;
   paymentMethods: DocumentPaymentMethod[];
 }
@@ -394,14 +421,33 @@ export interface NewNote {
 
 export type NoteUpdate = Partial<{ status: NoteStatus }>;
 
+/** Summary of the document a note modifies (the referenced INVOICE or VENDOR_BILL). */
+export interface ReferencedDocumentSummary {
+  /** The referenced Document id (matches `Document.referencedDocumentId`). */
+  id: string;
+  /** The invoice / vendor-bill entity id, distinct from the document id. Null if the entity row is missing. */
+  entityId: string | null;
+  type: DocumentType;
+  documentNumber: number;
+  documentNumberPrefix: string | null;
+  externalDocumentNumber: string | null;
+  total: bigint | null;
+  currency: string;
+  issueDate: Date;
+}
+
 export interface NoteWithDocument extends Note {
   document: DocumentWithRelations;
+  /** The invoice (credit note) or vendor bill (debit note) this note modifies. */
+  referencedDocument: ReferencedDocumentSummary | null;
 }
 
 export interface ListNotesArgs extends PageRequest {
   organizationId: string;
   status?: NoteStatus | NoteStatus[];
   type?: "CREDIT_NOTE" | "DEBIT_NOTE";
+  /** Party side, independent of a specific id: CLIENT = sales, VENDOR = purchase. */
+  party?: "CLIENT" | "VENDOR";
   clientId?: string;
   vendorId?: string;
   referencedDocumentId?: string;
