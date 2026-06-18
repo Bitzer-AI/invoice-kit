@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { Note } from "../../types";
+import { DocumentType } from "../../types";
 import type {
   ListNotesArgs,
   NewNote,
@@ -92,7 +93,8 @@ export function createInMemoryNoteRepository(store: MemoryStore): NoteRepository
       for (const row of rows.values()) {
         const document = await documents.findById(row.documentId, args.organizationId);
         if (!document) continue;
-        if (document.type !== "CREDIT_NOTE" && document.type !== "DEBIT_NOTE") continue;
+        if (document.type !== DocumentType.CreditNote && document.type !== DocumentType.DebitNote)
+          continue;
         if (args.type && document.type !== args.type) continue;
         if (args.party === "CLIENT" && document.clientId == null) continue;
         if (args.party === "VENDOR" && document.vendorId == null) continue;

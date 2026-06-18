@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { Quote } from "../../types";
+import { DocumentType } from "../../types";
 import type {
   ListQuotesArgs,
   NewQuote,
@@ -57,7 +58,7 @@ export function createInMemoryQuoteRepository(
         const doc = await documents.findById(quote.documentId, organizationId);
         if (!doc) continue;
         if (
-          doc.type === "QUOTE" &&
+          doc.type === DocumentType.Quote &&
           doc.organizationId === organizationId &&
           doc.documentNumberPrefix === prefix &&
           doc.documentNumber === documentNumber

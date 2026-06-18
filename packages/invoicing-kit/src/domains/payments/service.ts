@@ -1,6 +1,7 @@
 import type { Repositories } from "../../adapters/types";
 import type { AuthContext } from "../../auth/types";
 import type { Payment } from "../../types";
+import { InvoiceStatus, PaymentStatus } from "../../types";
 import type { CreatePaymentBody } from "./validation";
 import { InvoiceNotFoundException } from "../invoices/exceptions";
 import {
@@ -36,7 +37,7 @@ export class PaymentService {
         paymentMethodId: body.paymentMethodId ?? null,
         amount,
         currency: body.currency,
-        status: "succeeded",
+        status: PaymentStatus.Succeeded,
         provider: body.provider,
         paidAt: body.paidAt ? new Date(body.paidAt) : new Date(),
         reference: body.reference ?? null,
@@ -47,12 +48,12 @@ export class PaymentService {
       const newTotalPaid = alreadyPaid + amount;
       if (newTotalPaid >= invoiceTotal) {
         await tx.invoices.update(invoiceId, ctx.organizationId, {
-          status: "paid",
+          status: InvoiceStatus.Paid,
           paidDate: new Date(),
         });
       } else if (newTotalPaid > 0n) {
         await tx.invoices.update(invoiceId, ctx.organizationId, {
-          status: "partially_paid",
+          status: InvoiceStatus.PartiallyPaid,
         });
       }
 
@@ -94,11 +95,15 @@ export class PaymentService {
       if (!inv) return;
       const invoiceTotal = inv.document.total ?? 0n;
       const newStatus =
-        remaining >= invoiceTotal ? "paid" : remaining > 0n ? "partially_paid" : "sent";
+        remaining >= invoiceTotal
+          ? InvoiceStatus.Paid
+          : remaining > 0n
+            ? InvoiceStatus.PartiallyPaid
+            : InvoiceStatus.Sent;
       const updateData: { status: typeof newStatus; paidDate?: Date | null } = {
         status: newStatus,
       };
-      if (newStatus !== "paid") updateData.paidDate = null;
+      if (newStatus !== InvoiceStatus.Paid) updateData.paidDate = null;
       await tx.invoices.update(payment.invoiceId, ctx.organizationId, updateData);
     });
   }

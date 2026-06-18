@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PaymentStatus } from "../../types";
 import { currencyCodeSchema } from "../../lib/currency";
 
 export const createPaymentBody = z.object({
@@ -18,7 +19,7 @@ export const paymentResponse = z.object({
   paymentMethodId: z.string().nullable(),
   amount: z.string(),
   currency: z.string(),
-  status: z.enum(["pending", "processing", "succeeded", "failed", "canceled"]),
+  status: z.nativeEnum(PaymentStatus),
   provider: z.string(),
   paidAt: z.string().nullable(),
   reference: z.string().nullable(),

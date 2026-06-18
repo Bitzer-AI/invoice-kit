@@ -1,5 +1,6 @@
 import type { Repositories } from "../adapters/types";
 import type { BigintMinor, DecimalString } from "../types";
+import { TaxType } from "../types";
 import { DocumentCalculator } from "./calculator";
 
 export interface ComputeForLineInput {
@@ -39,7 +40,7 @@ export class TaxStrategy {
     for (const tax of taxes) {
       let amt = 0n;
 
-      if (tax.type === "PERCENTAGE") {
+      if (tax.type === TaxType.Percentage) {
         // rate is a decimal string like "0.2100" (21%)
         // Parse it by removing the decimal point and treating it as a fraction
         const [whole, fracRaw = ""] = tax.rate.split(".");

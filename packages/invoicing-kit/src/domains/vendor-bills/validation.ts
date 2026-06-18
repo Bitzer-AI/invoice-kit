@@ -1,8 +1,9 @@
 import { z } from "zod";
+import { VendorBillStatus } from "../../types";
 import { currencyCodeSchema } from "../../lib/currency";
 import { lineItemSchema } from "../../lib/line-item";
 
-export const vendorBillStatusEnum = z.enum(["draft", "received", "partially_paid", "paid"]);
+export const vendorBillStatusEnum = z.nativeEnum(VendorBillStatus);
 
 export const createVendorBillBody = z.object({
   vendorId: z.string(),
@@ -11,7 +12,7 @@ export const createVendorBillBody = z.object({
   dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
   notes: z.string().optional().nullable(),
   currency: currencyCodeSchema.optional(),
-  status: vendorBillStatusEnum.default("draft"),
+  status: vendorBillStatusEnum.default(VendorBillStatus.Draft),
   lineItems: z.array(lineItemSchema).min(1),
 });
 export type CreateVendorBillBody = z.infer<typeof createVendorBillBody>;

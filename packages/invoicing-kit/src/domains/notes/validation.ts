@@ -1,9 +1,10 @@
 import { z } from "zod";
+import { DocumentType, NoteStatus, NoteType } from "../../types";
 import { currencyCodeSchema } from "../../lib/currency";
 import { lineItemSchema } from "../../lib/line-item";
 
-export const noteTypeEnum = z.enum(["CREDIT", "DEBIT"]);
-export const noteStatusEnum = z.enum(["draft", "issued"]);
+export const noteTypeEnum = z.nativeEnum(NoteType);
+export const noteStatusEnum = z.nativeEnum(NoteStatus);
 
 export const createNoteBody = z
   .object({
@@ -16,7 +17,7 @@ export const createNoteBody = z
     dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
     notes: z.string().optional().nullable(),
     currency: currencyCodeSchema.optional(),
-    status: noteStatusEnum.default("draft"),
+    status: noteStatusEnum.default(NoteStatus.Draft),
     lineItems: z.array(lineItemSchema).min(1),
   })
   .refine((b) => (b.clientId == null) !== (b.vendorId == null), {
@@ -38,7 +39,7 @@ export const listNotesQuery = z.object({
   page: z.coerce.number().int().positive().optional(),
   perPage: z.coerce.number().int().positive().max(100).optional(),
   status: z.string().optional(), // comma-separated
-  type: z.enum(["CREDIT_NOTE", "DEBIT_NOTE"]).optional(),
+  type: z.enum([DocumentType.CreditNote, DocumentType.DebitNote]).optional(),
   // Filter by the note's party side, independent of the specific client/vendor:
   // CLIENT = sales notes (any client), VENDOR = purchase notes (any vendor).
   party: z.enum(["CLIENT", "VENDOR"]).optional(),

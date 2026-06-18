@@ -7,6 +7,7 @@ import type {
   QuoteWithDocument,
 } from "../types";
 import type { Quote } from "../../types";
+import { DocumentType } from "../../types";
 import type { AnyPrismaClient, PrismaModelNames } from "./client-type";
 import { quoteRowToDomain, quoteWithDocumentRowToDomain } from "./mappers";
 import { WITH_DOCUMENT_INCLUDE } from "./documents";
@@ -39,7 +40,7 @@ export function createPrismaQuoteRepository(
       const row = await db.findFirst({
         where: {
           document: {
-            type: "QUOTE",
+            type: DocumentType.Quote,
             organizationId,
             documentNumberPrefix: prefix,
             documentNumber,

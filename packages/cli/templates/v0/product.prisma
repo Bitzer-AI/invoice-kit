@@ -1,3 +1,9 @@
+enum ProductUsage {
+  SALE
+  PURCHASE
+  BOTH
+}
+
 model Product {
   id             String   @id @default(uuid(7))
   organizationId String   @map("organization_id")
@@ -7,6 +13,11 @@ model Product {
   // ISO 4217 code (lowercase) the catalog price is denominated in. Line items
   // referencing this product must belong to a document in the same currency.
   currency       String   @default("usd") @db.VarChar(3)
+  // Which document side this product may appear on: SALE = invoices/quotes/credit
+  // notes, PURCHASE = vendor bills/debit notes, BOTH = either.
+  usage          ProductUsage @default(BOTH) @map("usage")
+  // Optional purchase unit price, independent of the sale `price`.
+  cost           Decimal? @map("cost") @db.Decimal(10, 2)
   // Optional link to a host-app domain object this product mirrors (e.g. an
   // experience, course, or plan). `sourceType` is an opaque app-defined string;
   // `sourceId` is that object's id. Enables find-or-create from a line item.

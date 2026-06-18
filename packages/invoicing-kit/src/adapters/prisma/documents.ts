@@ -6,6 +6,7 @@ import type {
   NewDocumentLineItem,
 } from "../types";
 import type { Document } from "../../types";
+import { DEFAULT_CURRENCY } from "../../lib/currency";
 import type { AnyPrismaClient, PrismaModelNames } from "./client-type";
 import {
   documentRowToDomain,
@@ -91,7 +92,7 @@ export function createPrismaDocumentRepository(
           issueDate: data.issueDate,
           dueDate: data.dueDate ?? null,
           notes: data.notes ?? null,
-          currency: data.currency ?? "usd",
+          currency: data.currency ?? DEFAULT_CURRENCY,
           subtotal: data.subtotal,
           tax: data.tax,
           total: data.total,

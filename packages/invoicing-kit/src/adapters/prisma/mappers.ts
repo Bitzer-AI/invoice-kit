@@ -35,6 +35,8 @@ import type {
   VendorBillPayment,
   VendorBillPaymentStatus,
 } from "../../types";
+import { ProductUsage } from "../../types";
+import { DEFAULT_CURRENCY } from "../../lib/currency";
 import type {
   DocumentWithRelations,
   InvoiceWithDocument,
@@ -72,6 +74,8 @@ export function productRowToDomain(row: any): Product {
     currency: row.currency,
     sourceType: row.sourceType ?? null,
     sourceId: row.sourceId ?? null,
+    usage: row.usage ?? ProductUsage.Both,
+    cost: row.cost != null ? row.cost.toFixed(2) : null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -218,7 +222,7 @@ export function documentWithRelationsRowToDomain(row: any): DocumentWithRelation
         name: lineItemRow.product?.name ?? "",
         description: lineItemRow.product?.description ?? null,
         price: lineItemRow.product?.price?.toFixed(2) ?? "0.00",
-        currency: lineItemRow.product?.currency ?? "usd",
+        currency: lineItemRow.product?.currency ?? DEFAULT_CURRENCY,
         sourceType: lineItemRow.product?.sourceType ?? null,
         sourceId: lineItemRow.product?.sourceId ?? null,
       },

@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { Payment } from "../../types";
+import { PaymentStatus } from "../../types";
 import type {
   ListPaymentsArgs,
   NewPayment,
@@ -123,7 +124,7 @@ export function createInMemoryPaymentRepository(
 
       let total = 0n;
       for (const row of rows.values()) {
-        if (row.invoiceId === invoiceId && row.status === "succeeded") {
+        if (row.invoiceId === invoiceId && row.status === PaymentStatus.Succeeded) {
           total += row.amount;
         }
       }

@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { BigintMinor, VendorBillPayment } from "../../types";
+import { VendorBillPaymentStatus } from "../../types";
 import type {
   ListVendorBillPaymentsArgs,
   NewVendorBillPayment,
@@ -84,7 +85,7 @@ export function createInMemoryVendorBillPaymentRepository(
         if (
           row.organizationId === organizationId &&
           row.vendorBillId === vendorBillId &&
-          row.status === "succeeded"
+          row.status === VendorBillPaymentStatus.Succeeded
         ) {
           total += row.amount;
         }

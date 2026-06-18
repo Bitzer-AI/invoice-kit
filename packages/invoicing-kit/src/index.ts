@@ -13,7 +13,26 @@ export type {
 } from "./config";
 export type { AuthContext } from "./auth/types";
 
-// Domain types
+// Domain enums (runtime constants; the same names also export as types below).
+export {
+  DocumentType,
+  DocumentSide,
+  InvoiceStatus,
+  QuoteStatus,
+  TaxType,
+  ProductUsage,
+  NoteType,
+  NoteStatus,
+  PaymentMethodType,
+  PaymentStatus,
+  VendorBillStatus,
+  VendorBillPaymentStatus,
+  FiscalStatus,
+} from "./types";
+export { DEFAULT_CURRENCY } from "./lib/currency";
+
+// Domain types (the enum names above export both their value and type; only
+// the type-only shapes are listed here).
 export type {
   BigintMinor,
   Client,
@@ -23,27 +42,17 @@ export type {
   DocumentLineItemTax,
   DocumentNumberSequence,
   DocumentPaymentMethod,
-  DocumentType,
   FiscalDocument,
-  FiscalStatus,
   Invoice,
-  InvoiceStatus,
   Payment,
   PaymentMethod,
-  PaymentMethodType,
-  PaymentStatus,
   Product,
   Quote,
-  QuoteStatus,
   Tax,
-  TaxType,
   Vendor,
   VendorBill,
-  VendorBillStatus,
   VendorBillPayment,
-  VendorBillPaymentStatus,
   Note,
-  NoteStatus,
 } from "./types";
 
 // Repository interfaces and input/output shapes

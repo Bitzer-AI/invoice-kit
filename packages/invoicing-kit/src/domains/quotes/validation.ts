@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { QuoteStatus } from "../../types";
 import { currencyCodeSchema } from "../../lib/currency";
 import { lineItemSchema } from "../../lib/line-item";
 
@@ -11,7 +12,7 @@ export const createQuoteBody = z.object({
   validUntil: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
   notes: z.string().optional().nullable(),
   currency: currencyCodeSchema.optional(),
-  status: z.enum(["draft", "sent", "accepted", "rejected", "converted"]).default("draft"),
+  status: z.nativeEnum(QuoteStatus).default(QuoteStatus.Draft),
   lineItems: z.array(lineItemSchema).min(1),
   paymentMethodIds: z.array(z.string()).default([]),
 });
@@ -24,7 +25,7 @@ export const updateQuoteBody = z.object({
   issueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   validUntil: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
   notes: z.string().optional().nullable(),
-  status: z.enum(["draft", "sent", "accepted", "rejected", "converted"]).optional(),
+  status: z.nativeEnum(QuoteStatus).optional(),
   lineItems: z.array(lineItemSchema).min(1).optional(),
   paymentMethodIds: z.array(z.string()).optional(),
 });
@@ -50,7 +51,7 @@ export type BulkDeleteQuotesBody = z.infer<typeof bulkDeleteQuotesBody>;
 
 export const bulkUpdateQuoteStatusBody = z.object({
   ids: z.array(z.string()).min(1).max(200),
-  status: z.enum(["draft", "sent", "accepted", "rejected"]),
+  status: z.enum([QuoteStatus.Draft, QuoteStatus.Sent, QuoteStatus.Accepted, QuoteStatus.Rejected]),
 });
 export type BulkUpdateQuoteStatusBody = z.infer<typeof bulkUpdateQuoteStatusBody>;
 
@@ -82,7 +83,7 @@ const lineItemResponse = z.object({
 export const quoteResponse = z.object({
   id: z.string(),
   documentId: z.string(),
-  status: z.enum(["draft", "sent", "accepted", "rejected", "converted"]),
+  status: z.nativeEnum(QuoteStatus),
   validUntil: z.string().nullable(),
   document: z.object({
     clientId: z.string(),

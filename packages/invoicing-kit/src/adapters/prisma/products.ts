@@ -1,4 +1,6 @@
 import type { Product } from "../../types";
+import { ProductUsage } from "../../types";
+import { DEFAULT_CURRENCY } from "../../lib/currency";
 import type {
   ListProductsArgs,
   NewProduct,
@@ -22,9 +24,11 @@ export function createPrismaProductRepository(
           name: data.name,
           description: data.description ?? null,
           price: data.price,
-          currency: data.currency ?? "usd",
+          currency: data.currency ?? DEFAULT_CURRENCY,
           sourceType: data.sourceType ?? null,
           sourceId: data.sourceId ?? null,
+          usage: data.usage ?? ProductUsage.Both,
+          cost: data.cost ?? null,
         },
       });
       return productRowToDomain(row);
@@ -43,6 +47,9 @@ export function createPrismaProductRepository(
       const where: any = { organizationId: args.organizationId };
       if (args.query) {
         where.name = { contains: args.query, mode: "insensitive" };
+      }
+      if (args.usage) {
+        where.usage = { in: [args.usage, ProductUsage.Both] };
       }
       const [rows, totalCount] = await Promise.all([
         db.findMany({

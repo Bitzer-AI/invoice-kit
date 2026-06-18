@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { Product } from "../../types";
+import { ProductUsage } from "../../types";
+import { DEFAULT_CURRENCY } from "../../lib/currency";
 import type {
   ListProductsArgs,
   NewProduct,
@@ -21,9 +23,11 @@ export function createInMemoryProductRepository(store: MemoryStore): ProductRepo
         name: data.name,
         description: data.description ?? null,
         price: data.price,
-        currency: data.currency ?? "usd",
+        currency: data.currency ?? DEFAULT_CURRENCY,
         sourceType: data.sourceType ?? null,
         sourceId: data.sourceId ?? null,
+        usage: data.usage ?? ProductUsage.Both,
+        cost: data.cost ?? null,
         createdAt: now,
         updatedAt: now,
       };
@@ -54,6 +58,9 @@ export function createInMemoryProductRepository(store: MemoryStore): ProductRepo
           args.query
             ? r.name.toLowerCase().includes(args.query.toLowerCase())
             : true,
+        )
+        .filter((r) =>
+          args.usage ? r.usage === args.usage || r.usage === ProductUsage.Both : true,
         )
         .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
       const page = args.page ?? 1;

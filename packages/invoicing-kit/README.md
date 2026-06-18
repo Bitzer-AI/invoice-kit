@@ -104,6 +104,10 @@ Provide exactly one of `productId` / `source`. The product is created once (pric
 
 Documents are single-currency: every line item's product must be denominated in the document's `currency` (compared case-insensitively; stored lowercase). Auto-created source products inherit the document currency; referencing a product priced in another currency fails with `422 LINE_ITEM_CURRENCY_MISMATCH`. Each line item also records a `currency` snapshot, and products accept an optional `currency` (ISO 4217, default `usd`) on create/update.
 
+## Sale vs. purchase products
+
+Each product carries a `usage` of `SALE`, `PURCHASE`, or `BOTH` (default `BOTH`) — which side of the ledger it may appear on. Sales documents (invoices, quotes, credit notes) accept `SALE`/`BOTH` products; purchase documents (vendor bills, debit notes) accept `PURCHASE`/`BOTH`. Referencing a product whose `usage` excludes the document's side fails with `422 PRODUCT_NOT_SELLABLE` or `422 PRODUCT_NOT_PURCHASABLE`. A product created from a `source` line inherits the side it was first used on. List with `?usage=SALE` / `?usage=PURCHASE` to fetch only the products valid for a side (the filter returns that side plus `BOTH`). Products also accept an optional `cost` (purchase unit price, decimal) independent of the sale `price`.
+
 ## Testing
 
 The `invoicing-kit/testing` entry point exports an in-memory adapter so you can exercise the full router without a database:

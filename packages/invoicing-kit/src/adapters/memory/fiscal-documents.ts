@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { FiscalDocument } from "../../types";
+import { FiscalStatus } from "../../types";
 import type { FiscalDocumentRepository, FiscalDocumentUpdate, NewFiscalDocument } from "../types";
 import type { MemoryStore } from "./store";
 
@@ -28,7 +29,7 @@ export function createInMemoryFiscalDocumentRepository(store: MemoryStore): Fisc
             id: randomUUID(),
             invoiceId: data.invoiceId,
             provider: data.provider,
-            status: data.status ?? "pending",
+            status: data.status ?? FiscalStatus.Pending,
             documentType: data.documentType ?? null,
             fiscalId: data.fiscalId ?? null,
             trackId: data.trackId ?? null,

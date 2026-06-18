@@ -1,6 +1,8 @@
 import type { Repositories, ListProductsArgs } from "../../adapters/types";
 import type { AuthContext } from "../../auth/types";
 import type { Product } from "../../types";
+import { ProductUsage } from "../../types";
+import { DEFAULT_CURRENCY } from "../../lib/currency";
 import type { CreateProductBody, UpdateProductBody, ListProductsQuery } from "./validation";
 import { ProductNotFoundException } from "./exceptions";
 
@@ -13,9 +15,11 @@ export class ProductService {
       name: body.name,
       description: body.description ?? null,
       price: body.price,
-      currency: body.currency ?? "usd",
+      currency: body.currency ?? DEFAULT_CURRENCY,
       sourceType: body.sourceType ?? null,
       sourceId: body.sourceId ?? null,
+      usage: body.usage ?? ProductUsage.Both,
+      cost: body.cost ?? null,
     });
   }
 
@@ -25,6 +29,7 @@ export class ProductService {
       page: query.page,
       perPage: query.perPage,
       query: query.query,
+      usage: query.usage,
     };
     return this.repos.products.list(args);
   }

@@ -1,6 +1,7 @@
 import type { Repositories, NoteWithDocument } from "../../adapters/types";
 import type { AuthContext } from "../../auth/types";
 import type { Note } from "../../types";
+import { DocumentType, NoteStatus, NoteType } from "../../types";
 import type { CreateNoteBody, UpdateNoteBody, ListNotesQuery } from "./validation";
 import {
   NoteNotFoundException,
@@ -11,8 +12,8 @@ import {
 import { DocumentCalculator } from "../../lib/calculator";
 import { DocumentNumberingService } from "../../lib/numbering";
 import { TaxStrategy } from "../../lib/tax-strategy";
-import { normalizeCurrency } from "../../lib/currency";
-import { resolveLineItemProduct } from "../../lib/line-item";
+import { normalizeCurrency, DEFAULT_CURRENCY } from "../../lib/currency";
+import { resolveLineItemProduct, documentSide } from "../../lib/line-item";
 import type { InvoicingKitHooks } from "../../config";
 
 export class NoteService {
@@ -39,19 +40,21 @@ export class NoteService {
       // Resolve + validate the referenced document (party invariant).
       const ref = await tx.documents.findById(body.referencedDocumentId, ctx.organizationId);
       if (!ref) throw NoteReferencedDocumentNotFoundException();
-      if (ref.type === "CREDIT_NOTE" || ref.type === "DEBIT_NOTE")
+      if (ref.type === DocumentType.CreditNote || ref.type === DocumentType.DebitNote)
         throw NoteReferencesNoteException();
 
       const isSales = body.clientId != null;
-      if (isSales && ref.type !== "INVOICE")
+      if (isSales && ref.type !== DocumentType.Invoice)
         throw DocumentPartyInvalidException("A client note must reference an INVOICE");
-      if (!isSales && ref.type !== "VENDOR_BILL")
+      if (!isSales && ref.type !== DocumentType.VendorBill)
         throw DocumentPartyInvalidException("A vendor note must reference a VENDOR_BILL");
 
-      const docType = body.noteType === "CREDIT" ? "CREDIT_NOTE" : "DEBIT_NOTE";
+      const docType =
+        body.noteType === NoteType.Credit ? DocumentType.CreditNote : DocumentType.DebitNote;
+      const side = documentSide(docType);
       const number = await this.numbering.next(tx, ctx.organizationId, docType, null);
 
-      const documentCurrency = normalizeCurrency(body.currency ?? "usd");
+      const documentCurrency = normalizeCurrency(body.currency ?? DEFAULT_CURRENCY);
       const lineItems = [];
       for (const lineItem of body.lineItems) {
         const product = await resolveLineItemProduct(
@@ -59,6 +62,7 @@ export class NoteService {
           ctx.organizationId,
           lineItem,
           documentCurrency,
+          side,
         );
         const price = BigInt(lineItem.price);
         const taxResult = await this.tax.computeForLine(tx, ctx.organizationId, {
@@ -114,7 +118,7 @@ export class NoteService {
     });
 
     // Post-commit: a non-draft note is "recorded" the moment it's created.
-    if (note.status !== "draft") {
+    if (note.status !== NoteStatus.Draft) {
       await this.emitRecorded(ctx.organizationId, note.id);
     }
     return note;
@@ -149,7 +153,7 @@ export class NoteService {
     const { updated, wasDraft } = await this.repos.tx(async (tx) => {
       const existing = await tx.notes.findById(id, ctx.organizationId);
       if (!existing) throw NoteNotFoundException();
-      const wasDraft = existing.status === "draft";
+      const wasDraft = existing.status === NoteStatus.Draft;
 
       let updated: Note = {
         id: existing.id,
@@ -171,6 +175,7 @@ export class NoteService {
 
       if (body.lineItems !== undefined) {
         const documentCurrency = normalizeCurrency(existing.document.currency);
+        const side = documentSide(existing.document.type);
         const lineItems = [];
         for (const lineItem of body.lineItems) {
           const product = await resolveLineItemProduct(
@@ -178,6 +183,7 @@ export class NoteService {
             ctx.organizationId,
             lineItem,
             documentCurrency,
+            side,
           );
           const price = BigInt(lineItem.price);
           const taxResult = await this.tax.computeForLine(tx, ctx.organizationId, {
@@ -222,7 +228,7 @@ export class NoteService {
     });
 
     // Post-commit: emit only on the first transition out of draft.
-    if (wasDraft && updated.status !== "draft") {
+    if (wasDraft && updated.status !== NoteStatus.Draft) {
       await this.emitRecorded(ctx.organizationId, updated.id);
     }
     return updated;

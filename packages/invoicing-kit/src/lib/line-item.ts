@@ -16,6 +16,7 @@
 import { z } from "zod";
 import type { Repositories } from "../adapters/types";
 import type { Product } from "../types";
+import { DocumentSide, DocumentType, ProductUsage } from "../types";
 import { normalizeCurrency } from "./currency";
 import { httpError, ErrorCode } from "./errors";
 import { ProductNotFoundException } from "../domains/products/exceptions";
@@ -57,6 +58,27 @@ export const LineItemCurrencyMismatchException = (args: {
     message: `Product ${args.productId} is priced in ${args.productCurrency} but the document is in ${args.documentCurrency}; a document must have a single currency`,
   });
 
+/** SALE for sales documents, PURCHASE for purchase documents. */
+export function documentSide(type: DocumentType): DocumentSide {
+  return type === DocumentType.VendorBill || type === DocumentType.DebitNote
+    ? DocumentSide.Purchase
+    : DocumentSide.Sale;
+}
+
+export const ProductNotSellableException = (productId: string) =>
+  httpError({
+    code: ErrorCode.ProductNotSellable,
+    status: 422,
+    message: `Product ${productId} is not sellable; its usage excludes sales documents`,
+  });
+
+export const ProductNotPurchasableException = (productId: string) =>
+  httpError({
+    code: ErrorCode.ProductNotPurchasable,
+    status: 422,
+    message: `Product ${productId} is not purchasable; its usage excludes purchase documents`,
+  });
+
 /** Converts integer minor units (e.g. cents) to a Decimal(10,2) string: 5000n -> "50.00". */
 export function minorUnitsToDecimalString(minor: bigint): string {
   const negative = minor < 0n;
@@ -81,6 +103,7 @@ export async function resolveLineItemProduct(
   organizationId: string,
   lineItem: Pick<LineItemInput, "productId" | "source" | "price" | "description">,
   documentCurrency: string,
+  side: DocumentSide,
 ): Promise<Product> {
   const currency = normalizeCurrency(documentCurrency);
 
@@ -95,16 +118,27 @@ export async function resolveLineItemProduct(
     return product;
   };
 
+  // A product may only appear on the document side its usage allows. BOTH passes either.
+  const assertUsageAllows = (product: Product): Product => {
+    if (product.usage === ProductUsage.Both || product.usage === side) return product;
+    throw side === DocumentSide.Sale
+      ? ProductNotSellableException(product.id)
+      : ProductNotPurchasableException(product.id);
+  };
+
+  const assertValid = (product: Product): Product =>
+    assertUsageAllows(assertCurrencyMatches(product));
+
   if (lineItem.productId) {
     const product = await repos.products.findById(lineItem.productId, organizationId);
     if (!product) throw ProductNotFoundException();
-    return assertCurrencyMatches(product);
+    return assertValid(product);
   }
 
   // `source` is guaranteed present by the schema's exactly-one refinement.
   const { type, id, name } = lineItem.source!;
   const existing = await repos.products.findBySource(organizationId, type, id);
-  if (existing) return assertCurrencyMatches(existing);
+  if (existing) return assertValid(existing);
 
   return repos.products.create({
     organizationId,
@@ -114,5 +148,8 @@ export async function resolveLineItemProduct(
     currency,
     sourceType: type,
     sourceId: id,
+    // A source product is born from the side it was first used on (a sale-side
+    // source is sellable, a purchase-side source purchasable).
+    usage: side,
   });
 }

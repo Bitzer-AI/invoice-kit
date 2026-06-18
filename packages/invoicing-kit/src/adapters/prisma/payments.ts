@@ -6,6 +6,7 @@ import type {
   PaymentUpdate,
 } from "../types";
 import type { BigintMinor, Payment } from "../../types";
+import { PaymentStatus } from "../../types";
 import type { AnyPrismaClient, PrismaModelNames } from "./client-type";
 import { paymentRowToDomain } from "./mappers";
 
@@ -104,7 +105,7 @@ export function createPrismaPaymentRepository(
       const result = await db.aggregate({
         where: {
           invoiceId,
-          status: "succeeded",
+          status: PaymentStatus.Succeeded,
           invoice: { document: { organizationId } },
         },
         _sum: { amount: true },

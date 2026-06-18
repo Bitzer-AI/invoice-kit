@@ -1,6 +1,7 @@
 import type { Repositories, VendorBillWithDocument } from "../../adapters/types";
 import type { AuthContext } from "../../auth/types";
 import type { VendorBill } from "../../types";
+import { DocumentSide, DocumentType, VendorBillStatus } from "../../types";
 import type {
   CreateVendorBillBody,
   UpdateVendorBillBody,
@@ -11,7 +12,7 @@ import { VendorNotFoundException } from "../vendors/exceptions";
 import { DocumentCalculator } from "../../lib/calculator";
 import { DocumentNumberingService } from "../../lib/numbering";
 import { TaxStrategy } from "../../lib/tax-strategy";
-import { normalizeCurrency } from "../../lib/currency";
+import { normalizeCurrency, DEFAULT_CURRENCY } from "../../lib/currency";
 import { resolveLineItemProduct } from "../../lib/line-item";
 import type { InvoicingKitHooks } from "../../config";
 
@@ -43,9 +44,9 @@ export class VendorBillService {
       // Internal-only document number (the user-facing reference is externalDocumentNumber).
       // The VENDOR_BILL series keeps the Document unique constraint satisfied without
       // exposing a kit-assigned number.
-      const number = await this.numbering.next(tx, ctx.organizationId, "VENDOR_BILL", null);
+      const number = await this.numbering.next(tx, ctx.organizationId, DocumentType.VendorBill, null);
 
-      const documentCurrency = normalizeCurrency(body.currency ?? "usd");
+      const documentCurrency = normalizeCurrency(body.currency ?? DEFAULT_CURRENCY);
       const lineItems = [];
       for (const lineItem of body.lineItems) {
         const product = await resolveLineItemProduct(
@@ -53,6 +54,7 @@ export class VendorBillService {
           ctx.organizationId,
           lineItem,
           documentCurrency,
+          DocumentSide.Purchase,
         );
         const price = BigInt(lineItem.price);
         const taxResult = await this.tax.computeForLine(tx, ctx.organizationId, {
@@ -86,7 +88,7 @@ export class VendorBillService {
       );
 
       const doc = await tx.documents.create({
-        type: "VENDOR_BILL",
+        type: DocumentType.VendorBill,
         organizationId: ctx.organizationId,
         clientId: null,
         vendorId: body.vendorId,
@@ -107,7 +109,7 @@ export class VendorBillService {
     });
 
     // Post-commit: a non-draft bill is "recorded" the moment it's created.
-    if (bill.status !== "draft") {
+    if (bill.status !== VendorBillStatus.Draft) {
       await this.emitRecorded(ctx.organizationId, bill.id);
     }
     return bill;
@@ -138,7 +140,7 @@ export class VendorBillService {
     const { updated, wasDraft } = await this.repos.tx(async (tx) => {
       const existing = await tx.vendorBills.findById(id, ctx.organizationId);
       if (!existing) throw VendorBillNotFoundException();
-      const wasDraft = existing.status === "draft";
+      const wasDraft = existing.status === VendorBillStatus.Draft;
 
       let updated: VendorBill = existing;
       if (body.status !== undefined) {
@@ -163,6 +165,7 @@ export class VendorBillService {
             ctx.organizationId,
             lineItem,
             documentCurrency,
+            DocumentSide.Purchase,
           );
           const price = BigInt(lineItem.price);
           const taxResult = await this.tax.computeForLine(tx, ctx.organizationId, {
@@ -207,7 +210,7 @@ export class VendorBillService {
     });
 
     // Post-commit: emit only on the first transition out of draft.
-    if (wasDraft && updated.status !== "draft") {
+    if (wasDraft && updated.status !== VendorBillStatus.Draft) {
       await this.emitRecorded(ctx.organizationId, updated.id);
     }
     return updated;

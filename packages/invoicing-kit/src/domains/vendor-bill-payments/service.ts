@@ -1,6 +1,7 @@
 import type { Repositories } from "../../adapters/types";
 import type { AuthContext } from "../../auth/types";
 import type { VendorBillPayment } from "../../types";
+import { VendorBillPaymentStatus, VendorBillStatus } from "../../types";
 import type { CreateVendorBillPaymentBody } from "./validation";
 import { VendorBillNotFoundException } from "../vendor-bills/exceptions";
 import {
@@ -40,7 +41,7 @@ export class VendorBillPaymentService {
         paymentMethodId: body.paymentMethodId ?? null,
         amount,
         currency: body.currency,
-        status: "succeeded",
+        status: VendorBillPaymentStatus.Succeeded,
         provider: body.provider,
         paidAt: body.paidAt ? new Date(body.paidAt) : new Date(),
         reference: body.reference ?? null,
@@ -50,9 +51,13 @@ export class VendorBillPaymentService {
 
       const newTotalPaid = alreadyPaid + amount;
       if (newTotalPaid >= billTotal) {
-        await tx.vendorBills.update(vendorBillId, ctx.organizationId, { status: "paid" });
+        await tx.vendorBills.update(vendorBillId, ctx.organizationId, {
+          status: VendorBillStatus.Paid,
+        });
       } else if (newTotalPaid > 0n) {
-        await tx.vendorBills.update(vendorBillId, ctx.organizationId, { status: "partially_paid" });
+        await tx.vendorBills.update(vendorBillId, ctx.organizationId, {
+          status: VendorBillStatus.PartiallyPaid,
+        });
       }
 
       return created;
@@ -99,7 +104,11 @@ export class VendorBillPaymentService {
       // pre-payment state was "received" — valid under the current state machine
       // (you can't record a payment against a draft).
       const newStatus =
-        remaining >= billTotal ? "paid" : remaining > 0n ? "partially_paid" : "received";
+        remaining >= billTotal
+          ? VendorBillStatus.Paid
+          : remaining > 0n
+            ? VendorBillStatus.PartiallyPaid
+            : VendorBillStatus.Received;
       await tx.vendorBills.update(payment.vendorBillId, ctx.organizationId, { status: newStatus });
     });
   }

@@ -17,6 +17,7 @@ import type {
   PaymentMethodType,
   PaymentStatus,
   Product,
+  ProductUsage,
   Quote,
   QuoteStatus,
   Tax,
@@ -114,6 +115,10 @@ export interface NewProduct {
   currency?: string;
   sourceType?: string | null;
   sourceId?: string | null;
+  /** Which document side this product may appear on. Defaults to BOTH. */
+  usage?: ProductUsage;
+  /** Optional purchase unit price (DecimalString). Null when unset. */
+  cost?: DecimalString | null;
 }
 
 export type ProductUpdate = Partial<Omit<NewProduct, "organizationId">>;
@@ -121,6 +126,8 @@ export type ProductUpdate = Partial<Omit<NewProduct, "organizationId">>;
 export interface ListProductsArgs extends PageRequest {
   organizationId: string;
   query?: string;
+  /** Restrict to products valid on this side: matches `usage === filter OR usage === BOTH`. */
+  usage?: ProductUsage;
 }
 
 export interface ProductRepository {

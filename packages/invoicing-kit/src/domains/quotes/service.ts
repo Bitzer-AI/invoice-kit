@@ -2,12 +2,13 @@ import type { Repositories } from "../../adapters/types";
 import type { QuoteWithDocument } from "../../adapters/types";
 import type { AuthContext } from "../../auth/types";
 import type { Quote } from "../../types";
+import { DocumentSide, DocumentType, QuoteStatus } from "../../types";
 import type { CreateQuoteBody, UpdateQuoteBody, ListQuotesQuery } from "./validation";
 import { QuoteNotFoundException, QuoteNumberAlreadyExistsException } from "./exceptions";
 import { DocumentCalculator } from "../../lib/calculator";
 import { DocumentNumberingService } from "../../lib/numbering";
 import { TaxStrategy } from "../../lib/tax-strategy";
-import { normalizeCurrency } from "../../lib/currency";
+import { normalizeCurrency, DEFAULT_CURRENCY } from "../../lib/currency";
 import { resolveLineItemProduct } from "../../lib/line-item";
 
 export class QuoteService {
@@ -25,7 +26,7 @@ export class QuoteService {
       // (the series counter is left untouched); otherwise the series assigns it.
       const number =
         body.documentNumber ??
-        (await this.numbering.next(tx, ctx.organizationId, "QUOTE", resolvedPrefix));
+        (await this.numbering.next(tx, ctx.organizationId, DocumentType.Quote, resolvedPrefix));
       // Pre-check uniqueness for the (org, prefix, number) tuple.
       const existing = await tx.quotes.findByDocumentNumber({
         organizationId: ctx.organizationId,
@@ -35,7 +36,7 @@ export class QuoteService {
       if (existing) throw QuoteNumberAlreadyExistsException();
 
       // Compute line items with taxes.
-      const documentCurrency = normalizeCurrency(body.currency ?? "usd");
+      const documentCurrency = normalizeCurrency(body.currency ?? DEFAULT_CURRENCY);
       const lineItems = [];
       for (const lineItem of body.lineItems) {
         const product = await resolveLineItemProduct(
@@ -43,6 +44,7 @@ export class QuoteService {
           ctx.organizationId,
           lineItem,
           documentCurrency,
+          DocumentSide.Sale,
         );
         const price = BigInt(lineItem.price);
         const taxResult = await this.tax.computeForLine(tx, ctx.organizationId, {
@@ -77,7 +79,7 @@ export class QuoteService {
       );
 
       const doc = await tx.documents.create({
-        type: "QUOTE",
+        type: DocumentType.Quote,
         organizationId: ctx.organizationId,
         clientId: body.clientId,
         documentNumberPrefix: resolvedPrefix,
@@ -158,6 +160,7 @@ export class QuoteService {
             ctx.organizationId,
             lineItem,
             documentCurrency,
+            DocumentSide.Sale,
           );
           const price = BigInt(lineItem.price);
           const taxResult = await this.tax.computeForLine(tx, ctx.organizationId, {
@@ -235,7 +238,7 @@ export class QuoteService {
 
   async bulkUpdateStatus(
     ids: string[],
-    status: "draft" | "sent" | "accepted" | "rejected",
+    status: QuoteStatus,
     ctx: AuthContext,
   ): Promise<{ count: number }> {
     let count = 0;

@@ -3,6 +3,9 @@
 
 import { z } from "zod";
 
+/** Default currency (lowercase ISO 4217) applied when a request omits one. */
+export const DEFAULT_CURRENCY = "usd";
+
 /** Lowercase ISO 4217 form used for storage and comparison ("USD" -> "usd"). */
 export function normalizeCurrency(currency: string): string {
   return currency.toLowerCase();

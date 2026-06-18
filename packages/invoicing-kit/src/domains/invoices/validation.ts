@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { InvoiceStatus } from "../../types";
 import { currencyCodeSchema } from "../../lib/currency";
 import { lineItemSchema } from "../../lib/line-item";
 
@@ -11,7 +12,7 @@ export const createInvoiceBody = z.object({
   paidDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
   notes: z.string().optional().nullable(),
   currency: currencyCodeSchema.optional(),
-  status: z.enum(["draft", "sent", "paid", "partially_paid"]).default("draft"),
+  status: z.nativeEnum(InvoiceStatus).default(InvoiceStatus.Draft),
   lineItems: z.array(lineItemSchema).min(1),
   paymentMethodIds: z.array(z.string()).default([]),
 });
@@ -24,7 +25,7 @@ export const updateInvoiceBody = z.object({
   issueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   paidDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
   notes: z.string().optional().nullable(),
-  status: z.enum(["draft", "sent", "paid", "partially_paid"]).optional(),
+  status: z.nativeEnum(InvoiceStatus).optional(),
   lineItems: z.array(lineItemSchema).min(1).optional(),
   paymentMethodIds: z.array(z.string()).optional(),
 });
@@ -52,7 +53,7 @@ export type BulkDeleteInvoicesBody = z.infer<typeof bulkDeleteInvoicesBody>;
 
 export const bulkUpdateInvoiceStatusBody = z.object({
   ids: z.array(z.string()).min(1).max(200),
-  status: z.enum(["draft", "sent", "paid"]),
+  status: z.enum([InvoiceStatus.Draft, InvoiceStatus.Sent, InvoiceStatus.Paid]),
 });
 export type BulkUpdateInvoiceStatusBody = z.infer<typeof bulkUpdateInvoiceStatusBody>;
 
@@ -89,7 +90,7 @@ const lineItemResponse = z.object({
 export const invoiceResponse = z.object({
   id: z.string(),
   documentId: z.string(),
-  status: z.enum(["draft", "sent", "paid", "partially_paid"]),
+  status: z.nativeEnum(InvoiceStatus),
   paidDate: z.string().nullable(),
   convertedFromQuoteId: z.string().nullable(),
   document: z.object({

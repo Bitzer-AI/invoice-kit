@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { Invoice } from "../../types";
+import { DocumentType } from "../../types";
 import type {
   InvoiceRepository,
   InvoiceUpdate,
@@ -58,7 +59,7 @@ export function createInMemoryInvoiceRepository(
         const doc = await documents.findById(invoice.documentId, organizationId);
         if (!doc) continue;
         if (
-          doc.type === "INVOICE" &&
+          doc.type === DocumentType.Invoice &&
           doc.organizationId === organizationId &&
           doc.documentNumberPrefix === prefix &&
           doc.documentNumber === documentNumber

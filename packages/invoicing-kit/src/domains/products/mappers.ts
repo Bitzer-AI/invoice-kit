@@ -10,6 +10,8 @@ export function productToResponse(product: Product): ProductResponse {
     currency: product.currency,
     sourceType: product.sourceType,
     sourceId: product.sourceId,
+    usage: product.usage,
+    cost: product.cost,
     createdAt: product.createdAt.toISOString(),
     updatedAt: product.updatedAt.toISOString(),
   };

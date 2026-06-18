@@ -2,6 +2,7 @@ import type { Repositories } from "../../adapters/types";
 import type { InvoiceWithDocument } from "../../adapters/types";
 import type { AuthContext } from "../../auth/types";
 import type { Invoice } from "../../types";
+import { DocumentSide, DocumentType, InvoiceStatus, QuoteStatus } from "../../types";
 import type {
   CreateInvoiceBody,
   UpdateInvoiceBody,
@@ -17,7 +18,7 @@ import { QuoteNotFoundException } from "../quotes/exceptions";
 import { DocumentCalculator } from "../../lib/calculator";
 import { DocumentNumberingService } from "../../lib/numbering";
 import { TaxStrategy } from "../../lib/tax-strategy";
-import { normalizeCurrency } from "../../lib/currency";
+import { normalizeCurrency, DEFAULT_CURRENCY } from "../../lib/currency";
 import { resolveLineItemProduct } from "../../lib/line-item";
 import type { InvoicingKitHooks } from "../../config";
 
@@ -50,7 +51,7 @@ export class InvoiceService {
       // (the series counter is left untouched); otherwise the series assigns it.
       const number =
         body.documentNumber ??
-        (await this.numbering.next(tx, ctx.organizationId, "INVOICE", resolvedPrefix));
+        (await this.numbering.next(tx, ctx.organizationId, DocumentType.Invoice, resolvedPrefix));
       // Pre-check uniqueness for the (org, prefix, number) tuple.
       const existing = await tx.invoices.findByDocumentNumber({
         organizationId: ctx.organizationId,
@@ -60,7 +61,7 @@ export class InvoiceService {
       if (existing) throw InvoiceNumberAlreadyExistsException();
 
       // Compute line items with taxes.
-      const documentCurrency = normalizeCurrency(body.currency ?? "usd");
+      const documentCurrency = normalizeCurrency(body.currency ?? DEFAULT_CURRENCY);
       const lineItems = [];
       for (const lineItem of body.lineItems) {
         const product = await resolveLineItemProduct(
@@ -68,6 +69,7 @@ export class InvoiceService {
           ctx.organizationId,
           lineItem,
           documentCurrency,
+          DocumentSide.Sale,
         );
         const price = BigInt(lineItem.price);
         const taxResult = await this.tax.computeForLine(tx, ctx.organizationId, {
@@ -102,7 +104,7 @@ export class InvoiceService {
       );
 
       const doc = await tx.documents.create({
-        type: "INVOICE",
+        type: DocumentType.Invoice,
         organizationId: ctx.organizationId,
         clientId: body.clientId,
         documentNumberPrefix: resolvedPrefix,
@@ -119,7 +121,7 @@ export class InvoiceService {
 
       // Default paidDate to now when status is "paid" and no paidDate provided.
       let paidDate: Date | null = body.paidDate ? new Date(body.paidDate) : null;
-      if (body.status === "paid" && paidDate === null) {
+      if (body.status === InvoiceStatus.Paid && paidDate === null) {
         paidDate = new Date();
       }
 
@@ -132,7 +134,7 @@ export class InvoiceService {
     });
 
     // Post-commit: a non-draft invoice is "issued" the moment it's created.
-    if (invoice.status !== "draft") {
+    if (invoice.status !== InvoiceStatus.Draft) {
       await this.emitIssued(ctx.organizationId, invoice.id);
     }
     return invoice;
@@ -164,7 +166,7 @@ export class InvoiceService {
     const { updated, wasDraft } = await this.repos.tx(async (tx) => {
       const existing = await tx.invoices.findById(id, ctx.organizationId);
       if (!existing) throw InvoiceNotFoundException();
-      const wasDraft = existing.status === "draft";
+      const wasDraft = existing.status === InvoiceStatus.Draft;
 
       // Patch scalar invoice fields.
       const invoiceUpdate: { status?: any; paidDate?: Date | null } = {};
@@ -175,7 +177,7 @@ export class InvoiceService {
 
       // Auto-set paidDate when transitioning to "paid" and no paidDate supplied.
       if (
-        body.status === "paid" &&
+        body.status === InvoiceStatus.Paid &&
         body.paidDate === undefined &&
         existing.paidDate === null
       ) {
@@ -208,6 +210,7 @@ export class InvoiceService {
             ctx.organizationId,
             lineItem,
             documentCurrency,
+            DocumentSide.Sale,
           );
           const price = BigInt(lineItem.price);
           const taxResult = await this.tax.computeForLine(tx, ctx.organizationId, {
@@ -261,7 +264,7 @@ export class InvoiceService {
     });
 
     // Post-commit: emit only on the first transition out of draft.
-    if (wasDraft && updated.status !== "draft") {
+    if (wasDraft && updated.status !== InvoiceStatus.Draft) {
       await this.emitIssued(ctx.organizationId, updated.id);
     }
     return updated;
@@ -291,7 +294,7 @@ export class InvoiceService {
 
   async bulkUpdateStatus(
     ids: string[],
-    status: "draft" | "sent" | "paid",
+    status: InvoiceStatus,
     ctx: AuthContext,
   ): Promise<{ count: number }> {
     let count = 0;
@@ -301,10 +304,10 @@ export class InvoiceService {
         const i = await tx.invoices.findById(id, ctx.organizationId);
         if (!i) continue;
         const patch: { status: typeof status; paidDate?: Date | null } = { status };
-        if (status === "paid" && i.paidDate === null) patch.paidDate = new Date();
+        if (status === InvoiceStatus.Paid && i.paidDate === null) patch.paidDate = new Date();
         await tx.invoices.update(id, ctx.organizationId, patch);
         // First transition out of draft → issued.
-        if (i.status === "draft" && status !== "draft") issuedIds.push(id);
+        if (i.status === InvoiceStatus.Draft && status !== InvoiceStatus.Draft) issuedIds.push(id);
         count++;
       }
     });
@@ -324,9 +327,9 @@ export class InvoiceService {
     return this.repos.tx(async (tx) => {
       const quote = await tx.quotes.findById(quoteId, ctx.organizationId);
       if (!quote) throw QuoteNotFoundException();
-      if (quote.status === "converted") throw QuoteAlreadyConvertedException();
+      if (quote.status === QuoteStatus.Converted) throw QuoteAlreadyConvertedException();
 
-      const number = await this.numbering.next(tx, ctx.organizationId, "INVOICE", null);
+      const number = await this.numbering.next(tx, ctx.organizationId, DocumentType.Invoice, null);
 
       // Build line items by copying from the quote (no recomputation).
       const lineItems = quote.document.lineItems.map((lineItem) => ({
@@ -342,7 +345,7 @@ export class InvoiceService {
       }));
 
       const doc = await tx.documents.create({
-        type: "INVOICE",
+        type: DocumentType.Invoice,
         organizationId: ctx.organizationId,
         clientId: quote.document.clientId,
         documentNumberPrefix: null,
@@ -359,12 +362,12 @@ export class InvoiceService {
 
       const invoice = await tx.invoices.create({
         documentId: doc.id,
-        status: "draft",
+        status: InvoiceStatus.Draft,
         paidDate: null,
         convertedFromQuoteId: quote.id,
       });
 
-      await tx.quotes.update(quote.id, ctx.organizationId, { status: "converted" });
+      await tx.quotes.update(quote.id, ctx.organizationId, { status: QuoteStatus.Converted });
 
       return invoice;
     });

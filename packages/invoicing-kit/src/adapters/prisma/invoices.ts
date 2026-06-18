@@ -7,6 +7,7 @@ import type {
   Page,
 } from "../types";
 import type { Invoice } from "../../types";
+import { DocumentType } from "../../types";
 import type { AnyPrismaClient, PrismaModelNames } from "./client-type";
 import {
   invoiceRowToDomain,
@@ -53,7 +54,7 @@ export function createPrismaInvoiceRepository(
       const row = await db.findFirst({
         where: {
           document: {
-            type: "INVOICE",
+            type: DocumentType.Invoice,
             organizationId,
             documentNumberPrefix: prefix,
             documentNumber,

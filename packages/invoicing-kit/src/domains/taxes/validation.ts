@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TaxType } from "../../types";
 
 const rateSchema = z
   .string()
@@ -10,7 +11,7 @@ const rateSchema = z
 const baseTaxBody = z.object({
   name: z.string().min(1).max(100),
   description: z.string().optional().nullable(),
-  type: z.enum(["PERCENTAGE", "FIXED"]),
+  type: z.nativeEnum(TaxType),
   rate: rateSchema,
   isActive: z.boolean().optional(),
   isDefault: z.boolean().optional(),
@@ -21,7 +22,7 @@ const baseTaxBody = z.object({
 // whole-percent mistake (e.g. "18" → 1800%) that would silently corrupt invoice totals.
 // FIXED rates are minor units and legitimately >= 1, so they are exempt.
 const percentageRateIsFraction = (data: { type?: string; rate?: string }): boolean =>
-  !(data.type === "PERCENTAGE" && data.rate != null && Number(data.rate) >= 1);
+  !(data.type === TaxType.Percentage && data.rate != null && Number(data.rate) >= 1);
 const percentageRateIssue = {
   path: ["rate"],
   message:
@@ -43,7 +44,7 @@ export const taxResponse = z.object({
   id: z.string(),
   name: z.string(),
   description: z.string().nullable(),
-  type: z.enum(["PERCENTAGE", "FIXED"]),
+  type: z.nativeEnum(TaxType),
   rate: z.string(),
   isActive: z.boolean(),
   isDefault: z.boolean(),

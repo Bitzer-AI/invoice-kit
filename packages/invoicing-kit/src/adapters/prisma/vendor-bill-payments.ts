@@ -1,4 +1,5 @@
 import type { BigintMinor, VendorBillPayment } from "../../types";
+import { VendorBillPaymentStatus } from "../../types";
 import type {
   ListVendorBillPaymentsArgs,
   NewVendorBillPayment,
@@ -78,7 +79,7 @@ export function createPrismaVendorBillPaymentRepository(
 
     async totalPaidForBill(vendorBillId, organizationId): Promise<BigintMinor> {
       const result = await db.aggregate({
-        where: { vendorBillId, organizationId, status: "succeeded" },
+        where: { vendorBillId, organizationId, status: VendorBillPaymentStatus.Succeeded },
         _sum: { amount: true },
       });
       return (result._sum.amount as bigint | null) ?? 0n;

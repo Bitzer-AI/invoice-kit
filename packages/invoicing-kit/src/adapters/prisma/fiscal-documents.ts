@@ -1,4 +1,5 @@
 import type { FiscalDocument } from "../../types";
+import { FiscalStatus } from "../../types";
 import type { FiscalDocumentRepository, FiscalDocumentUpdate, NewFiscalDocument } from "../types";
 import type { AnyPrismaClient, PrismaModelNames } from "./client-type";
 import { fiscalDocumentRowToDomain } from "./mappers";
@@ -15,7 +16,7 @@ export function createPrismaFiscalDocumentRepository(
         create: {
           invoiceId: data.invoiceId,
           provider: data.provider,
-          status: data.status ?? "pending",
+          status: data.status ?? FiscalStatus.Pending,
           documentType: data.documentType ?? null,
           fiscalId: data.fiscalId ?? null,
           trackId: data.trackId ?? null,

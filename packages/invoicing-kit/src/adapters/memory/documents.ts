@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { DEFAULT_CURRENCY } from "../../lib/currency";
 import type {
   Document,
   DocumentLineItem,
@@ -36,7 +37,7 @@ export function createInMemoryDocumentRepository(store: MemoryStore): DocumentRe
           name: product?.name ?? "",
           description: product?.description ?? null,
           price: product?.price ?? "0.00",
-          currency: product?.currency ?? "usd",
+          currency: product?.currency ?? DEFAULT_CURRENCY,
           sourceType: product?.sourceType ?? null,
           sourceId: product?.sourceId ?? null,
         },
@@ -152,7 +153,7 @@ export function createInMemoryDocumentRepository(store: MemoryStore): DocumentRe
         issueDate: data.issueDate,
         dueDate: data.dueDate ?? null,
         notes: data.notes ?? null,
-        currency: data.currency ?? "usd",
+        currency: data.currency ?? DEFAULT_CURRENCY,
         subtotal: data.subtotal,
         tax: data.tax,
         total: data.total,
