@@ -1,5 +1,6 @@
 import type { Repositories } from "./adapters/types";
 import type { InvoicingKitHooks } from "./config";
+import { buildMoneySettings, type MoneySettings } from "./lib/money/settings";
 import { ClientService } from "./domains/clients/service";
 import { VendorService } from "./domains/vendors/service";
 import { ProductService } from "./domains/products/service";
@@ -12,6 +13,7 @@ import { PaymentService } from "./domains/payments/service";
 import { VendorBillPaymentService } from "./domains/vendor-bill-payments/service";
 import { NoteService } from "./domains/notes/service";
 import { NumberingService } from "./domains/numbering/service";
+import { DocumentCalculationService } from "./domains/documents/service";
 
 export interface Services {
   clients: ClientService;
@@ -26,21 +28,24 @@ export interface Services {
   vendorBillPayments: VendorBillPaymentService;
   notes: NoteService;
   numbering: NumberingService;
+  documents: DocumentCalculationService;
 }
 
-export function buildServices(repos: Repositories, hooks?: InvoicingKitHooks): Services {
+export function buildServices(repos: Repositories, hooks?: InvoicingKitHooks, money?: MoneySettings): Services {
+  const settings = money ?? buildMoneySettings();
   return {
     clients: new ClientService(repos),
     vendors: new VendorService(repos),
     products: new ProductService(repos),
     taxes: new TaxService(repos),
     paymentMethods: new PaymentMethodService(repos),
-    quotes: new QuoteService(repos),
-    invoices: new InvoiceService(repos, undefined, undefined, undefined, hooks),
-    vendorBills: new VendorBillService(repos, undefined, undefined, undefined, hooks),
-    payments: new PaymentService(repos, hooks),
-    vendorBillPayments: new VendorBillPaymentService(repos, hooks),
-    notes: new NoteService(repos, undefined, undefined, undefined, hooks),
+    quotes: new QuoteService(repos, { money: settings }),
+    invoices: new InvoiceService(repos, { hooks, money: settings }),
+    vendorBills: new VendorBillService(repos, { hooks, money: settings }),
+    payments: new PaymentService(repos, { hooks, money: settings }),
+    vendorBillPayments: new VendorBillPaymentService(repos, { hooks, money: settings }),
+    notes: new NoteService(repos, { hooks, money: settings }),
     numbering: new NumberingService(repos),
+    documents: new DocumentCalculationService(repos, settings),
   };
 }

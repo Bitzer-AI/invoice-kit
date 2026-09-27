@@ -2,6 +2,12 @@ import { z } from "zod";
 import { VendorBillStatus } from "../../types";
 import { currencyCodeSchema } from "../../lib/currency";
 import { lineItemSchema } from "../../lib/line-item";
+import { exchangeRateSchema } from "../../lib/exchange";
+import {
+  documentMoneyResponseFields,
+  lineItemBaseResponseFields,
+  lineItemTaxBaseResponseFields,
+} from "../../lib/document-response";
 
 export const vendorBillStatusEnum = z.nativeEnum(VendorBillStatus);
 
@@ -14,6 +20,7 @@ export const createVendorBillBody = z.object({
   currency: currencyCodeSchema.optional(),
   status: vendorBillStatusEnum.default(VendorBillStatus.Draft),
   lineItems: z.array(lineItemSchema).min(1),
+  exchangeRate: exchangeRateSchema.optional().nullable(),
 });
 export type CreateVendorBillBody = z.infer<typeof createVendorBillBody>;
 
@@ -24,6 +31,7 @@ export const updateVendorBillBody = z.object({
   notes: z.string().optional().nullable(),
   status: vendorBillStatusEnum.optional(),
   lineItems: z.array(lineItemSchema).min(1).optional(),
+  exchangeRate: exchangeRateSchema.optional().nullable(),
 });
 export type UpdateVendorBillBody = z.infer<typeof updateVendorBillBody>;
 
@@ -59,7 +67,10 @@ const lineItemResponse = z.object({
     price: z.string(),
     currency: z.string(),
   }),
-  taxes: z.array(z.object({ id: z.string(), taxId: z.string(), taxAmount: z.string() })),
+  taxes: z.array(
+    z.object({ id: z.string(), taxId: z.string(), taxAmount: z.string(), ...lineItemTaxBaseResponseFields }),
+  ),
+  ...lineItemBaseResponseFields,
 });
 
 export const vendorBillResponse = z.object({
@@ -88,6 +99,7 @@ export const vendorBillResponse = z.object({
     tax: z.string().nullable(),
     total: z.string().nullable(),
     lineItems: z.array(lineItemResponse),
+    ...documentMoneyResponseFields,
   }),
 });
 export type VendorBillResponse = z.infer<typeof vendorBillResponse>;

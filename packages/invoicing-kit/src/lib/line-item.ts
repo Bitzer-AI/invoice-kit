@@ -59,10 +59,9 @@ export const LineItemCurrencyMismatchException = (args: {
   });
 
 /** SALE for sales documents, PURCHASE for purchase documents. */
-export function documentSide(type: DocumentType): DocumentSide {
-  return type === DocumentType.VendorBill || type === DocumentType.DebitNote
-    ? DocumentSide.Purchase
-    : DocumentSide.Sale;
+/** A note sits on its party's side: a vendor's note is a purchase, a client's note a sale. */
+export function noteSide(party: { vendorId?: string | null }): DocumentSide {
+  return party.vendorId ? DocumentSide.Purchase : DocumentSide.Sale;
 }
 
 export const ProductNotSellableException = (productId: string) =>

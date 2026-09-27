@@ -7,7 +7,7 @@ export const createPaymentBody = z.object({
   amount: z.string().regex(/^\d+$/, "Amount must be integer minor units"),
   currency: currencyCodeSchema,
   provider: z.string().min(1).max(50),
-  paidAt: z.string().datetime().optional().nullable(),
+  paidAt: z.string().datetime({ offset: true }).optional().nullable(),
   reference: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
 });

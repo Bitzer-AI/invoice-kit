@@ -108,6 +108,14 @@ model Document {
   subtotal               BigInt? // Amount in minor units (cents)
   tax                    BigInt? // Amount in minor units (cents)
   total                  BigInt? // Amount in minor units (cents)
+  moneyPolicy            Json?        @map("money_policy")
+  baseCurrency           String?      @map("base_currency") @db.VarChar(3)
+  exchangeRate           Decimal?     @map("exchange_rate") @db.Decimal(18, 8)
+  exchangeRateDate       DateTime?    @map("exchange_rate_date") @db.Date
+  exchangeRateSource     String?      @map("exchange_rate_source") @db.VarChar(16)
+  baseSubtotal           BigInt?      @map("base_subtotal") // Base-currency minor units
+  baseTax                BigInt?      @map("base_tax")
+  baseTotal              BigInt?      @map("base_total")
   createdAt              DateTime     @default(now()) @map("created_at")
   updatedAt              DateTime     @default(now()) @updatedAt @map("updated_at")
 
@@ -213,6 +221,7 @@ model DocumentLineItem {
   currency    String   @default("usd") @db.VarChar(3)
   taxAmount   BigInt?  @default(0) @map("tax_amount") // Amount in minor units (cents)
   total       BigInt // Amount in minor units (cents)
+  baseSubtotal BigInt? @map("base_subtotal") // Line net, base-currency minor units
   description String?  @map("description") @db.VarChar(255)
   metadata    Json?
   createdAt   DateTime @default(now()) @map("created_at")
@@ -230,6 +239,7 @@ model DocumentLineItemTax {
   lineItemId String   @map("line_item_id")
   taxId      String   @map("tax_id")
   taxAmount  BigInt   @map("tax_amount") // Amount in minor units (cents)
+  baseTaxAmount BigInt? @map("base_tax_amount")
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @default(now()) @updatedAt @map("updated_at")
 

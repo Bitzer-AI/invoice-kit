@@ -1,5 +1,10 @@
 import type { NoteWithDocument, DocumentWithRelations } from "../../adapters/types";
 import type { NoteResponse } from "./validation";
+import {
+  documentMoneyToResponse,
+  lineItemBaseToResponse,
+  lineItemTaxBaseToResponse,
+} from "../../lib/document-response";
 
 function lineItemToResponse(lineItem: DocumentWithRelations["lineItems"][number]) {
   return {
@@ -26,7 +31,9 @@ function lineItemToResponse(lineItem: DocumentWithRelations["lineItems"][number]
       id: tax.id,
       taxId: tax.taxId,
       taxAmount: tax.taxAmount.toString(),
+      ...lineItemTaxBaseToResponse(tax),
     })),
+    ...lineItemBaseToResponse(lineItem),
   };
 }
 
@@ -47,6 +54,7 @@ function documentToResponse(doc: DocumentWithRelations) {
     tax: doc.tax !== null ? doc.tax.toString() : null,
     total: doc.total !== null ? doc.total.toString() : null,
     lineItems: doc.lineItems.map(lineItemToResponse),
+    ...documentMoneyToResponse(doc),
   };
 }
 

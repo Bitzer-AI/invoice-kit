@@ -2,6 +2,12 @@ import { z } from "zod";
 import { DocumentType, NoteStatus, NoteType } from "../../types";
 import { currencyCodeSchema } from "../../lib/currency";
 import { lineItemSchema } from "../../lib/line-item";
+import { exchangeRateSchema } from "../../lib/exchange";
+import {
+  documentMoneyResponseFields,
+  lineItemBaseResponseFields,
+  lineItemTaxBaseResponseFields,
+} from "../../lib/document-response";
 
 export const noteTypeEnum = z.nativeEnum(NoteType);
 export const noteStatusEnum = z.nativeEnum(NoteStatus);
@@ -19,6 +25,7 @@ export const createNoteBody = z
     currency: currencyCodeSchema.optional(),
     status: noteStatusEnum.default(NoteStatus.Draft),
     lineItems: z.array(lineItemSchema).min(1),
+    exchangeRate: exchangeRateSchema.optional().nullable(),
   })
   .refine((b) => (b.clientId == null) !== (b.vendorId == null), {
     message: "Exactly one of clientId or vendorId is required",
@@ -32,6 +39,7 @@ export const updateNoteBody = z.object({
   notes: z.string().optional().nullable(),
   status: noteStatusEnum.optional(),
   lineItems: z.array(lineItemSchema).min(1).optional(),
+  exchangeRate: exchangeRateSchema.optional().nullable(),
 });
 export type UpdateNoteBody = z.infer<typeof updateNoteBody>;
 
@@ -73,7 +81,10 @@ const lineItemResponse = z.object({
     price: z.string(),
     currency: z.string(),
   }),
-  taxes: z.array(z.object({ id: z.string(), taxId: z.string(), taxAmount: z.string() })),
+  taxes: z.array(
+    z.object({ id: z.string(), taxId: z.string(), taxAmount: z.string(), ...lineItemTaxBaseResponseFields }),
+  ),
+  ...lineItemBaseResponseFields,
 });
 
 export const noteResponse = z.object({
@@ -109,6 +120,7 @@ export const noteResponse = z.object({
     tax: z.string().nullable(),
     total: z.string().nullable(),
     lineItems: z.array(lineItemResponse),
+    ...documentMoneyResponseFields,
   }),
 });
 export type NoteResponse = z.infer<typeof noteResponse>;

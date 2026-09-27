@@ -51,6 +51,44 @@ export const DocumentSide = {
 } as const;
 export type DocumentSide = (typeof DocumentSide)[keyof typeof DocumentSide];
 
+/** How a fractional minor-unit amount is rounded. `truncate` reproduces pre-0.17 math and loses fractions. */
+export const RoundingMode = {
+  HalfUp: "half_up",
+  HalfEven: "half_even",
+  Truncate: "truncate",
+} as const;
+export type RoundingMode = (typeof RoundingMode)[keyof typeof RoundingMode];
+
+/** Where percentage tax is rounded: per line, or once per tax on the document's taxable total. */
+export const TaxLevel = {
+  Line: "line",
+  Document: "document",
+} as const;
+export type TaxLevel = (typeof TaxLevel)[keyof typeof TaxLevel];
+
+/** How base-currency tax is derived: recomputed on converted bases, or converted from document-currency tax. */
+export const BaseTaxMethod = {
+  Recompute: "recompute",
+  Convert: "convert",
+} as const;
+export type BaseTaxMethod = (typeof BaseTaxMethod)[keyof typeof BaseTaxMethod];
+
+/** Where a document's exchange rate came from. */
+export const ExchangeRateSource = {
+  Identity: "identity",
+  Provider: "provider",
+  Manual: "manual",
+  Referenced: "referenced",
+} as const;
+export type ExchangeRateSource = (typeof ExchangeRateSource)[keyof typeof ExchangeRateSource];
+
+/** How a tenant's amounts are rounded and taxed. Recorded on each document at issue. */
+export interface MoneyPolicy {
+  rounding: RoundingMode;
+  taxLevel: TaxLevel;
+  baseTaxMethod: BaseTaxMethod;
+}
+
 export const NoteType = {
   Credit: "CREDIT",
   Debit: "DEBIT",
@@ -226,6 +264,18 @@ export interface Document {
   subtotal: BigintMinor | null;
   tax: BigintMinor | null;
   total: BigintMinor | null;
+  /** Policy the document was issued under. Null until the document is first issued (and for documents issued before 0.17 unless backfilled). */
+  moneyPolicy: MoneyPolicy | null;
+  /** Tenant base currency the base amounts are in (lowercase). */
+  baseCurrency: string | null;
+  /** Base-currency units per 1 document-currency unit (canonical decimal). */
+  exchangeRate: DecimalString | null;
+  /** The date the rate applies to. */
+  exchangeRateDate: Date | null;
+  exchangeRateSource: ExchangeRateSource | null;
+  baseSubtotal: BigintMinor | null;
+  baseTax: BigintMinor | null;
+  baseTotal: BigintMinor | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -240,6 +290,7 @@ export interface DocumentLineItem {
   currency: string;
   taxAmount: BigintMinor;
   total: BigintMinor;
+  baseSubtotal: BigintMinor | null;
   description: string | null;
   metadata: Record<string, unknown> | null;
   createdAt: Date;
@@ -251,6 +302,7 @@ export interface DocumentLineItemTax {
   lineItemId: string;
   taxId: string;
   taxAmount: BigintMinor;
+  baseTaxAmount: BigintMinor | null;
   createdAt: Date;
   updatedAt: Date;
 }

@@ -1,5 +1,17 @@
 import type { Repositories } from "./adapters/types";
 import type { BetterAuthLike } from "./auth/middleware";
+import type { DecimalString, MoneyPolicy } from "./types";
+
+/** Supplies the tenant's base currency and exchange rates. The kit never fetches rates itself. */
+export interface ExchangeRateProvider {
+  /** The tenant's base (reporting) currency, any case; the kit normalizes it. */
+  baseCurrency(ctx: { organizationId: string }): string | Promise<string>;
+  /**
+   * Base units per 1 `from` unit effective on `date` (at most 8 decimals), or
+   * null when no rate is known. A thrown error propagates to the caller.
+   */
+  resolve(ctx: { organizationId: string; from: string; to: string; date: Date }): Promise<DecimalString | null>;
+}
 
 export interface InvoiceIssuedContext {
   organizationId: string;
@@ -47,4 +59,8 @@ export interface InvoicingKitConfig {
   basePath?: string;
   /** Optional post-commit lifecycle hooks. */
   hooks?: InvoicingKitHooks;
+  /** Per-organization money policy. Absent → LEGACY_MONEY_POLICY (pre-0.17 math). */
+  moneyPolicy?: (ctx: { organizationId: string }) => MoneyPolicy | Promise<MoneyPolicy>;
+  /** Optional exchange-rate provider. Absent → documents never carry a rate. */
+  exchangeRates?: ExchangeRateProvider;
 }

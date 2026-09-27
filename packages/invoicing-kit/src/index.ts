@@ -12,6 +12,7 @@ export type {
   NoteRecordedContext,
 } from "./config";
 export type { AuthContext } from "./auth/types";
+export type { ExchangeRateProvider } from "./config";
 
 // Domain enums (runtime constants; the same names also export as types below).
 export {
@@ -28,8 +29,32 @@ export {
   VendorBillStatus,
   VendorBillPaymentStatus,
   FiscalStatus,
+  RoundingMode,
+  TaxLevel,
+  BaseTaxMethod,
+  ExchangeRateSource,
 } from "./types";
+export type { MoneyPolicy } from "./types";
 export { DEFAULT_CURRENCY } from "./lib/currency";
+
+// Money calculator (pure, exported for consumer previews).
+export {
+  calculateDocument,
+  allocate,
+  roundDiv,
+  parseScaled,
+  canonicalDecimal,
+  LEGACY_MONEY_POLICY,
+  RECOMMENDED_MONEY_POLICY,
+} from "./lib/money";
+export type {
+  AmountTotals,
+  CalculateDocumentInput,
+  DocumentCalculation,
+  LineCalculation,
+  TaxDefinition,
+  TaxTotal,
+} from "./lib/money";
 
 // Domain types (the enum names above export both their value and type; only
 // the type-only shapes are listed here).

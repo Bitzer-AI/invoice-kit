@@ -5,21 +5,42 @@ import type { Quote } from "../../types";
 import { DocumentSide, DocumentType, QuoteStatus } from "../../types";
 import type { CreateQuoteBody, UpdateQuoteBody, ListQuotesQuery } from "./validation";
 import { QuoteNotFoundException, QuoteNumberAlreadyExistsException } from "./exceptions";
-import { DocumentCalculator } from "../../lib/calculator";
 import { DocumentNumberingService } from "../../lib/numbering";
-import { TaxStrategy } from "../../lib/tax-strategy";
 import { normalizeCurrency, DEFAULT_CURRENCY } from "../../lib/currency";
-import { resolveLineItemProduct } from "../../lib/line-item";
+import { buildDocumentLines } from "../../lib/document-lines";
+import { buildMoneySettings, type MoneySettings } from "../../lib/money/settings";
+import type { DocumentServiceOptions } from "../../lib/document-issuance";
+import { applyDocumentPlan, documentMoneyFields, planDocumentWrite } from "../../lib/document-issuance";
 
 export class QuoteService {
+  private readonly money: MoneySettings;
+  private readonly numbering: DocumentNumberingService;
+
   constructor(
     private readonly repos: Repositories,
-    private readonly calc = new DocumentCalculator(),
-    private readonly numbering = new DocumentNumberingService(),
-    private readonly tax = new TaxStrategy(),
-  ) {}
+    options: DocumentServiceOptions = {},
+  ) {
+    this.money = options.money ?? buildMoneySettings();
+    this.numbering = options.numbering ?? new DocumentNumberingService();
+  }
 
   async create(body: CreateQuoteBody, ctx: AuthContext): Promise<Quote> {
+    // Quotes are never issued/frozen: every write plans as a draft, so it always
+    // computes under the org's current policy. A manual rate is stored but not
+    // converted with (the base amounts stay null until it becomes an invoice).
+    const documentCurrency = normalizeCurrency(body.currency ?? DEFAULT_CURRENCY);
+    const issueDate = new Date(body.issueDate);
+    const plan = await planDocumentWrite({
+      money: this.money,
+      organizationId: ctx.organizationId,
+      existing: null,
+      existingIsDraft: true,
+      willBeDraft: true,
+      currency: documentCurrency,
+      issueDate,
+      requestedRate: body.exchangeRate,
+    });
+
     return this.repos.tx(async (tx) => {
       const resolvedPrefix = body.documentNumberPrefix ?? null;
       // A caller-supplied documentNumber is a one-off override for THIS document
@@ -36,47 +57,15 @@ export class QuoteService {
       if (existing) throw QuoteNumberAlreadyExistsException();
 
       // Compute line items with taxes.
-      const documentCurrency = normalizeCurrency(body.currency ?? DEFAULT_CURRENCY);
-      const lineItems = [];
-      for (const lineItem of body.lineItems) {
-        const product = await resolveLineItemProduct(
-          tx,
-          ctx.organizationId,
-          lineItem,
-          documentCurrency,
-          DocumentSide.Sale,
-        );
-        const price = BigInt(lineItem.price);
-        const taxResult = await this.tax.computeForLine(tx, ctx.organizationId, {
-          quantity: lineItem.quantity,
-          price,
-          taxIds: lineItem.taxIds,
-        });
-        const lineTotals = this.calc.lineTotal({
-          quantity: lineItem.quantity,
-          price,
-          taxAmount: taxResult.taxAmount,
-        });
-        lineItems.push({
-          productId: product.id,
-          quantity: lineItem.quantity,
-          price,
-          currency: documentCurrency,
-          description: lineItem.description ?? null,
-          metadata: lineItem.metadata ?? null,
-          taxes: taxResult.perTax,
-          taxAmount: taxResult.taxAmount,
-          total: lineTotals.total,
-        });
-      }
-
-      const docTotals = this.calc.documentTotals(
-        lineItems.map((line) => ({
-          subtotal: line.total - line.taxAmount,
-          taxAmount: line.taxAmount,
-          total: line.total,
-        })),
-      );
+      const built = await buildDocumentLines({
+        repos: tx,
+        organizationId: ctx.organizationId,
+        currency: documentCurrency,
+        side: DocumentSide.Sale,
+        lineItems: body.lineItems,
+        policy: plan.policy,
+        exchangeRate: null,
+      });
 
       const doc = await tx.documents.create({
         type: DocumentType.Quote,
@@ -84,14 +73,13 @@ export class QuoteService {
         clientId: body.clientId,
         documentNumberPrefix: resolvedPrefix,
         documentNumber: number,
-        issueDate: new Date(body.issueDate),
+        issueDate,
         notes: body.notes ?? null,
         currency: documentCurrency,
-        subtotal: docTotals.subtotal,
-        tax: docTotals.tax,
-        total: docTotals.total,
-        lineItems,
+        ...built.totals,
+        lineItems: built.lineItems,
         paymentMethodIds: body.paymentMethodIds,
+        ...documentMoneyFields(plan, null),
       });
 
       return tx.quotes.create({
@@ -124,6 +112,26 @@ export class QuoteService {
   }
 
   async update(id: string, body: UpdateQuoteBody, ctx: AuthContext): Promise<Quote> {
+    const current = await this.repos.quotes.findById(id, ctx.organizationId);
+    if (!current) throw QuoteNotFoundException();
+
+    // Quotes are never issued/frozen: a recompute plans as a draft, under the org's
+    // current policy. Only a line or rate change recomputes; other edits keep the
+    // stored amounts.
+    const recompute = body.lineItems !== undefined || body.exchangeRate !== undefined;
+    const plan = recompute
+      ? await planDocumentWrite({
+          money: this.money,
+          organizationId: ctx.organizationId,
+          existing: current.document,
+          existingIsDraft: true,
+          willBeDraft: true,
+          currency: current.document.currency,
+          issueDate: body.issueDate ? new Date(body.issueDate) : current.document.issueDate,
+          requestedRate: body.exchangeRate,
+        })
+      : null;
+
     return this.repos.tx(async (tx) => {
       const existing = await tx.quotes.findById(id, ctx.organizationId);
       if (!existing) throw QuoteNotFoundException();
@@ -150,52 +158,15 @@ export class QuoteService {
       if (body.issueDate !== undefined) documentUpdate.issueDate = new Date(body.issueDate);
       if (body.notes !== undefined) documentUpdate.notes = body.notes;
 
-      // If line items changed, recompute totals and replace.
-      if (body.lineItems !== undefined) {
-        const documentCurrency = normalizeCurrency(existing.document.currency);
-        const lineItems = [];
-        for (const lineItem of body.lineItems) {
-          const product = await resolveLineItemProduct(
-            tx,
-            ctx.organizationId,
-            lineItem,
-            documentCurrency,
-            DocumentSide.Sale,
-          );
-          const price = BigInt(lineItem.price);
-          const taxResult = await this.tax.computeForLine(tx, ctx.organizationId, {
-            quantity: lineItem.quantity,
-            price,
-            taxIds: lineItem.taxIds,
-          });
-          const lineTotals = this.calc.lineTotal({
-            quantity: lineItem.quantity,
-            price,
-            taxAmount: taxResult.taxAmount,
-          });
-          lineItems.push({
-            productId: product.id,
-            quantity: lineItem.quantity,
-            price,
-            currency: documentCurrency,
-            description: lineItem.description ?? null,
-            metadata: lineItem.metadata ?? null,
-            taxes: taxResult.perTax,
-            taxAmount: taxResult.taxAmount,
-            total: lineTotals.total,
-          });
-        }
-        const docTotals = this.calc.documentTotals(
-          lineItems.map((line) => ({
-            subtotal: line.total - line.taxAmount,
-            taxAmount: line.taxAmount,
-            total: line.total,
-          })),
-        );
-        documentUpdate.subtotal = docTotals.subtotal;
-        documentUpdate.tax = docTotals.tax;
-        documentUpdate.total = docTotals.total;
-        await tx.documents.replaceLineItems(existing.documentId, ctx.organizationId, lineItems);
+      if (plan) {
+        const patch = await applyDocumentPlan(tx, {
+          document: existing.document,
+          organizationId: ctx.organizationId,
+          side: DocumentSide.Sale,
+          plan,
+          lineItems: body.lineItems,
+        });
+        Object.assign(documentUpdate, patch);
       }
 
       if (body.paymentMethodIds !== undefined) {

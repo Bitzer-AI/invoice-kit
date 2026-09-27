@@ -25,6 +25,7 @@ export function buildNotesRouter(service: NoteService, auth: BetterAuthLike) {
         201: { content: { "application/json": { schema: noteResponse } }, description: "Created" },
         400: { description: "Invalid party / validation" },
         404: { description: "Referenced document not found" },
+        422: { description: "Currency mismatch with the referenced document; exchange rate required, not applicable or frozen; or an invalid line item" },
       },
     }),
     async (c) => {
@@ -82,6 +83,7 @@ export function buildNotesRouter(service: NoteService, auth: BetterAuthLike) {
       responses: {
         200: { content: { "application/json": { schema: noteResponse } }, description: "Updated" },
         404: { description: "Not found" },
+        422: { description: "Currency mismatch with the referenced document; exchange rate required, not applicable or frozen; or an invalid line item" },
       },
     }),
     async (c) => {

@@ -34,9 +34,11 @@ import type {
   VendorBillStatus,
   VendorBillPayment,
   VendorBillPaymentStatus,
+  ExchangeRateSource,
 } from "../../types";
 import { ProductUsage } from "../../types";
 import { DEFAULT_CURRENCY } from "../../lib/currency";
+import { parseMoneyPolicy, canonicalDecimal } from "../../lib/money";
 import type {
   DocumentWithRelations,
   InvoiceWithDocument,
@@ -143,6 +145,15 @@ export function documentRowToDomain(row: any): Document {
     subtotal: row.subtotal ?? null,
     tax: row.tax ?? null,
     total: row.total ?? null,
+    moneyPolicy: parseMoneyPolicy(row.moneyPolicy),
+    baseCurrency: row.baseCurrency ?? null,
+    // Prisma Decimal: toFixed() never uses exponent notation (toString() gives "1e-8").
+    exchangeRate: row.exchangeRate != null ? canonicalDecimal(row.exchangeRate.toFixed()) : null,
+    exchangeRateDate: row.exchangeRateDate ?? null,
+    exchangeRateSource: (row.exchangeRateSource as ExchangeRateSource | null) ?? null,
+    baseSubtotal: row.baseSubtotal ?? null,
+    baseTax: row.baseTax ?? null,
+    baseTotal: row.baseTotal ?? null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -160,6 +171,7 @@ export function documentLineItemRowToDomain(row: any): DocumentLineItem {
     currency: row.currency,
     taxAmount: row.taxAmount ?? 0n,
     total: row.total,
+    baseSubtotal: row.baseSubtotal ?? null,
     description: row.description ?? null,
     metadata: row.metadata ?? null,
     createdAt: row.createdAt,
@@ -173,6 +185,7 @@ export function documentLineItemTaxRowToDomain(row: any): DocumentLineItemTax {
     lineItemId: row.lineItemId,
     taxId: row.taxId,
     taxAmount: row.taxAmount,
+    baseTaxAmount: row.baseTaxAmount ?? null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };

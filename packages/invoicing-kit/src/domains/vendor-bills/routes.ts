@@ -25,6 +25,7 @@ export function buildVendorBillsRouter(service: VendorBillService, auth: BetterA
         201: { content: { "application/json": { schema: vendorBillResponse } }, description: "Created" },
         400: { description: "Invalid party / validation" },
         404: { description: "Vendor not found" },
+        422: { description: "Exchange rate required, not applicable or frozen; or an invalid line item" },
       },
     }),
     async (c) => {
@@ -82,6 +83,7 @@ export function buildVendorBillsRouter(service: VendorBillService, auth: BetterA
       responses: {
         200: { content: { "application/json": { schema: vendorBillResponse } }, description: "Updated" },
         404: { description: "Not found" },
+        422: { description: "Exchange rate required, not applicable or frozen; or an invalid line item" },
       },
     }),
     async (c) => {

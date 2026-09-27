@@ -2,6 +2,12 @@ import { z } from "zod";
 import { QuoteStatus } from "../../types";
 import { currencyCodeSchema } from "../../lib/currency";
 import { lineItemSchema } from "../../lib/line-item";
+import { exchangeRateSchema } from "../../lib/exchange";
+import {
+  documentMoneyResponseFields,
+  lineItemBaseResponseFields,
+  lineItemTaxBaseResponseFields,
+} from "../../lib/document-response";
 
 export const createQuoteBody = z.object({
   clientId: z.string(),
@@ -15,6 +21,7 @@ export const createQuoteBody = z.object({
   status: z.nativeEnum(QuoteStatus).default(QuoteStatus.Draft),
   lineItems: z.array(lineItemSchema).min(1),
   paymentMethodIds: z.array(z.string()).default([]),
+  exchangeRate: exchangeRateSchema.optional().nullable(),
 });
 export type CreateQuoteBody = z.infer<typeof createQuoteBody>;
 
@@ -28,6 +35,7 @@ export const updateQuoteBody = z.object({
   status: z.nativeEnum(QuoteStatus).optional(),
   lineItems: z.array(lineItemSchema).min(1).optional(),
   paymentMethodIds: z.array(z.string()).optional(),
+  exchangeRate: exchangeRateSchema.optional().nullable(),
 });
 export type UpdateQuoteBody = z.infer<typeof updateQuoteBody>;
 
@@ -77,7 +85,10 @@ const lineItemResponse = z.object({
     price: z.string(),
     currency: z.string(),
   }),
-  taxes: z.array(z.object({ id: z.string(), taxId: z.string(), taxAmount: z.string() })),
+  taxes: z.array(
+    z.object({ id: z.string(), taxId: z.string(), taxAmount: z.string(), ...lineItemTaxBaseResponseFields }),
+  ),
+  ...lineItemBaseResponseFields,
 });
 
 export const quoteResponse = z.object({
@@ -112,6 +123,7 @@ export const quoteResponse = z.object({
     tax: z.string().nullable(),
     total: z.string().nullable(),
     lineItems: z.array(lineItemResponse),
+    ...documentMoneyResponseFields,
   }),
 });
 export type QuoteResponse = z.infer<typeof quoteResponse>;

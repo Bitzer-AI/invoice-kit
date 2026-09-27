@@ -50,6 +50,12 @@ export const ErrorCode = {
   NoteNotFound: "NOTE_NOT_FOUND",
   NoteReferencedDocumentNotFound: "NOTE_REFERENCED_DOCUMENT_NOT_FOUND",
   NoteReferencesNote: "NOTE_REFERENCES_NOTE",
+
+  // Money / exchange rate
+  ExchangeRateRequired: "EXCHANGE_RATE_REQUIRED",
+  ExchangeRateNotApplicable: "EXCHANGE_RATE_NOT_APPLICABLE",
+  ExchangeRateFrozen: "EXCHANGE_RATE_FROZEN",
+  DocumentCurrencyMismatch: "CURRENCY_MISMATCH",
 } as const;
 
 export type ErrorCodeKey = keyof typeof ErrorCode;

@@ -1,7 +1,7 @@
 import type { Repositories } from "../../adapters/types";
 import type { AuthContext } from "../../auth/types";
 import type { VendorBillPayment } from "../../types";
-import { VendorBillPaymentStatus, VendorBillStatus } from "../../types";
+import { DocumentSide, VendorBillPaymentStatus, VendorBillStatus } from "../../types";
 import type { CreateVendorBillPaymentBody } from "./validation";
 import { VendorBillNotFoundException } from "../vendor-bills/exceptions";
 import {
@@ -9,29 +9,81 @@ import {
   VendorBillPaymentExceedsTotalException,
 } from "./exceptions";
 import type { InvoicingKitHooks } from "../../config";
+import { emitVendorBillRecorded } from "../../lib/hooks";
+import { buildMoneySettings, type MoneySettings } from "../../lib/money/settings";
+import type { DocumentPlanBuild, DocumentServiceOptions, DocumentWritePlan } from "../../lib/document-issuance";
+import { buildDocumentPlan, isFrozen, planDocumentWrite, writeDocumentPlan } from "../../lib/document-issuance";
+import { vendorBillStatusFor } from "../../lib/settlement";
 
 export class VendorBillPaymentService {
+  private readonly hooks?: InvoicingKitHooks;
+  private readonly money: MoneySettings;
+
   constructor(
     private readonly repos: Repositories,
-    private readonly hooks?: InvoicingKitHooks,
-  ) {}
+    options: DocumentServiceOptions = {},
+  ) {
+    this.hooks = options.hooks;
+    this.money = options.money ?? buildMoneySettings();
+  }
 
   async recordManualVendorBillPayment(
     vendorBillId: string,
     body: CreateVendorBillPaymentBody,
     ctx: AuthContext,
   ): Promise<VendorBillPayment> {
-    const payment = await this.repos.tx(async (tx) => {
+    // A payment that fully or partially pays a draft moves it off "draft" (spec §6:
+    // "draft → non-draft" is a record/issue). Plan it BEFORE the transaction, same as
+    // any other issue; a missing rate must reject the payment and write nothing. Plan
+    // whenever the bill is a draft, full stop — not just when this payment looks (from
+    // a pre-recompute total) like it will move it off draft: the recomputed total is
+    // only known inside the transaction, so any total-based heuristic here would be
+    // checking a total that's about to change.
+    const forPlan = await this.repos.vendorBills.findById(vendorBillId, ctx.organizationId);
+    if (!forPlan) throw VendorBillNotFoundException();
+    const amount = BigInt(body.amount);
+    let plan: DocumentWritePlan | null = null;
+    if (forPlan.status === VendorBillStatus.Draft) {
+      plan = await planDocumentWrite({
+        money: this.money,
+        organizationId: ctx.organizationId,
+        existing: forPlan.document,
+        existingIsDraft: true,
+        willBeDraft: false,
+        currency: forPlan.document.currency,
+        issueDate: forPlan.document.issueDate,
+        requestedRate: undefined,
+      });
+    }
+
+    const { payment, recorded } = await this.repos.tx(async (tx) => {
       const bill = await tx.vendorBills.findById(vendorBillId, ctx.organizationId);
       if (!bill) throw VendorBillNotFoundException();
 
-      const billTotal = bill.document.total ?? 0n;
+      // Build (but don't yet write) the recomputed lines/totals under the pre-resolved
+      // plan, when it still applies (the bill may have been recorded elsewhere since
+      // the plan was resolved). The amount check and the status decision below both
+      // use this recomputed total, never the one stored before the recompute.
+      let build: DocumentPlanBuild | null = null;
+      if (plan && bill.status === VendorBillStatus.Draft && !isFrozen(bill.document, true)) {
+        build = await buildDocumentPlan(tx, {
+          document: bill.document,
+          organizationId: ctx.organizationId,
+          side: DocumentSide.Purchase,
+          plan,
+        });
+      }
+
+      const billTotal = build?.patch.total ?? bill.document.total ?? 0n;
       const alreadyPaid = await tx.vendorBillPayments.totalPaidForBill(
         vendorBillId,
         ctx.organizationId,
       );
-      const amount = BigInt(body.amount);
-      if (alreadyPaid + amount > billTotal) {
+      const noted =
+        bill.status === VendorBillStatus.Draft
+          ? 0n
+          : await tx.notes.netSettlementFor(bill.documentId, ctx.organizationId);
+      if (alreadyPaid + amount + noted > billTotal) {
         throw VendorBillPaymentExceedsTotalException();
       }
 
@@ -49,20 +101,27 @@ export class VendorBillPaymentService {
         recordedBy: ctx.userId,
       });
 
+      // Only a payment that actually moves this draft to PartiallyPaid/Paid is an
+      // issue: write the recomputed lines and freeze the money fields exactly then.
+      // A payment that leaves the bill a draft (e.g. 0 against a positive recomputed
+      // total) writes nothing to the document — it must stay unfrozen.
       const newTotalPaid = alreadyPaid + amount;
-      if (newTotalPaid >= billTotal) {
-        await tx.vendorBills.update(vendorBillId, ctx.organizationId, {
-          status: VendorBillStatus.Paid,
-        });
-      } else if (newTotalPaid > 0n) {
-        await tx.vendorBills.update(vendorBillId, ctx.organizationId, {
-          status: VendorBillStatus.PartiallyPaid,
-        });
+      const status =
+        newTotalPaid + noted >= billTotal
+          ? VendorBillStatus.Paid
+          : newTotalPaid > 0n
+            ? VendorBillStatus.PartiallyPaid
+            : null;
+      if (status !== null) {
+        if (build) await writeDocumentPlan(tx, bill.documentId, ctx.organizationId, build);
+        await tx.vendorBills.update(vendorBillId, ctx.organizationId, { status });
       }
 
-      return created;
+      return { payment: created, recorded: status !== null && bill.status === VendorBillStatus.Draft };
     });
 
+    // The ledger posts the bill before its payment: recorded first.
+    if (recorded) await emitVendorBillRecorded(this.hooks, ctx.organizationId, vendorBillId);
     if (this.hooks?.onVendorBillPaymentSucceeded) {
       try {
         await this.hooks.onVendorBillPaymentSucceeded({
@@ -94,21 +153,19 @@ export class VendorBillPaymentService {
     await this.repos.tx(async (tx) => {
       await tx.vendorBillPayments.delete(id, ctx.organizationId);
       const bill = await tx.vendorBills.findById(payment.vendorBillId, ctx.organizationId);
-      if (!bill) return;
+      // A payment that left its bill a draft (a $0 one) never recorded it; deleting it doesn't either.
+      if (!bill || bill.status === VendorBillStatus.Draft) return;
       const remaining = await tx.vendorBillPayments.totalPaidForBill(
         payment.vendorBillId,
         ctx.organizationId,
       );
-      const billTotal = bill.document.total ?? 0n;
-      // Reverting to "received" when nothing remains paid assumes the bill's
-      // pre-payment state was "received" — valid under the current state machine
-      // (you can't record a payment against a draft).
-      const newStatus =
-        remaining >= billTotal
-          ? VendorBillStatus.Paid
-          : remaining > 0n
-            ? VendorBillStatus.PartiallyPaid
-            : VendorBillStatus.Received;
+      // Nothing left paid reverts to "received": a non-draft bill was recorded,
+      // either before its first payment or by it.
+      const newStatus = vendorBillStatusFor({
+        total: bill.document.total ?? 0n,
+        paid: remaining,
+        noted: await tx.notes.netSettlementFor(bill.documentId, ctx.organizationId),
+      });
       await tx.vendorBills.update(payment.vendorBillId, ctx.organizationId, { status: newStatus });
     });
   }

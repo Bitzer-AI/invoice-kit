@@ -31,6 +31,7 @@ export function buildInvoicesRouter(service: InvoiceService, auth: BetterAuthLik
           description: "Created",
         },
         401: { description: "Unauthorized" },
+        422: { description: "Exchange rate required, not applicable or frozen; or an invalid line item" },
       },
     }),
     async (c) => {
@@ -144,6 +145,7 @@ export function buildInvoicesRouter(service: InvoiceService, auth: BetterAuthLik
           description: "Updated",
         },
         404: { description: "Not found" },
+        422: { description: "Exchange rate required, not applicable or frozen; or an invalid line item" },
       },
     }),
     async (c) => {

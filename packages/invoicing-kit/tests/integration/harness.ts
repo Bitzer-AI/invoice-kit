@@ -3,6 +3,7 @@ import type { Repositories } from "../../src/adapters/types";
 import { prismaAdapter } from "../../src/adapters/prisma";
 import type { BetterAuthLike } from "../../src/auth/middleware";
 import type { AuthContext } from "../../src/auth/types";
+import type { InvoicingKitConfig } from "../../src/config";
 import { randomUUID } from "node:crypto";
 
 interface StubSession {
@@ -38,14 +39,12 @@ async function getSharedPrisma(): Promise<any> {
 export interface HarnessOptions {
   basePath?: string;
   session?: StubSession;
+  moneyPolicy?: InvoicingKitConfig["moneyPolicy"];
+  exchangeRates?: InvoicingKitConfig["exchangeRates"];
 }
 
 export async function buildHarness(
-  createInvoicingKit: (config: {
-    adapter: Repositories;
-    auth: BetterAuthLike;
-    basePath?: string;
-  }) => { router: any },
+  createInvoicingKit: (config: InvoicingKitConfig) => { router: any; services?: any; repos?: any },
   opts: HarnessOptions = {},
 ) {
   const prisma = await getSharedPrisma();
@@ -108,6 +107,8 @@ export async function buildHarness(
     adapter,
     auth,
     basePath: opts.basePath ?? "/api/bills",
+    moneyPolicy: opts.moneyPolicy,
+    exchangeRates: opts.exchangeRates,
   }) as { router: any; services?: any; repos?: any };
 
   const app = new Hono();

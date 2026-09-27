@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { DEFAULT_CURRENCY } from "../../lib/currency";
+import { canonicalDecimal } from "../../lib/money";
 import type {
   Document,
   DocumentLineItem,
@@ -96,6 +97,7 @@ export function createInMemoryDocumentRepository(store: MemoryStore): DocumentRe
         currency: item.currency,
         taxAmount: item.taxAmount,
         total: item.total,
+        baseSubtotal: item.baseSubtotal ?? null,
         description: item.description ?? null,
         metadata: item.metadata ?? null,
         createdAt: now,
@@ -110,6 +112,7 @@ export function createInMemoryDocumentRepository(store: MemoryStore): DocumentRe
           lineItemId,
           taxId: tax.taxId,
           taxAmount: tax.taxAmount,
+          baseTaxAmount: tax.baseTaxAmount ?? null,
           createdAt: now,
           updatedAt: now,
         };
@@ -157,6 +160,14 @@ export function createInMemoryDocumentRepository(store: MemoryStore): DocumentRe
         subtotal: data.subtotal,
         tax: data.tax,
         total: data.total,
+        moneyPolicy: data.moneyPolicy ?? null,
+        baseCurrency: data.baseCurrency ?? null,
+        exchangeRate: data.exchangeRate != null ? canonicalDecimal(data.exchangeRate) : null,
+        exchangeRateDate: data.exchangeRateDate ?? null,
+        exchangeRateSource: data.exchangeRateSource ?? null,
+        baseSubtotal: data.baseSubtotal ?? null,
+        baseTax: data.baseTax ?? null,
+        baseTotal: data.baseTotal ?? null,
         createdAt: now,
         updatedAt: now,
       };
@@ -198,9 +209,13 @@ export function createInMemoryDocumentRepository(store: MemoryStore): DocumentRe
       if (!existing || existing.organizationId !== organizationId) {
         throw new Error("document not found");
       }
+      const normalizedPatch =
+        patch.exchangeRate != null
+          ? { ...patch, exchangeRate: canonicalDecimal(patch.exchangeRate) }
+          : patch;
       const updated: Document = {
         ...existing,
-        ...patch,
+        ...normalizedPatch,
         updatedAt: new Date(),
       };
       docs.set(id, updated);

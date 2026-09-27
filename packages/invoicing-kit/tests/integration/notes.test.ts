@@ -81,7 +81,6 @@ describe("notes integration", () => {
         referencedDocumentId: refDocId,
         clientId,
         issueDate: "2026-02-01",
-        currency: "DOP",
         lineItems: [
           { source: { type: "experience", id: "exp1-dop", name: "Tour" }, quantity: "1", price: "20000", taxIds: [] },
         ],
@@ -94,7 +93,8 @@ describe("notes integration", () => {
     expect(body.document.vendorId).toBeNull();
     expect(body.document.referencedDocumentId).toBe(refDocId);
     expect(body.document.total).toBe("20000");
-    expect(body.document.currency).toBe("dop");
+    // A note defaults to (and must match) its referenced invoice's currency (usd, the default).
+    expect(body.document.currency).toBe("usd");
   });
 
   test("POST /notes creates a purchase debit note (vendorId + referenced vendor bill) -> 201, DEBIT_NOTE", async () => {

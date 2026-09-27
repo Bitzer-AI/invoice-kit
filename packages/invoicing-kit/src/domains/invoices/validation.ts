@@ -2,6 +2,12 @@ import { z } from "zod";
 import { InvoiceStatus } from "../../types";
 import { currencyCodeSchema } from "../../lib/currency";
 import { lineItemSchema } from "../../lib/line-item";
+import { exchangeRateSchema } from "../../lib/exchange";
+import {
+  documentMoneyResponseFields,
+  lineItemBaseResponseFields,
+  lineItemTaxBaseResponseFields,
+} from "../../lib/document-response";
 
 export const createInvoiceBody = z.object({
   clientId: z.string(),
@@ -15,6 +21,7 @@ export const createInvoiceBody = z.object({
   status: z.nativeEnum(InvoiceStatus).default(InvoiceStatus.Draft),
   lineItems: z.array(lineItemSchema).min(1),
   paymentMethodIds: z.array(z.string()).default([]),
+  exchangeRate: exchangeRateSchema.optional().nullable(),
 });
 export type CreateInvoiceBody = z.infer<typeof createInvoiceBody>;
 
@@ -28,6 +35,7 @@ export const updateInvoiceBody = z.object({
   status: z.nativeEnum(InvoiceStatus).optional(),
   lineItems: z.array(lineItemSchema).min(1).optional(),
   paymentMethodIds: z.array(z.string()).optional(),
+  exchangeRate: exchangeRateSchema.optional().nullable(),
 });
 export type UpdateInvoiceBody = z.infer<typeof updateInvoiceBody>;
 
@@ -84,7 +92,10 @@ const lineItemResponse = z.object({
     price: z.string(),
     currency: z.string(),
   }),
-  taxes: z.array(z.object({ id: z.string(), taxId: z.string(), taxAmount: z.string() })),
+  taxes: z.array(
+    z.object({ id: z.string(), taxId: z.string(), taxAmount: z.string(), ...lineItemTaxBaseResponseFields }),
+  ),
+  ...lineItemBaseResponseFields,
 });
 
 export const invoiceResponse = z.object({
@@ -120,6 +131,7 @@ export const invoiceResponse = z.object({
     tax: z.string().nullable(),
     total: z.string().nullable(),
     lineItems: z.array(lineItemResponse),
+    ...documentMoneyResponseFields,
   }),
 });
 export type InvoiceResponse = z.infer<typeof invoiceResponse>;

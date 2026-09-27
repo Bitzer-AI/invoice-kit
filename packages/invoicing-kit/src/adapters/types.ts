@@ -29,6 +29,8 @@ import type {
   VendorBillPaymentStatus,
   BigintMinor,
   DecimalString,
+  MoneyPolicy,
+  ExchangeRateSource,
 } from "../types";
 
 export interface PageRequest {
@@ -232,10 +234,12 @@ export interface NewDocumentLineItem {
   description?: string | null;
   metadata?: Record<string, unknown> | null;
   /** Per-line tax breakdown (post-calculation). Empty array for no tax. */
-  taxes: Array<{ taxId: string; taxAmount: BigintMinor }>;
+  taxes: Array<{ taxId: string; taxAmount: BigintMinor; baseTaxAmount?: BigintMinor | null }>;
   /** Pre-computed line totals. */
   taxAmount: BigintMinor;
   total: BigintMinor;
+  /** Line net in the base currency. */
+  baseSubtotal?: BigintMinor | null;
 }
 
 export interface NewDocument {
@@ -254,6 +258,14 @@ export interface NewDocument {
   subtotal: BigintMinor;
   tax: BigintMinor;
   total: BigintMinor;
+  moneyPolicy?: MoneyPolicy | null;
+  baseCurrency?: string | null;
+  exchangeRate?: DecimalString | null;
+  exchangeRateDate?: Date | null;
+  exchangeRateSource?: ExchangeRateSource | null;
+  baseSubtotal?: BigintMinor | null;
+  baseTax?: BigintMinor | null;
+  baseTotal?: BigintMinor | null;
   lineItems: NewDocumentLineItem[];
   paymentMethodIds?: string[];
 }
@@ -271,6 +283,15 @@ export type DocumentUpdate = Partial<{
   subtotal: BigintMinor;
   tax: BigintMinor;
   total: BigintMinor;
+  /** Set once, at issue. Never cleared back to null after a document is issued. */
+  moneyPolicy: MoneyPolicy;
+  baseCurrency: string | null;
+  exchangeRate: DecimalString | null;
+  exchangeRateDate: Date | null;
+  exchangeRateSource: ExchangeRateSource | null;
+  baseSubtotal: BigintMinor | null;
+  baseTax: BigintMinor | null;
+  baseTotal: BigintMinor | null;
 }>;
 
 /**
@@ -471,6 +492,8 @@ export interface NoteRepository {
   list(args: ListNotesArgs): Promise<Page<NoteWithDocument>>;
   update(id: string, organizationId: string, patch: NoteUpdate): Promise<Note>;
   delete(id: string, organizationId: string): Promise<void>;
+  /** Issued credit-note totals minus issued debit-note totals that reference `referencedDocumentId`. */
+  netSettlementFor(referencedDocumentId: string, organizationId: string): Promise<BigintMinor>;
 }
 
 // ============== Quote ==============

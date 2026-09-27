@@ -1,4 +1,4 @@
-import type { Repositories, NoteWithDocument } from "../../adapters/types";
+import type { Repositories, NoteWithDocument, DocumentUpdate } from "../../adapters/types";
 import type { AuthContext } from "../../auth/types";
 import type { Note } from "../../types";
 import { DocumentType, NoteStatus, NoteType } from "../../types";
@@ -9,21 +9,30 @@ import {
   NoteReferencesNoteException,
   DocumentPartyInvalidException,
 } from "./exceptions";
-import { DocumentCalculator } from "../../lib/calculator";
 import { DocumentNumberingService } from "../../lib/numbering";
-import { TaxStrategy } from "../../lib/tax-strategy";
-import { normalizeCurrency, DEFAULT_CURRENCY } from "../../lib/currency";
-import { resolveLineItemProduct, documentSide } from "../../lib/line-item";
+import { normalizeCurrency } from "../../lib/currency";
+import { noteSide } from "../../lib/line-item";
+import { buildDocumentLines } from "../../lib/document-lines";
+import { buildMoneySettings, type MoneySettings } from "../../lib/money/settings";
+import type { DocumentServiceOptions } from "../../lib/document-issuance";
+import { applyDocumentPlan, documentMoneyFields, isFrozen, planDocumentWrite } from "../../lib/document-issuance";
+import { exchangeOf, DocumentCurrencyMismatchException, ExchangeRateNotApplicableException } from "../../lib/exchange";
+import { resettleReference } from "../../lib/settlement";
 import type { InvoicingKitHooks } from "../../config";
 
 export class NoteService {
+  private readonly hooks?: InvoicingKitHooks;
+  private readonly money: MoneySettings;
+  private readonly numbering: DocumentNumberingService;
+
   constructor(
     private readonly repos: Repositories,
-    private readonly calc = new DocumentCalculator(),
-    private readonly numbering = new DocumentNumberingService(),
-    private readonly tax = new TaxStrategy(),
-    private readonly hooks?: InvoicingKitHooks,
-  ) {}
+    options: DocumentServiceOptions = {},
+  ) {
+    this.hooks = options.hooks;
+    this.money = options.money ?? buildMoneySettings();
+    this.numbering = options.numbering ?? new DocumentNumberingService();
+  }
 
   /** Fire onNoteRecorded after commit; never let a handler throw break the op. */
   private async emitRecorded(organizationId: string, noteId: string): Promise<void> {
@@ -36,64 +45,52 @@ export class NoteService {
   }
 
   async create(body: CreateNoteBody, ctx: AuthContext): Promise<Note> {
+    // Resolve + validate the referenced document (party invariant) before planning:
+    // the note's rate and policy, and its default currency, come from this document.
+    const ref = await this.repos.documents.findById(body.referencedDocumentId, ctx.organizationId);
+    if (!ref) throw NoteReferencedDocumentNotFoundException();
+    if (ref.type === DocumentType.CreditNote || ref.type === DocumentType.DebitNote)
+      throw NoteReferencesNoteException();
+
+    const isSales = body.clientId != null;
+    if (isSales && ref.type !== DocumentType.Invoice)
+      throw DocumentPartyInvalidException("A client note must reference an INVOICE");
+    if (!isSales && ref.type !== DocumentType.VendorBill)
+      throw DocumentPartyInvalidException("A vendor note must reference a VENDOR_BILL");
+
+    const referencedCurrency = normalizeCurrency(ref.currency);
+    const currency = normalizeCurrency(body.currency ?? referencedCurrency);
+    if (currency !== referencedCurrency) throw DocumentCurrencyMismatchException(currency, referencedCurrency);
+
+    // A note inherits the reference's rate; it cannot supply its own while one is frozen.
+    const refExchange = exchangeOf(ref);
+    if (refExchange !== null && body.exchangeRate != null) throw ExchangeRateNotApplicableException(currency);
+
+    const issueDate = new Date(body.issueDate);
+    const plan = await planDocumentWrite({
+      money: this.money,
+      organizationId: ctx.organizationId,
+      existing: null,
+      existingIsDraft: true,
+      willBeDraft: body.status === NoteStatus.Draft,
+      currency,
+      issueDate,
+      requestedRate: body.exchangeRate,
+      referenced: { exchange: refExchange, policy: ref.moneyPolicy },
+    });
+
+    const docType = body.noteType === NoteType.Credit ? DocumentType.CreditNote : DocumentType.DebitNote;
     const note = await this.repos.tx(async (tx) => {
-      // Resolve + validate the referenced document (party invariant).
-      const ref = await tx.documents.findById(body.referencedDocumentId, ctx.organizationId);
-      if (!ref) throw NoteReferencedDocumentNotFoundException();
-      if (ref.type === DocumentType.CreditNote || ref.type === DocumentType.DebitNote)
-        throw NoteReferencesNoteException();
-
-      const isSales = body.clientId != null;
-      if (isSales && ref.type !== DocumentType.Invoice)
-        throw DocumentPartyInvalidException("A client note must reference an INVOICE");
-      if (!isSales && ref.type !== DocumentType.VendorBill)
-        throw DocumentPartyInvalidException("A vendor note must reference a VENDOR_BILL");
-
-      const docType =
-        body.noteType === NoteType.Credit ? DocumentType.CreditNote : DocumentType.DebitNote;
-      const side = documentSide(docType);
       const number = await this.numbering.next(tx, ctx.organizationId, docType, null);
-
-      const documentCurrency = normalizeCurrency(body.currency ?? DEFAULT_CURRENCY);
-      const lineItems = [];
-      for (const lineItem of body.lineItems) {
-        const product = await resolveLineItemProduct(
-          tx,
-          ctx.organizationId,
-          lineItem,
-          documentCurrency,
-          side,
-        );
-        const price = BigInt(lineItem.price);
-        const taxResult = await this.tax.computeForLine(tx, ctx.organizationId, {
-          quantity: lineItem.quantity,
-          price,
-          taxIds: lineItem.taxIds,
-        });
-        const lineTotals = this.calc.lineTotal({
-          quantity: lineItem.quantity,
-          price,
-          taxAmount: taxResult.taxAmount,
-        });
-        lineItems.push({
-          productId: product.id,
-          quantity: lineItem.quantity,
-          price,
-          currency: documentCurrency,
-          description: lineItem.description ?? null,
-          taxes: taxResult.perTax,
-          taxAmount: taxResult.taxAmount,
-          total: lineTotals.total,
-        });
-      }
-
-      const docTotals = this.calc.documentTotals(
-        lineItems.map((line) => ({
-          subtotal: line.total - line.taxAmount,
-          taxAmount: line.taxAmount,
-          total: line.total,
-        })),
-      );
+      const built = await buildDocumentLines({
+        repos: tx,
+        organizationId: ctx.organizationId,
+        currency,
+        side: noteSide(body),
+        lineItems: body.lineItems,
+        policy: plan.policy,
+        exchangeRate: plan.exchange?.rate ?? null,
+      });
 
       const doc = await tx.documents.create({
         type: docType,
@@ -104,17 +101,21 @@ export class NoteService {
         externalDocumentNumber: body.externalDocumentNumber ?? null,
         documentNumberPrefix: null,
         documentNumber: number,
-        issueDate: new Date(body.issueDate),
+        issueDate,
         dueDate: body.dueDate ? new Date(body.dueDate) : null,
         notes: body.notes ?? null,
-        currency: documentCurrency,
-        subtotal: docTotals.subtotal,
-        tax: docTotals.tax,
-        total: docTotals.total,
-        lineItems,
+        currency,
+        ...built.totals,
+        lineItems: built.lineItems,
+        ...documentMoneyFields(plan, built.base),
       });
 
-      return tx.notes.create({ documentId: doc.id, status: body.status });
+      const created = await tx.notes.create({ documentId: doc.id, status: body.status });
+      if (created.status === NoteStatus.Issued) {
+        const withDocument = await tx.notes.findById(created.id, ctx.organizationId);
+        if (withDocument) await resettleReference(tx, withDocument, ctx.organizationId);
+      }
+      return created;
     });
 
     // Post-commit: a non-draft note is "recorded" the moment it's created.
@@ -150,78 +151,87 @@ export class NoteService {
   }
 
   async update(id: string, body: UpdateNoteBody, ctx: AuthContext): Promise<Note> {
+    const current = await this.repos.notes.findById(id, ctx.organizationId);
+    if (!current) throw NoteNotFoundException();
+    const ref = current.document.referencedDocumentId
+      ? await this.repos.documents.findById(current.document.referencedDocumentId, ctx.organizationId)
+      : null;
+    const refExchange = ref ? exchangeOf(ref) : null;
+
+    // A note inherits the reference's rate; it cannot supply its own while one is frozen.
+    if (refExchange !== null && body.exchangeRate != null) {
+      throw ExchangeRateNotApplicableException(current.document.currency);
+    }
+
+    let plan = await planDocumentWrite({
+      money: this.money,
+      organizationId: ctx.organizationId,
+      existing: current.document,
+      existingIsDraft: current.status === NoteStatus.Draft,
+      willBeDraft: (body.status ?? current.status) === NoteStatus.Draft,
+      currency: current.document.currency,
+      issueDate: body.issueDate ? new Date(body.issueDate) : current.document.issueDate,
+      requestedRate: body.exchangeRate,
+      referenced: ref ? { exchange: refExchange, policy: ref.moneyPolicy } : undefined,
+    });
+
     const { updated, wasDraft } = await this.repos.tx(async (tx) => {
       const existing = await tx.notes.findById(id, ctx.organizationId);
       if (!existing) throw NoteNotFoundException();
       const wasDraft = existing.status === NoteStatus.Draft;
 
-      let updated: Note = {
-        id: existing.id,
-        documentId: existing.documentId,
-        status: existing.status,
-      };
-      if (body.status !== undefined) {
-        const u = await tx.notes.update(id, ctx.organizationId, { status: body.status });
-        updated = { ...updated, ...u };
+      // The plan above was resolved from a pre-transaction read. If the note was
+      // recorded by someone else in the meantime (still unfrozen in our plan, frozen
+      // in the fresh read), re-plan from the fresh state. The frozen branch is pure
+      // (no provider/policy call), so this still satisfies "resolve before the
+      // transaction"; a requested exchangeRate now correctly throws EXCHANGE_RATE_FROZEN.
+      if (!plan.frozen && isFrozen(existing.document, wasDraft)) {
+        plan = await planDocumentWrite({
+          money: this.money,
+          organizationId: ctx.organizationId,
+          existing: existing.document,
+          existingIsDraft: wasDraft,
+          willBeDraft: (body.status ?? existing.status) === NoteStatus.Draft,
+          currency: existing.document.currency,
+          issueDate: body.issueDate ? new Date(body.issueDate) : existing.document.issueDate,
+          requestedRate: body.exchangeRate,
+          referenced: ref ? { exchange: refExchange, policy: ref.moneyPolicy } : undefined,
+        });
       }
 
-      const documentUpdate: any = {};
+      let updated: Note = { id: existing.id, documentId: existing.documentId, status: existing.status };
+      if (body.status !== undefined) {
+        const patched = await tx.notes.update(id, ctx.organizationId, { status: body.status });
+        updated = { ...updated, ...patched };
+      }
+
+      const documentUpdate: DocumentUpdate = {};
       if (body.externalDocumentNumber !== undefined)
         documentUpdate.externalDocumentNumber = body.externalDocumentNumber;
       if (body.issueDate !== undefined) documentUpdate.issueDate = new Date(body.issueDate);
-      if (body.dueDate !== undefined)
-        documentUpdate.dueDate = body.dueDate ? new Date(body.dueDate) : null;
+      if (body.dueDate !== undefined) documentUpdate.dueDate = body.dueDate ? new Date(body.dueDate) : null;
       if (body.notes !== undefined) documentUpdate.notes = body.notes;
 
-      if (body.lineItems !== undefined) {
-        const documentCurrency = normalizeCurrency(existing.document.currency);
-        const side = documentSide(existing.document.type);
-        const lineItems = [];
-        for (const lineItem of body.lineItems) {
-          const product = await resolveLineItemProduct(
-            tx,
-            ctx.organizationId,
-            lineItem,
-            documentCurrency,
-            side,
-          );
-          const price = BigInt(lineItem.price);
-          const taxResult = await this.tax.computeForLine(tx, ctx.organizationId, {
-            quantity: lineItem.quantity,
-            price,
-            taxIds: lineItem.taxIds,
-          });
-          const lineTotals = this.calc.lineTotal({
-            quantity: lineItem.quantity,
-            price,
-            taxAmount: taxResult.taxAmount,
-          });
-          lineItems.push({
-            productId: product.id,
-            quantity: lineItem.quantity,
-            price,
-            currency: documentCurrency,
-            description: lineItem.description ?? null,
-            taxes: taxResult.perTax,
-            taxAmount: taxResult.taxAmount,
-            total: lineTotals.total,
-          });
-        }
-        const docTotals = this.calc.documentTotals(
-          lineItems.map((line) => ({
-            subtotal: line.total - line.taxAmount,
-            taxAmount: line.taxAmount,
-            total: line.total,
-          })),
-        );
-        documentUpdate.subtotal = docTotals.subtotal;
-        documentUpdate.tax = docTotals.tax;
-        documentUpdate.total = docTotals.total;
-        await tx.documents.replaceLineItems(existing.documentId, ctx.organizationId, lineItems);
+      // Unfrozen notes (drafts) follow the current policy on every write; frozen
+      // ones recompute only when their lines change, at their frozen rate.
+      if (body.lineItems !== undefined || !plan.frozen) {
+        const patch = await applyDocumentPlan(tx, {
+          document: existing.document,
+          organizationId: ctx.organizationId,
+          side: noteSide(existing.document),
+          plan,
+          lineItems: body.lineItems,
+        });
+        Object.assign(documentUpdate, patch);
       }
 
       if (Object.keys(documentUpdate).length > 0) {
         await tx.documents.update(existing.documentId, ctx.organizationId, documentUpdate);
+      }
+
+      if (existing.status === NoteStatus.Issued || updated.status === NoteStatus.Issued) {
+        const withDocument = await tx.notes.findById(id, ctx.organizationId);
+        if (withDocument) await resettleReference(tx, withDocument, ctx.organizationId);
       }
 
       return { updated, wasDraft };
@@ -239,6 +249,7 @@ export class NoteService {
     await this.repos.tx(async (tx) => {
       await tx.notes.delete(n.id, ctx.organizationId);
       await tx.documents.delete(n.documentId, ctx.organizationId);
+      if (n.status === NoteStatus.Issued) await resettleReference(tx, n, ctx.organizationId);
     });
   }
 }

@@ -408,6 +408,20 @@ describeForEachAdapter("NoteRepository", allFactories, (ctx) => {
     expect(await ctx.repos.notes.findById(note.id, organizationId)).toBeNull();
   });
 
+  test("netSettlementFor is issued credit notes minus issued debit notes on the document, org-scoped", async () => {
+    const a = await seed(ctx.repos);
+    const b = await seed(ctx.repos);
+    const { clientId, document: invoice } = await createInvoiceFixture(ctx, a.organizationId);
+    const note = (type: "CREDIT_NOTE" | "DEBIT_NOTE", total: bigint, status: "draft" | "issued", documentNumber: number) =>
+      createNoteFixture(ctx, a.organizationId, { type, referencedDocumentId: invoice.id, clientId, status, total, documentNumber });
+    await note("CREDIT_NOTE", 50n, "issued", 1);
+    await note("CREDIT_NOTE", 30n, "draft", 2);
+    await note("DEBIT_NOTE", 20n, "issued", 3);
+
+    expect(await ctx.repos.notes.netSettlementFor(invoice.id, a.organizationId)).toBe(30n);
+    expect(await ctx.repos.notes.netSettlementFor(invoice.id, b.organizationId)).toBe(0n);
+  });
+
   test("findById is org-scoped (returns null for other org)", async () => {
     const a = await seed(ctx.repos);
     const b = await seed(ctx.repos);

@@ -46,6 +46,7 @@ export const DOCUMENT_RELATIONS_INCLUDE = {
     },
   },
   lineItems: {
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     include: {
       taxes: true,
       product: {
@@ -96,6 +97,14 @@ export function createPrismaDocumentRepository(
           subtotal: data.subtotal,
           tax: data.tax,
           total: data.total,
+          ...(data.moneyPolicy ? { moneyPolicy: data.moneyPolicy } : {}),
+          baseCurrency: data.baseCurrency ?? null,
+          exchangeRate: data.exchangeRate ?? null,
+          exchangeRateDate: data.exchangeRateDate ?? null,
+          exchangeRateSource: data.exchangeRateSource ?? null,
+          baseSubtotal: data.baseSubtotal ?? null,
+          baseTax: data.baseTax ?? null,
+          baseTotal: data.baseTotal ?? null,
           lineItems: {
             create: data.lineItems.map((lineItem: NewDocumentLineItem) => ({
               productId: lineItem.productId,
@@ -104,12 +113,14 @@ export function createPrismaDocumentRepository(
               currency: lineItem.currency,
               taxAmount: lineItem.taxAmount,
               total: lineItem.total,
+              baseSubtotal: lineItem.baseSubtotal ?? null,
               description: lineItem.description ?? null,
               metadata: lineItem.metadata ?? null,
               taxes: {
                 create: lineItem.taxes.map((tax) => ({
                   taxId: tax.taxId,
                   taxAmount: tax.taxAmount,
+                  baseTaxAmount: tax.baseTaxAmount ?? null,
                 })),
               },
             })),
@@ -174,12 +185,14 @@ export function createPrismaDocumentRepository(
             currency: lineItem.currency,
             taxAmount: lineItem.taxAmount,
             total: lineItem.total,
+            baseSubtotal: lineItem.baseSubtotal ?? null,
             description: lineItem.description ?? null,
             metadata: lineItem.metadata ?? null,
             taxes: {
               create: lineItem.taxes.map((tax) => ({
                 taxId: tax.taxId,
                 taxAmount: tax.taxAmount,
+                baseTaxAmount: tax.baseTaxAmount ?? null,
               })),
             },
           },

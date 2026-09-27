@@ -1,4 +1,5 @@
-import type { Note } from "../../types";
+import type { BigintMinor, Note } from "../../types";
+import { DocumentType, NoteStatus } from "../../types";
 import type {
   ListNotesArgs,
   NewNote,
@@ -117,6 +118,20 @@ export function createPrismaNoteRepository(
 
     async delete(id, organizationId): Promise<void> {
       await db.deleteMany({ where: { id, document: { organizationId } } });
+    },
+
+    async netSettlementFor(referencedDocumentId, organizationId): Promise<BigintMinor> {
+      const issued: { document: { type: string; total: bigint | null } }[] = await db.findMany({
+        where: { status: NoteStatus.Issued, document: { organizationId, referencedDocumentId } },
+        select: { document: { select: { type: true, total: true } } },
+      });
+      let net = 0n;
+      for (const { document } of issued) {
+        const total = document.total ?? 0n;
+        if (document.type === DocumentType.CreditNote) net += total;
+        if (document.type === DocumentType.DebitNote) net -= total;
+      }
+      return net;
     },
   };
 }

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-import type { Note } from "../../types";
-import { DocumentType } from "../../types";
+import type { BigintMinor, Note } from "../../types";
+import { DocumentType, NoteStatus } from "../../types";
 import type {
   ListNotesArgs,
   NewNote,
@@ -157,6 +157,20 @@ export function createInMemoryNoteRepository(store: MemoryStore): NoteRepository
       const document = await documents.findById(existing.documentId, organizationId);
       if (!document) return;
       rows.delete(id);
+    },
+
+    async netSettlementFor(referencedDocumentId, organizationId): Promise<BigintMinor> {
+      let net = 0n;
+      for (const row of rows.values()) {
+        if (row.status !== NoteStatus.Issued) continue;
+        const document = store.documents.get(row.documentId);
+        if (!document || document.organizationId !== organizationId) continue;
+        if (document.referencedDocumentId !== referencedDocumentId) continue;
+        const total = document.total ?? 0n;
+        if (document.type === DocumentType.CreditNote) net += total;
+        if (document.type === DocumentType.DebitNote) net -= total;
+      }
+      return net;
     },
   };
   return repo;

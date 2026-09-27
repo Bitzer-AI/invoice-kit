@@ -27,6 +27,7 @@ export function buildQuotesRouter(service: QuoteService, auth: BetterAuthLike) {
       responses: {
         201: { content: { "application/json": { schema: quoteResponse } }, description: "Created" },
         401: { description: "Unauthorized" },
+        422: { description: "Exchange rate not applicable; or an invalid line item" },
       },
     }),
     async (c) => {
@@ -131,6 +132,7 @@ export function buildQuotesRouter(service: QuoteService, auth: BetterAuthLike) {
       responses: {
         200: { content: { "application/json": { schema: quoteResponse } }, description: "Updated" },
         404: { description: "Not found" },
+        422: { description: "Exchange rate not applicable; or an invalid line item" },
       },
     }),
     async (c) => {

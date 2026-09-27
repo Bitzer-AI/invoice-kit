@@ -13,6 +13,7 @@ import { buildPaymentsRouter } from "./domains/payments/routes";
 import { buildVendorBillPaymentsRouter } from "./domains/vendor-bill-payments/routes";
 import { buildNotesRouter } from "./domains/notes/routes";
 import { buildNumberingRouter } from "./domains/numbering/routes";
+import { buildDocumentsRouter } from "./domains/documents/routes";
 
 interface BuildRouterArgs {
   services: Services;
@@ -34,5 +35,6 @@ export function buildRouter({ services, auth, basePath }: BuildRouterArgs) {
   root.route(basePath, buildVendorBillPaymentsRouter(services.vendorBillPayments, auth));
   root.route(basePath, buildNotesRouter(services.notes, auth));
   root.route(basePath, buildNumberingRouter(services.numbering, auth));
+  root.route(basePath, buildDocumentsRouter(services.documents, auth));
   return root;
 }
