@@ -174,6 +174,14 @@ POST /api/bills/documents/calculate
 
 `exchange` and `base` are `null` when no `exchangeRates` provider is configured, or when the provider has no rate for `issueDate` (`null` or a rate ≤ 0) — a missing rate is **never an error** on this endpoint, unlike issuing a document. A malformed provider rate is an error: the same `RangeError` as at issue.
 
+### Upgrading to 0.18.0
+
+Update your Prisma schema and migrate before installing the new package. In `invoicing.prisma`, add `issued` and `voided` to `InvoiceStatus`; make `Document.documentNumber` nullable and add nullable `documentNumberPadWidth`; add nullable `subject` to `Invoice` and `Quote`; and make `DocumentLineItem.productId` and its product relation nullable. The bundled CLI template has these changes. Preserve existing document numbers and assign a pad width to numbered documents in the migration if your application needs their original display format.
+
+Invoices are now created as unnumbered drafts. `POST /invoices/{id}/issue` assigns the number and freezes the money policy and exchange rate. Drafts can be edited or deleted; issued invoices cannot. `POST /invoices/{id}/void` creates a full credit note for an unpaid sent invoice. Line items can be entered without a catalog product when they have a description. Integrations that relied on creating an already-issued invoice, paying a draft, or editing an issued invoice must use the explicit issue flow.
+
+Both `invoicing-kit` and `@invoicing-kit/cli` must be upgraded together.
+
 ### Upgrading to 0.17.0
 
 1. **Add the nullable columns and migrate — before installing 0.17.0.** `documents`: `money_policy` (json), `base_currency` (varchar 3), `exchange_rate` (decimal 18,8), `exchange_rate_date` (date), `exchange_rate_source` (varchar 16), `base_subtotal`, `base_tax`, `base_total` (bigint). `document_line_items`: `base_subtotal` (bigint). `document_line_item_taxes`: `base_tax_amount` (bigint). All nullable, so existing rows are untouched. If you generate your schema from `@invoicing-kit/cli`, regenerate from the 0.17.0 template and run your migration before bumping the package version.
