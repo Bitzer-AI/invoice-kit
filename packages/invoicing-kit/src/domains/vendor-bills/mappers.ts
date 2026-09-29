@@ -17,16 +17,18 @@ function lineItemToResponse(lineItem: DocumentWithRelations["lineItems"][number]
     total: lineItem.total.toString(),
     description: lineItem.description,
     source:
-      lineItem.product.sourceType !== null && lineItem.product.sourceId !== null
+      lineItem.product?.sourceType && lineItem.product.sourceId
         ? { type: lineItem.product.sourceType, id: lineItem.product.sourceId, name: lineItem.product.name }
         : null,
-    product: {
-      id: lineItem.productId,
-      name: lineItem.product.name,
-      description: lineItem.product.description,
-      price: lineItem.product.price,
-      currency: lineItem.product.currency,
-    },
+    product: lineItem.product && lineItem.productId
+      ? {
+          id: lineItem.productId,
+          name: lineItem.product.name,
+          description: lineItem.product.description,
+          price: lineItem.product.price,
+          currency: lineItem.product.currency,
+        }
+      : null,
     taxes: lineItem.taxes.map((tax) => ({
       id: tax.id,
       taxId: tax.taxId,

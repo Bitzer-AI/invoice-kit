@@ -31,13 +31,19 @@ export const ErrorCode = {
   QuoteNotFound: "QUOTE_NOT_FOUND",
   QuoteNumberAlreadyExists: "QUOTE_NUMBER_ALREADY_EXISTS",
   QuoteAlreadyConverted: "QUOTE_ALREADY_CONVERTED",
+  QuoteNotAccepted: "QUOTE_NOT_ACCEPTED",
+  QuoteStatusConflict: "QUOTE_STATUS_CONFLICT",
   InvoiceStatusTransitionInvalid: "INVOICE_STATUS_TRANSITION_INVALID",
+  InvoiceHasPayments: "INVOICE_HAS_PAYMENTS",
+  InvoiceHasCreditNote: "INVOICE_HAS_CREDIT_NOTE",
   NextNumberTooLow: "NEXT_NUMBER_TOO_LOW",
 
   // Payment
   PaymentNotFound: "PAYMENT_NOT_FOUND",
   PaymentAmountExceedsInvoiceTotal: "PAYMENT_AMOUNT_EXCEEDS_INVOICE_TOTAL",
   PaymentInvoiceMismatch: "PAYMENT_INVOICE_MISMATCH",
+  PaymentCurrencyMismatch: "PAYMENT_CURRENCY_MISMATCH",
+  PaymentInvoiceNotIssued: "PAYMENT_INVOICE_NOT_ISSUED",
 
   // Vendor / VendorBill (purchase side)
   VendorNotFound: "VENDOR_NOT_FOUND",
@@ -48,6 +54,10 @@ export const ErrorCode = {
 
   // Notes (credit / debit)
   NoteNotFound: "NOTE_NOT_FOUND",
+  NoteNotDraft: "NOTE_NOT_DRAFT",
+  NotePartyMismatch: "NOTE_PARTY_MISMATCH",
+  NoteCurrencyMismatch: "NOTE_CURRENCY_MISMATCH",
+  NoteReferencedInvoiceNotIssued: "NOTE_REFERENCED_INVOICE_NOT_ISSUED",
   NoteReferencedDocumentNotFound: "NOTE_REFERENCED_DOCUMENT_NOT_FOUND",
   NoteReferencesNote: "NOTE_REFERENCES_NOTE",
 
@@ -60,6 +70,13 @@ export const ErrorCode = {
 
 export type ErrorCodeKey = keyof typeof ErrorCode;
 export type ErrorCodeValue = (typeof ErrorCode)[ErrorCodeKey];
+
+export class BillingDocumentInvariantError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "BillingDocumentInvariantError";
+  }
+}
 
 interface ThrowArgs {
   code: ErrorCodeValue;

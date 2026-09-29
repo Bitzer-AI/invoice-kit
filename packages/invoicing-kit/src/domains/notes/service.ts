@@ -1,10 +1,14 @@
 import type { Repositories, NoteWithDocument, DocumentUpdate } from "../../adapters/types";
 import type { AuthContext } from "../../auth/types";
 import type { Note } from "../../types";
-import { DocumentType, NoteStatus, NoteType } from "../../types";
+import { DocumentType, InvoiceStatus, NoteStatus, NoteType } from "../../types";
 import type { CreateNoteBody, UpdateNoteBody, ListNotesQuery } from "./validation";
 import {
   NoteNotFoundException,
+  NoteNotDraftError,
+  NotePartyMismatchError,
+  NoteCurrencyMismatchError,
+  NoteReferencedInvoiceNotIssuedError,
   NoteReferencedDocumentNotFoundException,
   NoteReferencesNoteException,
   DocumentPartyInvalidException,
@@ -81,7 +85,36 @@ export class NoteService {
 
     const docType = body.noteType === NoteType.Credit ? DocumentType.CreditNote : DocumentType.DebitNote;
     const note = await this.repos.tx(async (tx) => {
-      const number = await this.numbering.next(tx, ctx.organizationId, docType, null);
+      // Resolve + validate the referenced document (party invariant).
+      const ref = await tx.documents.findById(body.referencedDocumentId, ctx.organizationId);
+      if (!ref) throw NoteReferencedDocumentNotFoundException();
+      if (ref.type === DocumentType.CreditNote || ref.type === DocumentType.DebitNote)
+        throw NoteReferencesNoteException();
+
+      const isSales = body.clientId != null;
+      if (isSales && ref.type !== DocumentType.Invoice)
+        throw DocumentPartyInvalidException("A client note must reference an INVOICE");
+      if (!isSales && ref.type !== DocumentType.VendorBill)
+        throw DocumentPartyInvalidException("A vendor note must reference a VENDOR_BILL");
+      if (isSales && body.clientId !== ref.clientId) throw new NotePartyMismatchError();
+      if (!isSales && body.vendorId !== ref.vendorId) throw new NotePartyMismatchError();
+
+      if (ref.type === DocumentType.Invoice) {
+        const invoice = await tx.invoices.findByDocumentId(ref.id, ctx.organizationId);
+        if (!invoice) throw NoteReferencedDocumentNotFoundException();
+        if (invoice.status === InvoiceStatus.Draft || invoice.status === InvoiceStatus.Voided) {
+          throw new NoteReferencedInvoiceNotIssuedError();
+        }
+        const locked = await tx.invoices.transitionStatus(
+          invoice.id,
+          ctx.organizationId,
+          invoice.status,
+          invoice.status,
+        );
+        if (!locked) throw new NoteReferencedInvoiceNotIssuedError();
+      }
+
+      const assigned = await this.numbering.next(tx, ctx.organizationId, docType, null);
       const built = await buildDocumentLines({
         repos: tx,
         organizationId: ctx.organizationId,
@@ -100,7 +133,8 @@ export class NoteService {
         referencedDocumentId: body.referencedDocumentId,
         externalDocumentNumber: body.externalDocumentNumber ?? null,
         documentNumberPrefix: null,
-        documentNumber: number,
+        documentNumber: assigned.number,
+        documentNumberPadWidth: assigned.padWidth,
         issueDate,
         dueDate: body.dueDate ? new Date(body.dueDate) : null,
         notes: body.notes ?? null,
@@ -136,7 +170,7 @@ export class NoteService {
       organizationId: ctx.organizationId,
       page: query.page,
       perPage: query.perPage,
-      status: query.status ? (query.status.split(",") as any) : undefined,
+      status: query.status,
       type: query.type,
       party: query.party,
       clientId: query.clientId,
@@ -178,6 +212,7 @@ export class NoteService {
     const { updated, wasDraft } = await this.repos.tx(async (tx) => {
       const existing = await tx.notes.findById(id, ctx.organizationId);
       if (!existing) throw NoteNotFoundException();
+      if (existing.status !== NoteStatus.Draft) throw new NoteNotDraftError();
       const wasDraft = existing.status === NoteStatus.Draft;
 
       // The plan above was resolved from a pre-transaction read. If the note was
@@ -204,7 +239,6 @@ export class NoteService {
         const patched = await tx.notes.update(id, ctx.organizationId, { status: body.status });
         updated = { ...updated, ...patched };
       }
-
       const documentUpdate: DocumentUpdate = {};
       if (body.externalDocumentNumber !== undefined)
         documentUpdate.externalDocumentNumber = body.externalDocumentNumber;
@@ -229,7 +263,7 @@ export class NoteService {
         await tx.documents.update(existing.documentId, ctx.organizationId, documentUpdate);
       }
 
-      if (existing.status === NoteStatus.Issued || updated.status === NoteStatus.Issued) {
+      if (updated.status === NoteStatus.Issued) {
         const withDocument = await tx.notes.findById(id, ctx.organizationId);
         if (withDocument) await resettleReference(tx, withDocument, ctx.organizationId);
       }
@@ -245,11 +279,12 @@ export class NoteService {
   }
 
   async delete(id: string, ctx: AuthContext): Promise<void> {
-    const n = await this.findById(id, ctx);
     await this.repos.tx(async (tx) => {
+      const n = await tx.notes.findById(id, ctx.organizationId);
+      if (!n) throw NoteNotFoundException();
+      if (n.status !== NoteStatus.Draft) throw new NoteNotDraftError();
       await tx.notes.delete(n.id, ctx.organizationId);
       await tx.documents.delete(n.documentId, ctx.organizationId);
-      if (n.status === NoteStatus.Issued) await resettleReference(tx, n, ctx.organizationId);
     });
   }
 }

@@ -6,12 +6,23 @@ import type {
   QuoteUpdate,
   QuoteWithDocument,
 } from "../types";
-import type { Quote } from "../../types";
+import type { Quote, QuoteStatus } from "../../types";
 import { DocumentType } from "../../types";
 import type { AnyPrismaClient, PrismaModelNames } from "./client-type";
 import { quoteRowToDomain, quoteWithDocumentRowToDomain } from "./mappers";
 import { WITH_DOCUMENT_INCLUDE } from "./documents";
 import { documentSearchWhere, quoteListOrderBy } from "../../lib/list-query";
+
+const WITH_QUOTE_DOCUMENT_INCLUDE = {
+  ...WITH_DOCUMENT_INCLUDE,
+  convertedInvoice: {
+    include: {
+      document: {
+        select: { documentNumberPrefix: true, documentNumber: true, documentNumberPadWidth: true },
+      },
+    },
+  },
+};
 
 export function createPrismaQuoteRepository(
   prisma: AnyPrismaClient,
@@ -24,6 +35,7 @@ export function createPrismaQuoteRepository(
         data: {
           documentId: data.documentId,
           status: data.status,
+          subject: data.subject,
           validUntil: data.validUntil ?? null,
         },
       });
@@ -32,7 +44,7 @@ export function createPrismaQuoteRepository(
     async findById(id, organizationId) {
       const row = await db.findFirst({
         where: { id, document: { organizationId } },
-        include: WITH_DOCUMENT_INCLUDE,
+        include: WITH_QUOTE_DOCUMENT_INCLUDE,
       });
       return row ? quoteWithDocumentRowToDomain(row) : null;
     },
@@ -54,14 +66,21 @@ export function createPrismaQuoteRepository(
       const perPage = args.perPage ?? 20;
       const documentWhere: any = { organizationId: args.organizationId };
       if (args.clientId) documentWhere.clientId = args.clientId;
+      if (args.currency) documentWhere.currency = args.currency;
       if (args.issueDateFrom || args.issueDateTo) {
         documentWhere.issueDate = {};
         if (args.issueDateFrom) documentWhere.issueDate.gte = args.issueDateFrom;
         if (args.issueDateTo) documentWhere.issueDate.lte = args.issueDateTo;
       }
-      const search = documentSearchWhere(args.query);
-      if (search) Object.assign(documentWhere, search);
       const where: any = { document: documentWhere };
+      const search = documentSearchWhere(args.query);
+      if (search) {
+        where.OR = [
+          { subject: { contains: args.query?.trim(), mode: "insensitive" } },
+          { document: search },
+        ];
+      }
+      if (args.quoteIds) where.id = { in: args.quoteIds };
       if (args.status) {
         where.status = Array.isArray(args.status)
           ? { in: args.status }
@@ -70,7 +89,7 @@ export function createPrismaQuoteRepository(
       const [rows, totalCount] = await Promise.all([
         db.findMany({
           where,
-          include: WITH_DOCUMENT_INCLUDE,
+          include: WITH_QUOTE_DOCUMENT_INCLUDE,
           skip: (page - 1) * perPage,
           take: perPage,
           orderBy: quoteListOrderBy(args.sortBy, args.sortDir),
@@ -95,6 +114,18 @@ export function createPrismaQuoteRepository(
       if (count === 0) throw new Error("quote not found");
       const row = await db.findUnique({ where: { id } });
       return quoteRowToDomain(row);
+    },
+    async transitionStatus(
+      id: string,
+      organizationId: string,
+      from: QuoteStatus,
+      to: QuoteStatus,
+    ): Promise<boolean> {
+      const { count } = await db.updateMany({
+        where: { id, status: from, document: { organizationId } },
+        data: { status: to },
+      });
+      return count === 1;
     },
     async delete(id, organizationId) {
       await db.deleteMany({

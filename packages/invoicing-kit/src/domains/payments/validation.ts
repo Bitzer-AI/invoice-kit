@@ -3,8 +3,8 @@ import { PaymentStatus } from "../../types";
 import { currencyCodeSchema } from "../../lib/currency";
 
 export const createPaymentBody = z.object({
-  paymentMethodId: z.string().optional().nullable(),
-  amount: z.string().regex(/^\d+$/, "Amount must be integer minor units"),
+  paymentMethodId: z.string().min(1).optional().nullable(),
+  amount: z.string().regex(/^[1-9]\d*$/, "Amount must be positive integer minor units"),
   currency: currencyCodeSchema,
   provider: z.string().min(1).max(50),
   paidAt: z.string().datetime({ offset: true }).optional().nullable(),

@@ -13,9 +13,11 @@ enum NoteStatus {
 
 enum InvoiceStatus {
   draft
+  issued
   sent
   paid
   partially_paid
+  voided
 }
 
 enum QuoteStatus {
@@ -100,7 +102,8 @@ model Document {
   externalDocumentNumber String?      @map("external_document_number") @db.VarChar(40)
   referencedDocumentId   String?      @map("referenced_document_id")
   documentNumberPrefix   String?      @map("document_number_prefix") @db.VarChar(20)
-  documentNumber         Int          @map("document_number")
+  documentNumber         Int?         @map("document_number")
+  documentNumberPadWidth Int?         @map("document_number_pad_width")
   issueDate              DateTime     @map("issue_date") @db.Date
   dueDate                DateTime?    @map("due_date") @db.Date
   notes                  String?      @db.Text
@@ -143,6 +146,7 @@ model Quote {
   id         String      @id @default(uuid(7))
   documentId String      @unique @map("document_id")
   status     QuoteStatus
+  subject    String?
   validUntil DateTime?   @map("valid_until") @db.Date
 
   document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
@@ -156,6 +160,7 @@ model Invoice {
   id                   String        @id @default(uuid(7))
   documentId           String        @unique @map("document_id")
   status               InvoiceStatus
+  subject              String?       @db.Text
   paidDate             DateTime?     @map("paid_date") @db.Date
   convertedFromQuoteId String?       @unique @map("converted_from_quote_id")
 
@@ -213,7 +218,7 @@ model FiscalDocument {
 model DocumentLineItem {
   id          String   @id @default(uuid(7))
   documentId  String   @map("document_id")
-  productId   String   @map("product_id")
+  productId   String?  @map("product_id")
   quantity    Decimal  @db.Decimal(10, 4)
   price       BigInt // Unit price in minor units (cents)
   // Snapshot of the parent document's currency at sale time (single-currency
@@ -228,7 +233,7 @@ model DocumentLineItem {
   updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
 
   document Document              @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  product  Product               @relation(fields: [productId], references: [id], onDelete: Restrict)
+  product  Product?              @relation(fields: [productId], references: [id], onDelete: Restrict)
   taxes    DocumentLineItemTax[]
 
   @@map("document_line_items")

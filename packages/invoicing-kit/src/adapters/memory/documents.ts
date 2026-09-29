@@ -30,18 +30,25 @@ export function createInMemoryDocumentRepository(store: MemoryStore): DocumentRe
       const taxes = Array.from(lineItemTaxes.values()).filter(
         (tax) => tax.lineItemId === lineItem.id,
       );
-      const product = store.products.get(lineItem.productId);
+      const product = lineItem.productId
+        ? store.products.get(lineItem.productId)
+        : null;
+      if (lineItem.productId && !product) {
+        throw new Error("A catalog-linked line item references a missing product");
+      }
       return {
         ...lineItem,
         taxes,
-        product: {
-          name: product?.name ?? "",
-          description: product?.description ?? null,
-          price: product?.price ?? "0.00",
-          currency: product?.currency ?? DEFAULT_CURRENCY,
-          sourceType: product?.sourceType ?? null,
-          sourceId: product?.sourceId ?? null,
-        },
+        product: product
+          ? {
+              name: product.name,
+              description: product.description,
+              price: product.price,
+              currency: product.currency,
+              sourceType: product.sourceType,
+              sourceId: product.sourceId,
+            }
+          : null,
       };
     });
     const paymentMethods = Array.from(paymentMethodLinks.values()).filter(
@@ -153,6 +160,7 @@ export function createInMemoryDocumentRepository(store: MemoryStore): DocumentRe
         externalDocumentNumber: data.externalDocumentNumber ?? null,
         documentNumberPrefix: data.documentNumberPrefix ?? null,
         documentNumber: data.documentNumber,
+        documentNumberPadWidth: data.documentNumberPadWidth,
         issueDate: data.issueDate,
         dueDate: data.dueDate ?? null,
         notes: data.notes ?? null,

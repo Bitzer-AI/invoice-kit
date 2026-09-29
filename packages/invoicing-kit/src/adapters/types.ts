@@ -1,4 +1,5 @@
 import type {
+  AssignedDocumentNumber,
   Client,
   Document,
   DocumentLineItem,
@@ -189,7 +190,7 @@ export interface DocumentSequenceRepository {
     organizationId: string;
     documentType: DocumentType;
     prefix: string | null;
-  }): Promise<number>;
+  }): Promise<AssignedDocumentNumber>;
   /** Idempotent: creates the series row with `nextNumber=1` if missing, no-op otherwise. */
   ensure(args: {
     organizationId: string;
@@ -226,7 +227,7 @@ export interface DocumentSequenceRepository {
 // ============== Document ==============
 
 export interface NewDocumentLineItem {
-  productId: string;
+  productId: string | null;
   quantity: DecimalString;
   price: BigintMinor;
   /** The parent document's currency (services stamp it; single-currency documents are enforced upstream). */
@@ -250,7 +251,8 @@ export interface NewDocument {
   referencedDocumentId?: string | null;
   externalDocumentNumber?: string | null;
   documentNumberPrefix?: string | null;
-  documentNumber: number;
+  documentNumber: number | null;
+  documentNumberPadWidth: number | null;
   issueDate: Date;
   dueDate?: Date | null;
   notes?: string | null;
@@ -275,7 +277,8 @@ export type DocumentUpdate = Partial<{
   vendorId: string | null;
   externalDocumentNumber: string | null;
   documentNumberPrefix: string | null;
-  documentNumber: number;
+  documentNumber: number | null;
+  documentNumberPadWidth: number | null;
   issueDate: Date;
   dueDate: Date | null;
   notes: string | null;
@@ -338,7 +341,7 @@ export interface DocumentWithRelations extends Document {
   client: DocumentClient | null;
   /** The supplier. Set only on vendor bills; null for sales-side documents. */
   vendor: DocumentVendor | null;
-  lineItems: Array<DocumentLineItem & { taxes: DocumentLineItemTax[]; product: LineItemProduct }>;
+  lineItems: Array<DocumentLineItem & { taxes: DocumentLineItemTax[]; product: LineItemProduct | null }>;
   paymentMethods: DocumentPaymentMethod[];
 }
 
@@ -367,12 +370,14 @@ export interface DocumentRepository {
 export interface NewInvoice {
   documentId: string;
   status: InvoiceStatus;
+  subject: string | null;
   paidDate?: Date | null;
   convertedFromQuoteId?: string | null;
 }
 
 export type InvoiceUpdate = Partial<{
   status: InvoiceStatus;
+  subject: string | null;
   paidDate: Date | null;
 }>;
 
@@ -382,8 +387,11 @@ export interface InvoiceWithDocument extends Invoice {
 
 export interface ListInvoicesArgs extends PageRequest {
   organizationId: string;
+  /** Optional host-owned scope; an empty list intentionally matches nothing. */
+  invoiceIds?: readonly string[];
   status?: InvoiceStatus | InvoiceStatus[];
   clientId?: string;
+  currency?: string;
   /** Inclusive date range on Document.issueDate. */
   issueDateFrom?: Date;
   issueDateTo?: Date;
@@ -398,6 +406,7 @@ export interface ListInvoicesArgs extends PageRequest {
 export interface InvoiceRepository {
   create(data: NewInvoice): Promise<Invoice>;
   findById(id: string, organizationId: string): Promise<InvoiceWithDocument | null>;
+  findByDocumentId(documentId: string, organizationId: string): Promise<InvoiceWithDocument | null>;
   findByDocumentNumber(args: {
     organizationId: string;
     prefix: string | null;
@@ -405,6 +414,13 @@ export interface InvoiceRepository {
   }): Promise<Invoice | null>;
   list(args: ListInvoicesArgs): Promise<Page<InvoiceWithDocument>>;
   update(id: string, organizationId: string, patch: InvoiceUpdate): Promise<Invoice>;
+  /** Atomically claim a draft for issuance before reserving its document number. */
+  transitionStatus(
+    id: string,
+    organizationId: string,
+    from: InvoiceStatus,
+    to: InvoiceStatus,
+  ): Promise<boolean>;
   delete(id: string, organizationId: string): Promise<void>;
 }
 
@@ -456,8 +472,9 @@ export interface ReferencedDocumentSummary {
   /** The invoice / vendor-bill entity id, distinct from the document id. Null if the entity row is missing. */
   entityId: string | null;
   type: DocumentType;
-  documentNumber: number;
+  documentNumber: number | null;
   documentNumberPrefix: string | null;
+  documentNumberPadWidth: number | null;
   externalDocumentNumber: string | null;
   total: bigint | null;
   currency: string;
@@ -501,26 +518,37 @@ export interface NoteRepository {
 export interface NewQuote {
   documentId: string;
   status: QuoteStatus;
+  subject: string | null;
   validUntil?: Date | null;
 }
 
 export type QuoteUpdate = Partial<{
   status: QuoteStatus;
+  subject: string | null;
   validUntil: Date | null;
 }>;
 
 export interface QuoteWithDocument extends Quote {
   document: DocumentWithRelations;
+  convertedInvoice: {
+    id: string;
+    documentNumberPrefix: string | null;
+    documentNumber: number | null;
+    documentNumberPadWidth: number | null;
+  } | null;
 }
 
 export interface ListQuotesArgs extends PageRequest {
   organizationId: string;
+  /** Optional host-owned scope; an empty list intentionally matches nothing. */
+  quoteIds?: readonly string[];
   status?: QuoteStatus | QuoteStatus[];
   clientId?: string;
+  currency?: string;
   /** Inclusive date range on Document.issueDate. */
   issueDateFrom?: Date;
   issueDateTo?: Date;
-  /** Free-text search over document number, prefix, client name and taxId. */
+  /** Free-text search over subject, document number, prefix, client name and taxId. */
   query?: string;
   sortBy?: "issueDate" | "validUntil" | "total" | "documentNumber" | "status";
   sortDir?: "asc" | "desc";
@@ -536,6 +564,12 @@ export interface QuoteRepository {
   }): Promise<Quote | null>;
   list(args: ListQuotesArgs): Promise<Page<QuoteWithDocument>>;
   update(id: string, organizationId: string, patch: QuoteUpdate): Promise<Quote>;
+  transitionStatus(
+    id: string,
+    organizationId: string,
+    from: QuoteStatus,
+    to: QuoteStatus,
+  ): Promise<boolean>;
   delete(id: string, organizationId: string): Promise<void>;
 }
 

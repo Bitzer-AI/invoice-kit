@@ -9,32 +9,29 @@ import {
   lineItemTaxBaseResponseFields,
 } from "../../lib/document-response";
 
-export const createInvoiceBody = z.object({
-  clientId: z.string(),
+export const createInvoiceBody = z.strictObject({
+  clientId: z.string().min(1),
+  subject: z.string().trim().min(1).nullable().optional(),
   documentNumberPrefix: z.string().max(20).optional().nullable(),
-  /** One-off override of the assigned number for THIS document. When omitted, the series counter assigns it. */
-  documentNumber: z.number().int().positive().optional(),
   issueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "YYYY-MM-DD"),
-  paidDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
+  dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "YYYY-MM-DD").optional().nullable(),
   notes: z.string().optional().nullable(),
   currency: currencyCodeSchema.optional(),
-  status: z.nativeEnum(InvoiceStatus).default(InvoiceStatus.Draft),
   lineItems: z.array(lineItemSchema).min(1),
-  paymentMethodIds: z.array(z.string()).default([]),
+  paymentMethodIds: z.array(z.string().min(1)).default([]),
   exchangeRate: exchangeRateSchema.optional().nullable(),
 });
 export type CreateInvoiceBody = z.infer<typeof createInvoiceBody>;
 
-export const updateInvoiceBody = z.object({
-  clientId: z.string().optional(),
+export const updateInvoiceBody = z.strictObject({
+  clientId: z.string().min(1).optional(),
+  subject: z.string().trim().min(1).nullable().optional(),
   documentNumberPrefix: z.string().max(20).optional().nullable(),
-  documentNumber: z.number().int().positive().optional(),
   issueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-  paidDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
+  dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
   notes: z.string().optional().nullable(),
-  status: z.nativeEnum(InvoiceStatus).optional(),
   lineItems: z.array(lineItemSchema).min(1).optional(),
-  paymentMethodIds: z.array(z.string()).optional(),
+  paymentMethodIds: z.array(z.string().min(1)).optional(),
   exchangeRate: exchangeRateSchema.optional().nullable(),
 });
 export type UpdateInvoiceBody = z.infer<typeof updateInvoiceBody>;
@@ -42,8 +39,11 @@ export type UpdateInvoiceBody = z.infer<typeof updateInvoiceBody>;
 export const listInvoicesQuery = z.object({
   page: z.coerce.number().int().positive().optional(),
   perPage: z.coerce.number().int().positive().max(100).optional(),
-  status: z.string().optional(), // comma-separated
+  status: z.string().transform((value) => value.split(",")).pipe(
+    z.array(z.enum(InvoiceStatus)).min(1),
+  ).optional(),
   clientId: z.string().optional(),
+  currency: currencyCodeSchema.optional(),
   query: z.string().trim().min(1).optional(),
   sortBy: z.enum(["issueDate", "dueDate", "total", "documentNumber", "status"]).optional(),
   sortDir: z.enum(["asc", "desc"]).optional(),
@@ -59,12 +59,6 @@ export const bulkDeleteInvoicesBody = z.object({
 });
 export type BulkDeleteInvoicesBody = z.infer<typeof bulkDeleteInvoicesBody>;
 
-export const bulkUpdateInvoiceStatusBody = z.object({
-  ids: z.array(z.string()).min(1).max(200),
-  status: z.enum([InvoiceStatus.Draft, InvoiceStatus.Sent, InvoiceStatus.Paid]),
-});
-export type BulkUpdateInvoiceStatusBody = z.infer<typeof bulkUpdateInvoiceStatusBody>;
-
 export const bulkResultResponse = z.object({ count: z.number().int() });
 
 export const convertFromQuoteBody = z.object({
@@ -72,9 +66,14 @@ export const convertFromQuoteBody = z.object({
 });
 export type ConvertFromQuoteBody = z.infer<typeof convertFromQuoteBody>;
 
+export const voidInvoiceBody = z.strictObject({
+  reason: z.string().trim().min(1).max(500),
+});
+export type VoidInvoiceBody = z.infer<typeof voidInvoiceBody>;
+
 const lineItemResponse = z.object({
   id: z.string(),
-  productId: z.string(),
+  productId: z.string().nullable(),
   quantity: z.string(),
   price: z.string(),
   currency: z.string(),
@@ -91,7 +90,7 @@ const lineItemResponse = z.object({
     description: z.string().nullable(),
     price: z.string(),
     currency: z.string(),
-  }),
+  }).nullable(),
   taxes: z.array(
     z.object({ id: z.string(), taxId: z.string(), taxAmount: z.string(), ...lineItemTaxBaseResponseFields }),
   ),
@@ -102,6 +101,7 @@ export const invoiceResponse = z.object({
   id: z.string(),
   documentId: z.string(),
   status: z.nativeEnum(InvoiceStatus),
+  subject: z.string().nullable(),
   paidDate: z.string().nullable(),
   convertedFromQuoteId: z.string().nullable(),
   document: z.object({
@@ -122,7 +122,8 @@ export const invoiceResponse = z.object({
       })
       .nullable(),
     documentNumberPrefix: z.string().nullable(),
-    documentNumber: z.number().int(),
+    documentNumber: z.number().int().nullable(),
+    documentNumberPadWidth: z.number().int().min(1).max(12).nullable(),
     issueDate: z.string(),
     dueDate: z.string().nullable(),
     notes: z.string().nullable(),
@@ -130,6 +131,7 @@ export const invoiceResponse = z.object({
     subtotal: z.string().nullable(),
     tax: z.string().nullable(),
     total: z.string().nullable(),
+    paymentMethodIds: z.array(z.string()),
     lineItems: z.array(lineItemResponse),
     ...documentMoneyResponseFields,
   }),

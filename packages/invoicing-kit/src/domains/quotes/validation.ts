@@ -9,8 +9,16 @@ import {
   lineItemTaxBaseResponseFields,
 } from "../../lib/document-response";
 
+const editableQuoteStatusSchema = z.enum([
+  QuoteStatus.Draft,
+  QuoteStatus.Sent,
+  QuoteStatus.Accepted,
+  QuoteStatus.Rejected,
+]);
+
 export const createQuoteBody = z.object({
-  clientId: z.string(),
+  clientId: z.string().min(1),
+  subject: z.string().trim().min(1).max(255).optional().nullable(),
   documentNumberPrefix: z.string().max(20).optional().nullable(),
   /** One-off override of the assigned number for THIS document. When omitted, the series counter assigns it. */
   documentNumber: z.number().int().positive().optional(),
@@ -18,23 +26,24 @@ export const createQuoteBody = z.object({
   validUntil: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
   notes: z.string().optional().nullable(),
   currency: currencyCodeSchema.optional(),
-  status: z.nativeEnum(QuoteStatus).default(QuoteStatus.Draft),
+  status: editableQuoteStatusSchema.default(QuoteStatus.Draft),
   lineItems: z.array(lineItemSchema).min(1),
-  paymentMethodIds: z.array(z.string()).default([]),
+  paymentMethodIds: z.array(z.string().min(1)).default([]),
   exchangeRate: exchangeRateSchema.optional().nullable(),
 });
 export type CreateQuoteBody = z.infer<typeof createQuoteBody>;
 
 export const updateQuoteBody = z.object({
-  clientId: z.string().optional(),
+  clientId: z.string().min(1).optional(),
+  subject: z.string().trim().min(1).max(255).optional().nullable(),
   documentNumberPrefix: z.string().max(20).optional().nullable(),
   documentNumber: z.number().int().positive().optional(),
   issueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   validUntil: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
   notes: z.string().optional().nullable(),
-  status: z.nativeEnum(QuoteStatus).optional(),
+  status: editableQuoteStatusSchema.optional(),
   lineItems: z.array(lineItemSchema).min(1).optional(),
-  paymentMethodIds: z.array(z.string()).optional(),
+  paymentMethodIds: z.array(z.string().min(1)).optional(),
   exchangeRate: exchangeRateSchema.optional().nullable(),
 });
 export type UpdateQuoteBody = z.infer<typeof updateQuoteBody>;
@@ -42,8 +51,11 @@ export type UpdateQuoteBody = z.infer<typeof updateQuoteBody>;
 export const listQuotesQuery = z.object({
   page: z.coerce.number().int().positive().optional(),
   perPage: z.coerce.number().int().positive().max(100).optional(),
-  status: z.string().optional(), // comma-separated
+  status: z.string().transform((value) => value.split(",")).pipe(
+    z.array(z.enum(QuoteStatus)).min(1),
+  ).optional(),
   clientId: z.string().optional(),
+  currency: currencyCodeSchema.optional(),
   query: z.string().trim().min(1).optional(),
   sortBy: z.enum(["issueDate", "validUntil", "total", "documentNumber", "status"]).optional(),
   sortDir: z.enum(["asc", "desc"]).optional(),
@@ -59,7 +71,7 @@ export type BulkDeleteQuotesBody = z.infer<typeof bulkDeleteQuotesBody>;
 
 export const bulkUpdateQuoteStatusBody = z.object({
   ids: z.array(z.string()).min(1).max(200),
-  status: z.enum([QuoteStatus.Draft, QuoteStatus.Sent, QuoteStatus.Accepted, QuoteStatus.Rejected]),
+  status: editableQuoteStatusSchema,
 });
 export type BulkUpdateQuoteStatusBody = z.infer<typeof bulkUpdateQuoteStatusBody>;
 
@@ -67,7 +79,7 @@ export const bulkResultResponse = z.object({ count: z.number().int() });
 
 const lineItemResponse = z.object({
   id: z.string(),
-  productId: z.string(),
+  productId: z.string().nullable(),
   quantity: z.string(),
   price: z.string(),
   currency: z.string(),
@@ -84,7 +96,7 @@ const lineItemResponse = z.object({
     description: z.string().nullable(),
     price: z.string(),
     currency: z.string(),
-  }),
+  }).nullable(),
   taxes: z.array(
     z.object({ id: z.string(), taxId: z.string(), taxAmount: z.string(), ...lineItemTaxBaseResponseFields }),
   ),
@@ -95,7 +107,16 @@ export const quoteResponse = z.object({
   id: z.string(),
   documentId: z.string(),
   status: z.nativeEnum(QuoteStatus),
+  subject: z.string().nullable(),
   validUntil: z.string().nullable(),
+  convertedInvoice: z
+    .object({
+      id: z.string(),
+      documentNumberPrefix: z.string().nullable(),
+      documentNumber: z.number().int().nullable(),
+      documentNumberPadWidth: z.number().int().min(1).max(12).nullable(),
+    })
+    .nullable(),
   document: z.object({
     clientId: z.string(),
     client: z
@@ -115,6 +136,7 @@ export const quoteResponse = z.object({
       .nullable(),
     documentNumberPrefix: z.string().nullable(),
     documentNumber: z.number().int(),
+    documentNumberPadWidth: z.number().int().min(1).max(12),
     issueDate: z.string(),
     dueDate: z.string().nullable(),
     notes: z.string().nullable(),
@@ -122,6 +144,7 @@ export const quoteResponse = z.object({
     subtotal: z.string().nullable(),
     tax: z.string().nullable(),
     total: z.string().nullable(),
+    paymentMethodIds: z.array(z.string()),
     lineItems: z.array(lineItemResponse),
     ...documentMoneyResponseFields,
   }),

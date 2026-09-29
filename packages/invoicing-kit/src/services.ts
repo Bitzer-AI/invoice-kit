@@ -1,6 +1,7 @@
 import type { Repositories } from "./adapters/types";
 import type { InvoicingKitHooks } from "./config";
 import { buildMoneySettings, type MoneySettings } from "./lib/money/settings";
+import type { InvoiceIssueGuard } from "./config";
 import { ClientService } from "./domains/clients/service";
 import { VendorService } from "./domains/vendors/service";
 import { ProductService } from "./domains/products/service";
@@ -31,7 +32,12 @@ export interface Services {
   documents: DocumentCalculationService;
 }
 
-export function buildServices(repos: Repositories, hooks?: InvoicingKitHooks, money?: MoneySettings): Services {
+export function buildServices(
+  repos: Repositories,
+  hooks?: InvoicingKitHooks,
+  money?: MoneySettings,
+  invoicing?: { creditNotePrefix: string | null; issueGuard?: InvoiceIssueGuard },
+): Services {
   const settings = money ?? buildMoneySettings();
   return {
     clients: new ClientService(repos),
@@ -40,7 +46,12 @@ export function buildServices(repos: Repositories, hooks?: InvoicingKitHooks, mo
     taxes: new TaxService(repos),
     paymentMethods: new PaymentMethodService(repos),
     quotes: new QuoteService(repos, { money: settings }),
-    invoices: new InvoiceService(repos, { hooks, money: settings }),
+    invoices: new InvoiceService(repos, {
+      hooks,
+      money: settings,
+      creditNotePrefix: invoicing?.creditNotePrefix ?? null,
+      issueGuard: invoicing?.issueGuard,
+    }),
     vendorBills: new VendorBillService(repos, { hooks, money: settings }),
     payments: new PaymentService(repos, { hooks, money: settings }),
     vendorBillPayments: new VendorBillPaymentService(repos, { hooks, money: settings }),

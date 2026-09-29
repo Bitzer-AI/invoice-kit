@@ -9,10 +9,12 @@ import {
   updateInvoiceBody,
   convertFromQuoteBody,
   bulkDeleteInvoicesBody,
-  bulkUpdateInvoiceStatusBody,
   bulkResultResponse,
+  voidInvoiceBody,
 } from "./validation";
 import { invoiceToResponse } from "./mappers";
+import { noteResponse } from "../notes/validation";
+import { noteToResponse } from "../notes/mappers";
 import type { AuthVariables } from "../../auth/types";
 
 export function buildInvoicesRouter(service: InvoiceService, auth: BetterAuthLike) {
@@ -88,29 +90,6 @@ export function buildInvoicesRouter(service: InvoiceService, auth: BetterAuthLik
 
   app.openapi(
     createRoute({
-      method: "post",
-      path: "/invoices/bulk-status",
-      tags: ["Invoices"],
-      request: {
-        body: { content: { "application/json": { schema: bulkUpdateInvoiceStatusBody } } },
-      },
-      responses: {
-        200: {
-          content: { "application/json": { schema: bulkResultResponse } },
-          description: "Updated",
-        },
-        401: { description: "Unauthorized" },
-      },
-    }),
-    async (c) => {
-      const { ids, status } = c.req.valid("json");
-      const result = await service.bulkUpdateStatus(ids, status, c.var.authContext);
-      return c.json(result);
-    },
-  );
-
-  app.openapi(
-    createRoute({
       method: "get",
       path: "/invoices/{id}",
       tags: ["Invoices"],
@@ -154,6 +133,54 @@ export function buildInvoicesRouter(service: InvoiceService, auth: BetterAuthLik
       await service.update(id, body, c.var.authContext);
       const full = await service.findById(id, c.var.authContext);
       return c.json(invoiceToResponse(full));
+    },
+  );
+
+  app.openapi(
+    createRoute({
+      method: "post",
+      path: "/invoices/{id}/issue",
+      tags: ["Invoices"],
+      request: { params: z.object({ id: z.string() }) },
+      responses: {
+        200: {
+          content: { "application/json": { schema: invoiceResponse } },
+          description: "Issued",
+        },
+        404: { description: "Not found" },
+        409: { description: "Invoice is not a draft" },
+      },
+    }),
+    async (c) => {
+      const { id } = c.req.valid("param");
+      const invoice = await service.issue(id, c.var.authContext);
+      return c.json(invoiceToResponse(invoice));
+    },
+  );
+
+  app.openapi(
+    createRoute({
+      method: "post",
+      path: "/invoices/{id}/void",
+      tags: ["Invoices"],
+      request: {
+        params: z.object({ id: z.string() }),
+        body: { content: { "application/json": { schema: voidInvoiceBody } } },
+      },
+      responses: {
+        200: {
+          content: { "application/json": { schema: z.object({ invoice: invoiceResponse, creditNote: noteResponse }) } },
+          description: "Invoice voided and full credit note issued",
+        },
+        404: { description: "Invoice not found" },
+        409: { description: "Invoice cannot be voided" },
+      },
+    }),
+    async (c) => {
+      const { id } = c.req.valid("param");
+      const body = c.req.valid("json");
+      const result = await service.void(id, body, c.var.authContext);
+      return c.json({ invoice: invoiceToResponse(result.invoice), creditNote: noteToResponse(result.creditNote) });
     },
   );
 

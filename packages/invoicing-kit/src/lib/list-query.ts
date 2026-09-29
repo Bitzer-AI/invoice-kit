@@ -20,7 +20,7 @@ export type NoteSortField = "issueDate" | "total" | "status";
 
 interface SearchableDocument {
   documentNumberPrefix: string | null;
-  documentNumber: number;
+  documentNumber: number | null;
 }
 
 interface SearchableClient {
@@ -106,8 +106,8 @@ export function matchesDocumentSearch(
   const prefix = (doc.documentNumberPrefix ?? "").toLowerCase();
   return (
     prefix.includes(q) ||
-    String(doc.documentNumber).includes(q) ||
-    `${prefix}${doc.documentNumber}`.includes(q) ||
+    (doc.documentNumber !== null && String(doc.documentNumber).includes(q)) ||
+    (doc.documentNumber !== null && `${prefix}${doc.documentNumber}`.includes(q)) ||
     (client?.name ?? "").toLowerCase().includes(q) ||
     (client?.taxId ?? "").toLowerCase().includes(q)
   );
@@ -119,7 +119,7 @@ interface InvoiceSortRow {
     issueDate: Date;
     dueDate: Date | null;
     total: bigint | null;
-    documentNumber: number;
+    documentNumber: number | null;
     createdAt: Date;
   };
 }
@@ -130,7 +130,7 @@ interface QuoteSortRow {
   document: {
     issueDate: Date;
     total: bigint | null;
-    documentNumber: number;
+    documentNumber: number | null;
     createdAt: Date;
   };
 }
@@ -138,6 +138,12 @@ interface QuoteSortRow {
 const signed = (n: number | bigint, d: SortDir): number => {
   const v = typeof n === "bigint" ? (n > 0n ? 1 : n < 0n ? -1 : 0) : n;
   return d === "asc" ? v : -v;
+};
+
+const numberedFirst = (a: number | null, b: number | null, d: SortDir): number => {
+  if (a === null) return b === null ? 0 : 1;
+  if (b === null) return -1;
+  return signed(a - b, d);
 };
 
 export function sortInvoicesInMemory<T extends InvoiceSortRow>(
@@ -158,7 +164,9 @@ export function sortInvoicesInMemory<T extends InvoiceSortRow>(
       sorted.sort((a, b) => signed(big(a.document.total) - big(b.document.total), d));
       break;
     case "documentNumber":
-      sorted.sort((a, b) => signed(a.document.documentNumber - b.document.documentNumber, d));
+      sorted.sort((a, b) =>
+        numberedFirst(a.document.documentNumber, b.document.documentNumber, d),
+      );
       break;
     case "status":
       sorted.sort((a, b) => signed(a.status.localeCompare(b.status), d));
@@ -249,7 +257,9 @@ export function sortQuotesInMemory<T extends QuoteSortRow>(
       sorted.sort((a, b) => signed(big(a.document.total) - big(b.document.total), d));
       break;
     case "documentNumber":
-      sorted.sort((a, b) => signed(a.document.documentNumber - b.document.documentNumber, d));
+      sorted.sort((a, b) =>
+        numberedFirst(a.document.documentNumber, b.document.documentNumber, d),
+      );
       break;
     case "status":
       sorted.sort((a, b) => signed(a.status.localeCompare(b.status), d));

@@ -2,6 +2,7 @@
 import type { DocumentSequenceRepository } from "../types";
 import type { AnyPrismaClient, PrismaModelNames } from "./client-type";
 import { documentSequenceRowToDomain } from "./mappers";
+import { DEFAULT_DOCUMENT_NUMBER_PAD_WIDTH } from "../../lib/numbering";
 
 const series = (prefix: string | null | undefined): string => prefix ?? "";
 
@@ -42,7 +43,10 @@ export function createPrismaDocumentSequenceRepository(
         },
         data: { nextNumber: { increment: 1 } },
       });
-      return row.nextNumber - 1;
+      return {
+        number: row.nextNumber - 1,
+        padWidth: row.padWidth ?? DEFAULT_DOCUMENT_NUMBER_PAD_WIDTH,
+      };
     },
     async find({ organizationId, documentType, prefix }) {
       const row = await db.findUnique({

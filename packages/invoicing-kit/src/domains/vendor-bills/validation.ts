@@ -50,7 +50,7 @@ export type ListVendorBillsQuery = z.infer<typeof listVendorBillsQuery>;
 
 const lineItemResponse = z.object({
   id: z.string(),
-  productId: z.string(),
+  productId: z.string().nullable(),
   quantity: z.string(),
   price: z.string(),
   currency: z.string(),
@@ -66,7 +66,7 @@ const lineItemResponse = z.object({
     description: z.string().nullable(),
     price: z.string(),
     currency: z.string(),
-  }),
+  }).nullable(),
   taxes: z.array(
     z.object({ id: z.string(), taxId: z.string(), taxAmount: z.string(), ...lineItemTaxBaseResponseFields }),
   ),

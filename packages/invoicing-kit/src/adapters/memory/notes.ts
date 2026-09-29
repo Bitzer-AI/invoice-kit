@@ -50,6 +50,7 @@ export function createInMemoryNoteRepository(store: MemoryStore): NoteRepository
       type: referenced.type,
       documentNumber: referenced.documentNumber,
       documentNumberPrefix: referenced.documentNumberPrefix ?? null,
+      documentNumberPadWidth: referenced.documentNumberPadWidth,
       externalDocumentNumber: referenced.externalDocumentNumber ?? null,
       total: referenced.total ?? null,
       currency: referenced.currency,

@@ -13,7 +13,7 @@ export const noteTypeEnum = z.nativeEnum(NoteType);
 export const noteStatusEnum = z.nativeEnum(NoteStatus);
 
 export const createNoteBody = z
-  .object({
+  .strictObject({
     noteType: noteTypeEnum,
     referencedDocumentId: z.string(),
     clientId: z.string().optional().nullable(),
@@ -32,7 +32,7 @@ export const createNoteBody = z
   });
 export type CreateNoteBody = z.infer<typeof createNoteBody>;
 
-export const updateNoteBody = z.object({
+export const updateNoteBody = z.strictObject({
   externalDocumentNumber: z.string().max(40).optional().nullable(),
   issueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
@@ -43,10 +43,12 @@ export const updateNoteBody = z.object({
 });
 export type UpdateNoteBody = z.infer<typeof updateNoteBody>;
 
-export const listNotesQuery = z.object({
+export const listNotesQuery = z.strictObject({
   page: z.coerce.number().int().positive().optional(),
   perPage: z.coerce.number().int().positive().max(100).optional(),
-  status: z.string().optional(), // comma-separated
+  status: z.string().transform((value) =>
+    z.array(noteStatusEnum).parse(value.split(",")),
+  ).optional(),
   type: z.enum([DocumentType.CreditNote, DocumentType.DebitNote]).optional(),
   // Filter by the note's party side, independent of the specific client/vendor:
   // CLIENT = sales notes (any client), VENDOR = purchase notes (any vendor).
@@ -64,7 +66,7 @@ export type ListNotesQuery = z.infer<typeof listNotesQuery>;
 
 const lineItemResponse = z.object({
   id: z.string(),
-  productId: z.string(),
+  productId: z.string().nullable(),
   quantity: z.string(),
   price: z.string(),
   currency: z.string(),
@@ -80,7 +82,7 @@ const lineItemResponse = z.object({
     description: z.string().nullable(),
     price: z.string(),
     currency: z.string(),
-  }),
+  }).nullable(),
   taxes: z.array(
     z.object({ id: z.string(), taxId: z.string(), taxAmount: z.string(), ...lineItemTaxBaseResponseFields }),
   ),
@@ -101,7 +103,8 @@ export const noteResponse = z.object({
         id: z.string(),
         entityId: z.string().nullable(),
         type: z.string(),
-        documentNumber: z.number().int(),
+        documentNumber: z.number().int().nullable(),
+        documentNumberPadWidth: z.number().int().min(1).max(12).nullable(),
         documentNumberPrefix: z.string().nullable(),
         externalDocumentNumber: z.string().nullable(),
         total: z.string().nullable(),
@@ -112,6 +115,7 @@ export const noteResponse = z.object({
     externalDocumentNumber: z.string().nullable(),
     documentNumberPrefix: z.string().nullable(),
     documentNumber: z.number().int(),
+    documentNumberPadWidth: z.number().int().min(1).max(12),
     issueDate: z.string(),
     dueDate: z.string().nullable(),
     notes: z.string().nullable(),

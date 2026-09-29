@@ -9,6 +9,8 @@
 // In production this is fine: consumers pass `new PrismaClient()` and the
 // `Repositories` shape we return is fully typed.
 
+import type { ClientRepository } from "../types";
+
 export type AnyPrismaClient = {
   // The boundary is intentionally minimal: every internal use casts `prisma as any` (model
   // namespaces via `(prisma as any)[modelName]`, transactions via `(prisma as any).$transaction`),
@@ -78,4 +80,5 @@ export const DEFAULT_PRISMA_MODEL_NAMES: PrismaModelNames = {
 
 export interface PrismaAdapterConfig {
   modelNames?: Partial<PrismaModelNames>;
+  createClientRepository?: (client: AnyPrismaClient) => ClientRepository;
 }

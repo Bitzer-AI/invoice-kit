@@ -15,7 +15,7 @@ export function isSettled({ total, paid, noted }: Settlement): boolean {
 
 export function invoiceStatusFor(settlement: Settlement): InvoiceStatus {
   if (isSettled(settlement)) return InvoiceStatus.Paid;
-  return settlement.paid > 0n ? InvoiceStatus.PartiallyPaid : InvoiceStatus.Sent;
+  return settlement.paid > 0n ? InvoiceStatus.PartiallyPaid : InvoiceStatus.Issued;
 }
 
 export function vendorBillStatusFor(settlement: Settlement): VendorBillStatus {
@@ -34,7 +34,7 @@ export async function resettleReference(
 
   if (reference.type === DocumentType.Invoice) {
     const invoice = await tx.invoices.findById(reference.entityId, organizationId);
-    if (!invoice || invoice.status === InvoiceStatus.Draft) return;
+    if (!invoice || invoice.status === InvoiceStatus.Draft || invoice.status === InvoiceStatus.Voided) return;
     const status = invoiceStatusFor({
       total: invoice.document.total ?? 0n,
       paid: await tx.payments.totalPaidForInvoice(invoice.id, organizationId),

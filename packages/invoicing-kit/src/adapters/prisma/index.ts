@@ -27,7 +27,7 @@ export function prismaAdapter(
 
   function buildRepos(client: AnyPrismaClient, depth: number): Repositories {
     return {
-      clients: createPrismaClientRepository(client, modelNames),
+      clients: config?.createClientRepository?.(client) ?? createPrismaClientRepository(client, modelNames),
       vendors: createPrismaVendorRepository(client, modelNames),
       products: createPrismaProductRepository(client, modelNames),
       taxes: createPrismaTaxRepository(client, modelNames),

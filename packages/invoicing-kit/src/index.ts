@@ -6,6 +6,8 @@ export type {
   InvoicingKitConfig,
   InvoicingKitHooks,
   InvoiceIssuedContext,
+  InvoiceIssueGuard,
+  InvoiceIssueGuardContext,
   PaymentSucceededContext,
   VendorBillRecordedContext,
   VendorBillPaymentSucceededContext,
@@ -36,6 +38,11 @@ export {
 } from "./types";
 export type { MoneyPolicy } from "./types";
 export { DEFAULT_CURRENCY } from "./lib/currency";
+export { listInvoicesQuery, invoiceListResponse } from "./domains/invoices/validation";
+export { invoiceToResponse } from "./domains/invoices/mappers";
+export { listQuotesQuery } from "./domains/quotes/validation";
+export { quoteListResponse } from "./domains/quotes/validation";
+export { quoteToResponse } from "./domains/quotes/mappers";
 
 // Money calculator (pure, exported for consumer previews).
 export {

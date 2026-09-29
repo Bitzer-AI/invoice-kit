@@ -11,7 +11,7 @@ export type DocumentLineInput = Pick<
 
 /** A line already stored on a document: its product was resolved and validated when the line was written. */
 export interface StoredLineInput extends Omit<DocumentLineInput, "productId" | "source"> {
-  productId: string;
+  productId: string | null;
   stored: true;
 }
 
@@ -60,12 +60,12 @@ export async function buildDocumentLines(args: {
   exchangeRate: DecimalString | null;
 }): Promise<BuiltDocumentLines> {
   const currency = normalizeCurrency(args.currency);
-  const productIds: string[] = [];
+  const productIds: Array<string | null> = [];
   for (const lineItem of args.lineItems) {
     productIds.push(
       isStoredLine(lineItem)
         ? lineItem.productId
-        : (await resolveLineItemProduct(args.repos, args.organizationId, lineItem, currency, args.side)).id,
+        : (await resolveLineItemProduct(args.repos, args.organizationId, lineItem, currency, args.side))?.id ?? null,
     );
   }
 
@@ -87,7 +87,7 @@ export async function buildDocumentLines(args: {
   const lineItems: NewDocumentLineItem[] = args.lineItems.map((lineItem, index) => {
     const line = calculation.lines[index]!;
     return {
-      productId: productIds[index]!,
+      productId: productIds[index] ?? null,
       quantity: lineItem.quantity,
       price: BigInt(lineItem.price),
       currency,

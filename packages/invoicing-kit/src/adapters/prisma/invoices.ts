@@ -6,7 +6,7 @@ import type {
   NewInvoice,
   Page,
 } from "../types";
-import type { Invoice } from "../../types";
+import type { Invoice, InvoiceStatus } from "../../types";
 import { DocumentType } from "../../types";
 import type { AnyPrismaClient, PrismaModelNames } from "./client-type";
 import {
@@ -27,6 +27,7 @@ export function createPrismaInvoiceRepository(
         data: {
           documentId: data.documentId,
           status: data.status,
+          subject: data.subject,
           paidDate: data.paidDate ?? null,
           convertedFromQuoteId: data.convertedFromQuoteId ?? null,
         },
@@ -37,6 +38,17 @@ export function createPrismaInvoiceRepository(
     async findById(id: string, organizationId: string): Promise<InvoiceWithDocument | null> {
       const row = await db.findFirst({
         where: { id, document: { organizationId } },
+        include: WITH_DOCUMENT_INCLUDE,
+      });
+      return row ? invoiceWithDocumentRowToDomain(row) : null;
+    },
+
+    async findByDocumentId(
+      documentId: string,
+      organizationId: string,
+    ): Promise<InvoiceWithDocument | null> {
+      const row = await db.findFirst({
+        where: { documentId, document: { organizationId } },
         include: WITH_DOCUMENT_INCLUDE,
       });
       return row ? invoiceWithDocumentRowToDomain(row) : null;
@@ -69,6 +81,7 @@ export function createPrismaInvoiceRepository(
       const perPage = args.perPage ?? 20;
       const documentWhere: any = { organizationId: args.organizationId };
       if (args.clientId) documentWhere.clientId = args.clientId;
+      if (args.currency) documentWhere.currency = args.currency;
       if (args.issueDateFrom || args.issueDateTo) {
         documentWhere.issueDate = {};
         if (args.issueDateFrom) documentWhere.issueDate.gte = args.issueDateFrom;
@@ -76,8 +89,14 @@ export function createPrismaInvoiceRepository(
       }
       if (args.dueBefore) documentWhere.dueDate = { lt: args.dueBefore };
       const search = documentSearchWhere(args.query);
-      if (search) Object.assign(documentWhere, search);
       const where: any = { document: documentWhere };
+      if (search) {
+        where.OR = [
+          { subject: { contains: args.query?.trim(), mode: "insensitive" } },
+          { document: search },
+        ];
+      }
+      if (args.invoiceIds) where.id = { in: args.invoiceIds };
       if (args.status) {
         where.status = Array.isArray(args.status)
           ? { in: args.status }
@@ -112,6 +131,19 @@ export function createPrismaInvoiceRepository(
       if (count === 0) throw new Error("invoice not found");
       const row = await db.findUnique({ where: { id } });
       return invoiceRowToDomain(row);
+    },
+
+    async transitionStatus(
+      id: string,
+      organizationId: string,
+      from: InvoiceStatus,
+      to: InvoiceStatus,
+    ): Promise<boolean> {
+      const { count } = await db.updateMany({
+        where: { id, status: from, document: { organizationId } },
+        data: { status: to },
+      });
+      return count === 1;
     },
 
     async delete(id: string, organizationId: string): Promise<void> {

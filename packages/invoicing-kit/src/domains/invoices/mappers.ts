@@ -1,5 +1,6 @@
 import type { InvoiceWithDocument, DocumentWithRelations } from "../../adapters/types";
 import type { InvoiceResponse } from "./validation";
+import { BillingDocumentInvariantError } from "../../lib/errors";
 import {
   documentMoneyToResponse,
   lineItemBaseToResponse,
@@ -18,16 +19,18 @@ function lineItemToResponse(lineItem: DocumentWithRelations["lineItems"][number]
     description: lineItem.description,
     metadata: lineItem.metadata ?? null,
     source:
-      lineItem.product.sourceType !== null && lineItem.product.sourceId !== null
+      lineItem.product?.sourceType && lineItem.product.sourceId
         ? { type: lineItem.product.sourceType, id: lineItem.product.sourceId, name: lineItem.product.name }
         : null,
-    product: {
-      id: lineItem.productId,
-      name: lineItem.product.name,
-      description: lineItem.product.description,
-      price: lineItem.product.price,
-      currency: lineItem.product.currency,
-    },
+    product: lineItem.product && lineItem.productId
+      ? {
+          id: lineItem.productId,
+          name: lineItem.product.name,
+          description: lineItem.product.description,
+          price: lineItem.product.price,
+          currency: lineItem.product.currency,
+        }
+      : null,
     taxes: lineItem.taxes.map((tax) => ({
       id: tax.id,
       taxId: tax.taxId,
@@ -39,9 +42,11 @@ function lineItemToResponse(lineItem: DocumentWithRelations["lineItems"][number]
 }
 
 function documentToResponse(doc: DocumentWithRelations) {
+  if (doc.clientId === null) {
+    throw new BillingDocumentInvariantError("An invoice has no client");
+  }
   return {
-    // invoices/quotes always have a client (party invariant); vendor bills use vendorId instead
-    clientId: doc.clientId!,
+    clientId: doc.clientId,
     client: doc.client
       ? {
           id: doc.client.id,
@@ -59,6 +64,7 @@ function documentToResponse(doc: DocumentWithRelations) {
       : null,
     documentNumberPrefix: doc.documentNumberPrefix,
     documentNumber: doc.documentNumber,
+    documentNumberPadWidth: doc.documentNumberPadWidth,
     issueDate: doc.issueDate.toISOString().slice(0, 10),
     dueDate: doc.dueDate ? doc.dueDate.toISOString().slice(0, 10) : null,
     notes: doc.notes,
@@ -66,6 +72,7 @@ function documentToResponse(doc: DocumentWithRelations) {
     subtotal: doc.subtotal !== null ? doc.subtotal.toString() : null,
     tax: doc.tax !== null ? doc.tax.toString() : null,
     total: doc.total !== null ? doc.total.toString() : null,
+    paymentMethodIds: doc.paymentMethods.map((method) => method.paymentMethodId),
     lineItems: doc.lineItems.map(lineItemToResponse),
     ...documentMoneyToResponse(doc),
   };
@@ -76,6 +83,7 @@ export function invoiceToResponse(i: InvoiceWithDocument): InvoiceResponse {
     id: i.id,
     documentId: i.documentId,
     status: i.status,
+    subject: i.subject,
     paidDate: i.paidDate ? i.paidDate.toISOString().slice(0, 10) : null,
     convertedFromQuoteId: i.convertedFromQuoteId,
     document: documentToResponse(i.document),

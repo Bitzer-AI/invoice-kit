@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { Quote } from "../../types";
+import type { Quote, QuoteStatus } from "../../types";
 import { DocumentType } from "../../types";
 import type {
   ListQuotesArgs,
@@ -21,6 +21,24 @@ export function createInMemoryQuoteRepository(
   // Use documents from the same store
   const documents = createInMemoryDocumentRepository(store);
 
+  async function convertedInvoiceForQuote(
+    quoteId: string,
+    organizationId: string,
+  ): Promise<QuoteWithDocument["convertedInvoice"]> {
+    for (const invoice of store.invoices.values()) {
+      if (invoice.convertedFromQuoteId !== quoteId) continue;
+      const document = await documents.findById(invoice.documentId, organizationId);
+      if (!document) return null;
+      return {
+        id: invoice.id,
+        documentNumberPrefix: document.documentNumberPrefix,
+        documentNumber: document.documentNumber,
+        documentNumberPadWidth: document.documentNumberPadWidth,
+      };
+    }
+    return null;
+  }
+
   return {
     async create(data: NewQuote): Promise<Quote> {
       const id = randomUUID();
@@ -28,6 +46,7 @@ export function createInMemoryQuoteRepository(
         id,
         documentId: data.documentId,
         status: data.status,
+        subject: data.subject,
         validUntil: data.validUntil ?? null,
       };
       rows.set(id, quote);
@@ -42,7 +61,11 @@ export function createInMemoryQuoteRepository(
       if (!quote) return null;
       const doc = await documents.findById(quote.documentId, organizationId);
       if (!doc) return null;
-      return { ...quote, document: doc };
+      return {
+        ...quote,
+        document: doc,
+        convertedInvoice: await convertedInvoiceForQuote(quote.id, organizationId),
+      };
     },
 
     async findByDocumentNumber({
@@ -72,10 +95,12 @@ export function createInMemoryQuoteRepository(
     async list(args: ListQuotesArgs): Promise<Page<QuoteWithDocument>> {
       const page = args.page ?? 1;
       const perPage = args.perPage ?? 20;
+      const query = args.query?.trim().toLowerCase();
 
       const results: QuoteWithDocument[] = [];
 
       for (const quote of rows.values()) {
+        if (args.quoteIds && !args.quoteIds.includes(quote.id)) continue;
         // Apply status filter before fetching doc
         if (args.status !== undefined) {
           const statuses = Array.isArray(args.status) ? args.status : [args.status];
@@ -87,15 +112,24 @@ export function createInMemoryQuoteRepository(
 
         // Apply clientId filter
         if (args.clientId && doc.clientId !== args.clientId) continue;
+        if (args.currency && doc.currency !== args.currency) continue;
 
         // Apply issue date range filter
         if (args.issueDateFrom && doc.issueDate < args.issueDateFrom) continue;
         if (args.issueDateTo && doc.issueDate > args.issueDateTo) continue;
 
         // Apply free-text search
-        if (!matchesDocumentSearch(doc, clients.get(doc.clientId ?? ""), args.query)) continue;
+        const matchesSubject = query ? (quote.subject?.toLowerCase().includes(query) ?? false) : false;
+        if (!matchesSubject && !matchesDocumentSearch(doc, clients.get(doc.clientId ?? ""), args.query)) continue;
 
-        results.push({ ...quote, document: doc });
+        results.push({
+          ...quote,
+          document: doc,
+          convertedInvoice: await convertedInvoiceForQuote(
+            quote.id,
+            args.organizationId,
+          ),
+        });
       }
 
       const sorted = sortQuotesInMemory(results, args.sortBy, args.sortDir);
@@ -127,6 +161,20 @@ export function createInMemoryQuoteRepository(
       const updated: Quote = { ...existing, ...patch };
       rows.set(id, updated);
       return updated;
+    },
+
+    async transitionStatus(
+      id: string,
+      organizationId: string,
+      from: QuoteStatus,
+      to: QuoteStatus,
+    ): Promise<boolean> {
+      const existing = rows.get(id);
+      if (!existing || existing.status !== from) return false;
+      const document = await documents.findById(existing.documentId, organizationId);
+      if (!document) return false;
+      rows.set(id, { ...existing, status: to });
+      return true;
     },
 
     async delete(id: string, organizationId: string): Promise<void> {

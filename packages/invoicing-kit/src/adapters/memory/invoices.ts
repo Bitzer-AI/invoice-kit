@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { Invoice } from "../../types";
+import type { Invoice, InvoiceStatus } from "../../types";
 import { DocumentType } from "../../types";
 import type {
   InvoiceRepository,
@@ -28,6 +28,7 @@ export function createInMemoryInvoiceRepository(
         id,
         documentId: data.documentId,
         status: data.status,
+        subject: data.subject,
         paidDate: data.paidDate ?? null,
         convertedFromQuoteId: data.convertedFromQuoteId ?? null,
       };
@@ -44,6 +45,18 @@ export function createInMemoryInvoiceRepository(
       const doc = await documents.findById(invoice.documentId, organizationId);
       if (!doc) return null;
       return { ...invoice, document: doc };
+    },
+
+    async findByDocumentId(
+      documentId: string,
+      organizationId: string,
+    ): Promise<InvoiceWithDocument | null> {
+      for (const invoice of rows.values()) {
+        if (invoice.documentId !== documentId) continue;
+        const document = await documents.findById(documentId, organizationId);
+        return document ? { ...invoice, document } : null;
+      }
+      return null;
     },
 
     async findByDocumentNumber({
@@ -73,10 +86,12 @@ export function createInMemoryInvoiceRepository(
     async list(args: ListInvoicesArgs): Promise<Page<InvoiceWithDocument>> {
       const page = args.page ?? 1;
       const perPage = args.perPage ?? 20;
+      const query = args.query?.trim().toLowerCase();
 
       const results: InvoiceWithDocument[] = [];
 
       for (const invoice of rows.values()) {
+        if (args.invoiceIds && !args.invoiceIds.includes(invoice.id)) continue;
         // Apply status filter before fetching doc
         if (args.status !== undefined) {
           const statuses = Array.isArray(args.status) ? args.status : [args.status];
@@ -88,6 +103,7 @@ export function createInMemoryInvoiceRepository(
 
         // Apply clientId filter
         if (args.clientId && doc.clientId !== args.clientId) continue;
+        if (args.currency && doc.currency !== args.currency) continue;
 
         // Apply issue date range filter
         if (args.issueDateFrom && doc.issueDate < args.issueDateFrom) continue;
@@ -97,7 +113,8 @@ export function createInMemoryInvoiceRepository(
         if (args.dueBefore && (!doc.dueDate || doc.dueDate >= args.dueBefore)) continue;
 
         // Apply free-text search
-        if (!matchesDocumentSearch(doc, clients.get(doc.clientId ?? ""), args.query)) continue;
+        const matchesSubject = query ? (invoice.subject?.toLowerCase().includes(query) ?? false) : false;
+        if (!matchesSubject && !matchesDocumentSearch(doc, clients.get(doc.clientId ?? ""), args.query)) continue;
 
         results.push({ ...invoice, document: doc });
       }
@@ -131,6 +148,20 @@ export function createInMemoryInvoiceRepository(
       const updated: Invoice = { ...existing, ...patch };
       rows.set(id, updated);
       return updated;
+    },
+
+    async transitionStatus(
+      id: string,
+      organizationId: string,
+      from: InvoiceStatus,
+      to: InvoiceStatus,
+    ): Promise<boolean> {
+      const existing = rows.get(id);
+      if (!existing || existing.status !== from) return false;
+      const document = await documents.findById(existing.documentId, organizationId);
+      if (!document) return false;
+      rows.set(id, { ...existing, status: to });
+      return true;
     },
 
     async delete(id: string, organizationId: string): Promise<void> {

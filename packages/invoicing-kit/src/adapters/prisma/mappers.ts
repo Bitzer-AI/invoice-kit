@@ -138,6 +138,7 @@ export function documentRowToDomain(row: any): Document {
     externalDocumentNumber: row.externalDocumentNumber ?? null,
     documentNumberPrefix: row.documentNumberPrefix ?? null,
     documentNumber: row.documentNumber,
+    documentNumberPadWidth: row.documentNumberPadWidth,
     issueDate: row.issueDate,
     dueDate: row.dueDate ?? null,
     notes: row.notes ?? null,
@@ -228,19 +229,21 @@ export function documentWithRelationsRowToDomain(row: any): DocumentWithRelation
           taxIdType: row.vendor.taxIdType ?? null,
         }
       : null,
-    lineItems: (row.lineItems ?? []).map((lineItemRow: any) => ({
+    lineItems: row.lineItems.map((lineItemRow: any) => ({
       ...documentLineItemRowToDomain(lineItemRow),
-      taxes: (lineItemRow.taxes ?? []).map(documentLineItemTaxRowToDomain),
-      product: {
-        name: lineItemRow.product?.name ?? "",
-        description: lineItemRow.product?.description ?? null,
-        price: lineItemRow.product?.price?.toFixed(2) ?? "0.00",
-        currency: lineItemRow.product?.currency ?? DEFAULT_CURRENCY,
-        sourceType: lineItemRow.product?.sourceType ?? null,
-        sourceId: lineItemRow.product?.sourceId ?? null,
-      },
+      taxes: lineItemRow.taxes.map(documentLineItemTaxRowToDomain),
+      product: lineItemRow.product
+        ? {
+            name: lineItemRow.product.name,
+            description: lineItemRow.product.description ?? null,
+            price: lineItemRow.product.price.toFixed(2),
+            currency: lineItemRow.product.currency,
+            sourceType: lineItemRow.product.sourceType ?? null,
+            sourceId: lineItemRow.product.sourceId ?? null,
+          }
+        : null,
     })),
-    paymentMethods: (row.paymentMethods ?? []).map(documentPaymentMethodRowToDomain),
+    paymentMethods: row.paymentMethods.map(documentPaymentMethodRowToDomain),
   };
 }
 
@@ -249,6 +252,7 @@ export function invoiceRowToDomain(row: any): Invoice {
     id: row.id,
     documentId: row.documentId,
     status: row.status as InvoiceStatus,
+    subject: row.subject ?? null,
     paidDate: row.paidDate ?? null,
     convertedFromQuoteId: row.convertedFromQuoteId ?? null,
   };
@@ -266,14 +270,24 @@ export function quoteRowToDomain(row: any): Quote {
     id: row.id,
     documentId: row.documentId,
     status: row.status as QuoteStatus,
+    subject: row.subject ?? null,
     validUntil: row.validUntil ?? null,
   };
 }
 
 export function quoteWithDocumentRowToDomain(row: any): QuoteWithDocument {
+  const converted = row.convertedInvoice;
   return {
     ...quoteRowToDomain(row),
     document: documentWithRelationsRowToDomain(row.document),
+    convertedInvoice: converted
+      ? {
+          id: converted.id,
+          documentNumberPrefix: converted.document.documentNumberPrefix ?? null,
+          documentNumber: converted.document.documentNumber,
+          documentNumberPadWidth: converted.document.documentNumberPadWidth,
+        }
+      : null,
   };
 }
 
@@ -370,6 +384,7 @@ export function noteWithDocumentRowToDomain(row: any): NoteWithDocument {
           type: referenced.type as DocumentType,
           documentNumber: referenced.documentNumber,
           documentNumberPrefix: referenced.documentNumberPrefix ?? null,
+          documentNumberPadWidth: referenced.documentNumberPadWidth,
           externalDocumentNumber: referenced.externalDocumentNumber ?? null,
           total: referenced.total ?? null,
           currency: referenced.currency,

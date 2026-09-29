@@ -1,10 +1,11 @@
 // Shared line-item input schema + product resolution for invoices and quotes.
 //
-// A line item references a product in one of two ways:
+// A line item may reference a product in one of two ways:
 //   1. `productId` — an existing product, the original behavior.
 //   2. `source`    — a host-app domain object (e.g. an experience). The product
 //      is found-or-created on the fly, keyed on (org, sourceType, sourceId), so
 //      callers never have to pre-create a product for each sellable object.
+//   3. Neither    — a manually described line, with no catalog product.
 //
 // The line item still carries its own `price`/`description`, so it remains the
 // immutable snapshot of the sale — the resolved product is only a catalog anchor.
@@ -31,20 +32,24 @@ export const lineItemSourceSchema = z.object({
 });
 export type LineItemSourceInput = z.infer<typeof lineItemSourceSchema>;
 
-export const lineItemSchema = z
-  .object({
-    productId: z.string().optional(),
-    source: lineItemSourceSchema.optional(),
-    quantity: z.string().regex(/^\d+(\.\d{1,4})?$/, "Invalid quantity"),
-    price: z.string().regex(/^\d+$/, "Price must be integer minor units"), // BigInt as string in body
-    description: z.string().optional().nullable(),
-    /** Opaque per-line app metadata (e.g. booking intent). Persisted as JSON. */
-    metadata: z.record(z.string(), z.unknown()).optional().nullable(),
-    taxIds: z.array(z.string()).default([]),
-  })
-  .refine((lineItem) => (lineItem.productId == null) !== (lineItem.source == null), {
-    message: "Provide exactly one of productId or source",
-  });
+const lineItemFields = z.object({
+  quantity: z.string().regex(/^\d+(\.\d{1,4})?$/, "Invalid quantity"),
+  price: z.string().regex(/^\d+$/, "Price must be integer minor units"), // BigInt as string in body
+  description: z.string().optional().nullable(),
+  /** Opaque per-line app metadata (e.g. booking intent). Persisted as JSON. */
+  metadata: z.record(z.string(), z.unknown()).optional().nullable(),
+  taxIds: z.array(z.string()).default([]),
+});
+
+export const lineItemSchema = z.union([
+  lineItemFields.extend({ productId: z.string().min(1), source: z.never().optional() }),
+  lineItemFields.extend({ productId: z.never().optional(), source: lineItemSourceSchema }),
+  lineItemFields.extend({
+    productId: z.never().optional(),
+    source: z.never().optional(),
+    description: z.string().trim().min(1),
+  }),
+]);
 export type LineItemInput = z.infer<typeof lineItemSchema>;
 
 export const LineItemCurrencyMismatchException = (args: {
@@ -90,7 +95,7 @@ export function minorUnitsToDecimalString(minor: bigint): string {
 
 /**
  * Resolves a line item to its concrete Product, find-or-creating a source-linked
- * product when `source` is supplied. Must be called with the transaction-scoped
+ * product when `source` is supplied. Manual lines return null. Must be called with the transaction-scoped
  * repositories so the product and document are created atomically.
  *
  * Enforces the single-currency invariant: an existing product (referenced or
@@ -103,7 +108,7 @@ export async function resolveLineItemProduct(
   lineItem: Pick<LineItemInput, "productId" | "source" | "price" | "description">,
   documentCurrency: string,
   side: DocumentSide,
-): Promise<Product> {
+): Promise<Product | null> {
   const currency = normalizeCurrency(documentCurrency);
 
   const assertCurrencyMatches = (product: Product): Product => {
@@ -134,8 +139,8 @@ export async function resolveLineItemProduct(
     return assertValid(product);
   }
 
-  // `source` is guaranteed present by the schema's exactly-one refinement.
-  const { type, id, name } = lineItem.source!;
+  if (!lineItem.source) return null;
+  const { type, id, name } = lineItem.source;
   const existing = await repos.products.findBySource(organizationId, type, id);
   if (existing) return assertValid(existing);
 

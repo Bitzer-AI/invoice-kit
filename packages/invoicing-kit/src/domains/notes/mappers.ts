@@ -5,6 +5,7 @@ import {
   lineItemBaseToResponse,
   lineItemTaxBaseToResponse,
 } from "../../lib/document-response";
+import { requireDocumentNumber, requireDocumentNumberPadWidth } from "../../lib/numbering";
 
 function lineItemToResponse(lineItem: DocumentWithRelations["lineItems"][number]) {
   return {
@@ -17,16 +18,18 @@ function lineItemToResponse(lineItem: DocumentWithRelations["lineItems"][number]
     total: lineItem.total.toString(),
     description: lineItem.description,
     source:
-      lineItem.product.sourceType !== null && lineItem.product.sourceId !== null
+      lineItem.product?.sourceType && lineItem.product.sourceId
         ? { type: lineItem.product.sourceType, id: lineItem.product.sourceId, name: lineItem.product.name }
         : null,
-    product: {
-      id: lineItem.productId,
-      name: lineItem.product.name,
-      description: lineItem.product.description,
-      price: lineItem.product.price,
-      currency: lineItem.product.currency,
-    },
+    product: lineItem.product && lineItem.productId
+      ? {
+          id: lineItem.productId,
+          name: lineItem.product.name,
+          description: lineItem.product.description,
+          price: lineItem.product.price,
+          currency: lineItem.product.currency,
+        }
+      : null,
     taxes: lineItem.taxes.map((tax) => ({
       id: tax.id,
       taxId: tax.taxId,
@@ -45,7 +48,8 @@ function documentToResponse(doc: DocumentWithRelations) {
     referencedDocumentId: doc.referencedDocumentId,
     externalDocumentNumber: doc.externalDocumentNumber,
     documentNumberPrefix: doc.documentNumberPrefix,
-    documentNumber: doc.documentNumber,
+    documentNumber: requireDocumentNumber(doc.documentNumber),
+    documentNumberPadWidth: requireDocumentNumberPadWidth(doc.documentNumberPadWidth),
     issueDate: doc.issueDate.toISOString().slice(0, 10),
     dueDate: doc.dueDate ? doc.dueDate.toISOString().slice(0, 10) : null,
     notes: doc.notes,
@@ -68,6 +72,7 @@ function referencedDocumentToResponse(
     type: referenced.type,
     documentNumber: referenced.documentNumber,
     documentNumberPrefix: referenced.documentNumberPrefix,
+    documentNumberPadWidth: referenced.documentNumberPadWidth,
     externalDocumentNumber: referenced.externalDocumentNumber,
     total: referenced.total !== null ? referenced.total.toString() : null,
     currency: referenced.currency,

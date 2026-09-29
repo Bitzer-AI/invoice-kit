@@ -15,9 +15,11 @@ export type DocumentType = (typeof DocumentType)[keyof typeof DocumentType];
 
 export const InvoiceStatus = {
   Draft: "draft",
+  Issued: "issued",
   Sent: "sent",
   Paid: "paid",
   PartiallyPaid: "partially_paid",
+  Voided: "voided",
 } as const;
 export type InvoiceStatus = (typeof InvoiceStatus)[keyof typeof InvoiceStatus];
 
@@ -245,6 +247,11 @@ export interface DocumentNumberSequence {
   updatedAt: Date;
 }
 
+export interface AssignedDocumentNumber {
+  number: number;
+  padWidth: number;
+}
+
 export interface Document {
   id: string;
   type: DocumentType;
@@ -256,7 +263,8 @@ export interface Document {
   /** For notes: the Document this note modifies (an INVOICE or VENDOR_BILL). Null otherwise. */
   referencedDocumentId: string | null;
   documentNumberPrefix: string | null;
-  documentNumber: number;
+  documentNumber: number | null;
+  documentNumberPadWidth: number | null;
   issueDate: Date;
   dueDate: Date | null;
   notes: string | null;
@@ -283,7 +291,7 @@ export interface Document {
 export interface DocumentLineItem {
   id: string;
   documentId: string;
-  productId: string;
+  productId: string | null;
   quantity: DecimalString;
   price: BigintMinor;
   /** Snapshot of the parent document's currency at sale time. */
@@ -311,6 +319,7 @@ export interface Invoice {
   id: string;
   documentId: string;
   status: InvoiceStatus;
+  subject: string | null;
   paidDate: Date | null;
   convertedFromQuoteId: string | null;
 }
@@ -319,6 +328,7 @@ export interface Quote {
   id: string;
   documentId: string;
   status: QuoteStatus;
+  subject: string | null;
   validUntil: Date | null;
 }
 

@@ -90,6 +90,7 @@ export function createPrismaDocumentRepository(
           externalDocumentNumber: data.externalDocumentNumber ?? null,
           documentNumberPrefix: data.documentNumberPrefix ?? null,
           documentNumber: data.documentNumber,
+          documentNumberPadWidth: data.documentNumberPadWidth,
           issueDate: data.issueDate,
           dueDate: data.dueDate ?? null,
           notes: data.notes ?? null,

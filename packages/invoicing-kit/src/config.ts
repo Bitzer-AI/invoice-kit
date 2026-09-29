@@ -1,4 +1,4 @@
-import type { Repositories } from "./adapters/types";
+import type { InvoiceWithDocument, Repositories } from "./adapters/types";
 import type { BetterAuthLike } from "./auth/middleware";
 import type { DecimalString, MoneyPolicy } from "./types";
 
@@ -17,6 +17,15 @@ export interface InvoiceIssuedContext {
   organizationId: string;
   invoiceId: string;
 }
+
+export interface InvoiceIssueGuardContext {
+  organizationId: string;
+  invoice: InvoiceWithDocument;
+}
+
+/** Runs while the draft invoice row is locked, before a number is assigned.
+ * Throwing rejects issuance and rolls back the status transition. */
+export type InvoiceIssueGuard = (ctx: InvoiceIssueGuardContext) => void | Promise<void>;
 export interface PaymentSucceededContext {
   organizationId: string;
   paymentId: string;
@@ -63,4 +72,8 @@ export interface InvoicingKitConfig {
   moneyPolicy?: (ctx: { organizationId: string }) => MoneyPolicy | Promise<MoneyPolicy>;
   /** Optional exchange-rate provider. Absent → documents never carry a rate. */
   exchangeRates?: ExchangeRateProvider;
+  /** Optional host-app validation before a draft invoice is issued. */
+  issueGuard?: InvoiceIssueGuard;
+  /** Jurisdiction-specific series used for a full credit note when voiding an invoice. */
+  creditNotePrefix?: string | null;
 }

@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import type { DocumentNumberSequence, DocumentType } from "../../types";
 import type { DocumentSequenceRepository } from "../types";
 import type { MemoryStore } from "./store";
+import { DEFAULT_DOCUMENT_NUMBER_PAD_WIDTH } from "../../lib/numbering";
 
 const series = (prefix: string | null | undefined): string => prefix ?? "";
 type Key = `${string}:${DocumentType}:${string}`;
@@ -35,7 +36,7 @@ export function createInMemoryDocumentSequenceRepository(
       if (!row) throw new Error("sequence not initialized; call ensure() first");
       const value = row.nextNumber;
       rows.set(k, { ...row, nextNumber: row.nextNumber + 1, updatedAt: new Date() });
-      return value;
+      return { number: value, padWidth: row.padWidth ?? DEFAULT_DOCUMENT_NUMBER_PAD_WIDTH };
     },
     async find({ organizationId, documentType, prefix }) {
       return rows.get(key(organizationId, documentType, prefix)) ?? null;
@@ -72,7 +73,9 @@ export function createInMemoryDocumentSequenceRepository(
         if (doc.organizationId !== organizationId || doc.type !== documentType) continue;
         const docSeries = doc.documentNumberPrefix ?? "";
         if (docSeries !== p) continue;
-        if (max === null || doc.documentNumber > max) max = doc.documentNumber;
+        if (doc.documentNumber !== null && (max === null || doc.documentNumber > max)) {
+          max = doc.documentNumber;
+        }
       }
       return max;
     },

@@ -54,7 +54,7 @@ export class VendorBillService {
       // Internal-only document number (the user-facing reference is externalDocumentNumber).
       // The VENDOR_BILL series keeps the Document unique constraint satisfied without
       // exposing a kit-assigned number.
-      const number = await this.numbering.next(tx, ctx.organizationId, DocumentType.VendorBill, null);
+      const assigned = await this.numbering.next(tx, ctx.organizationId, DocumentType.VendorBill, null);
 
       const built = await buildDocumentLines({
         repos: tx,
@@ -73,7 +73,8 @@ export class VendorBillService {
         vendorId: body.vendorId,
         externalDocumentNumber: body.externalDocumentNumber ?? null,
         documentNumberPrefix: null,
-        documentNumber: number,
+        documentNumber: assigned.number,
+        documentNumberPadWidth: assigned.padWidth,
         issueDate,
         dueDate: body.dueDate ? new Date(body.dueDate) : null,
         notes: body.notes ?? null,
