@@ -32,25 +32,26 @@ export const lineItemSourceSchema = z.object({
 });
 export type LineItemSourceInput = z.infer<typeof lineItemSourceSchema>;
 
-const lineItemFields = z.object({
+const lineItemFields = {
   quantity: z.string().regex(/^\d+(\.\d{1,4})?$/, "Invalid quantity"),
   price: z.string().regex(/^\d+$/, "Price must be integer minor units"), // BigInt as string in body
   description: z.string().optional().nullable(),
   /** Opaque per-line app metadata (e.g. booking intent). Persisted as JSON. */
   metadata: z.record(z.string(), z.unknown()).optional().nullable(),
   taxIds: z.array(z.string()).default([]),
-});
+};
 
-export const lineItemSchema = z.union([
-  lineItemFields.extend({ productId: z.string().min(1), source: z.never().optional() }),
-  lineItemFields.extend({ productId: z.never().optional(), source: lineItemSourceSchema }),
-  lineItemFields.extend({
-    productId: z.never().optional(),
-    source: z.never().optional(),
-    description: z.string().trim().min(1),
-  }),
-]);
-export type LineItemInput = z.infer<typeof lineItemSchema>;
+// Strict variants make productId and source mutually exclusive: a variant rejects the
+// key it does not declare. `z.never()` would say the same, but OpenAPI cannot express it.
+const productLineSchema = z.strictObject({ ...lineItemFields, productId: z.string().min(1) });
+const sourceLineSchema = z.strictObject({ ...lineItemFields, source: lineItemSourceSchema });
+const manualLineSchema = z.strictObject({ ...lineItemFields, description: z.string().trim().min(1) });
+
+export const lineItemSchema = z.union([productLineSchema, sourceLineSchema, manualLineSchema]);
+export type LineItemInput =
+  | (z.infer<typeof productLineSchema> & { source?: undefined })
+  | (z.infer<typeof sourceLineSchema> & { productId?: undefined })
+  | (z.infer<typeof manualLineSchema> & { productId?: undefined; source?: undefined });
 
 export const LineItemCurrencyMismatchException = (args: {
   documentCurrency: string;
