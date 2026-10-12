@@ -17,3 +17,16 @@ export const currencyCodeSchema = z
   .length(3)
   .regex(/^[a-zA-Z]{3}$/, "ISO 4217 currency code")
   .transform(normalizeCurrency);
+
+const minorUnitDigitsByCurrency = new Map<string, number>();
+
+export function currencyMinorUnitDigits(currency: string): number {
+  const code = normalizeCurrency(currency);
+  const known = minorUnitDigitsByCurrency.get(code);
+  if (known !== undefined) return known;
+  const digits = new Intl.NumberFormat("en", { style: "currency", currency: code }).resolvedOptions()
+    .maximumFractionDigits;
+  if (digits === undefined) throw new RangeError(`No minor unit is defined for currency "${currency}"`);
+  minorUnitDigitsByCurrency.set(code, digits);
+  return digits;
+}

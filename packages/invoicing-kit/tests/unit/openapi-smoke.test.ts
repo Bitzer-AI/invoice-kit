@@ -44,4 +44,26 @@ describe("OpenAPI document", () => {
       expect(operation(suffix, method)?.responses?.["422"], `${method} ${suffix}`).toBeTruthy();
     }
   });
+
+  test("the void body requires the credit note series and takes no other field", () => {
+    const { router } = createInvoicingKit({ adapter: inMemoryAdapter(), auth: stubAuth });
+    const doc = (router as any).getOpenAPI31Document({ openapi: "3.1.0", info: { title: "invoicing-kit", version: "0.0.0" } });
+    const path = Object.keys(doc.paths).find((candidate) => candidate.endsWith("/invoices/{id}/void"));
+    const operation = doc.paths[path!].post;
+    const body = operation.requestBody.content["application/json"].schema;
+
+    expect(body.required).toEqual(["reason", "documentNumberPrefix"]);
+    expect(body.additionalProperties).toBe(false);
+    expect(body.properties.documentNumberPrefix).toMatchObject({ type: ["string", "null"], minLength: 1, maxLength: 20 });
+    expect(Object.keys(operation.responses)).toEqual(["200", "400", "404", "409"]);
+  });
+
+  test("a product write declares the 422 of a price with too many decimals", () => {
+    const { router } = createInvoicingKit({ adapter: inMemoryAdapter(), auth: stubAuth });
+    const doc = (router as any).getOpenAPIDocument({ openapi: "3.0.0", info: { title: "invoicing-kit", version: "0.0.0" } });
+    const path = (suffix: string) => Object.keys(doc.paths).find((candidate) => candidate.endsWith(suffix))!;
+
+    expect(doc.paths[path("/products")].post.responses["422"]).toBeTruthy();
+    expect(doc.paths[path("/products/{id}")].patch.responses["422"]).toBeTruthy();
+  });
 });

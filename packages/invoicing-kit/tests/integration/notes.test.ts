@@ -30,8 +30,7 @@ async function makeVendor(request: Request, name = "Proveedor SRL"): Promise<str
   return (await json(res)).id as string;
 }
 
-// Creates an invoice via HTTP; returns its underlying Document id (the note's reference target).
-async function makeInvoiceDocId(request: Request, clientId: string): Promise<string> {
+async function makeDraftInvoice(request: Request, clientId: string): Promise<{ id: string; documentId: string }> {
   const res = await request("/api/bills/invoices", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -41,7 +40,13 @@ async function makeInvoiceDocId(request: Request, clientId: string): Promise<str
       lineItems: [{ source: { type: "experience", id: "exp1", name: "Tour" }, quantity: "1", price: "100000", taxIds: [] }],
     }),
   });
-  return (await json(res)).documentId as string;
+  return json(res);
+}
+
+async function makeInvoiceDocId(request: Request, clientId: string): Promise<string> {
+  const draft = await makeDraftInvoice(request, clientId);
+  const issued = await request(`/api/bills/invoices/${draft.id}/issue`, { method: "POST" });
+  return (await json(issued)).documentId as string;
 }
 
 // Creates a vendor bill via HTTP; returns its underlying Document id.
@@ -95,6 +100,28 @@ describe("notes integration", () => {
     expect(body.document.total).toBe("20000");
     // A note defaults to (and must match) its referenced invoice's currency (usd, the default).
     expect(body.document.currency).toBe("usd");
+  });
+
+  test("POST /notes referencing a draft invoice -> 409 (NoteReferencedInvoiceNotIssued)", async () => {
+    const { request } = await buildHarness(createInvoicingKit);
+    const clientId = await makeClient(request);
+    const draft = await makeDraftInvoice(request, clientId);
+
+    const res = await request("/api/bills/notes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        noteType: "CREDIT",
+        referencedDocumentId: draft.documentId,
+        clientId,
+        issueDate: "2026-02-01",
+        lineItems: [creditLine()],
+      }),
+    });
+    expect(res.status).toBe(409);
+    expect(await res.text()).toContain("NOTE_REFERENCED_INVOICE_NOT_ISSUED");
+    const notes = await json(await request(`/api/bills/notes?referencedDocumentId=${draft.documentId}`));
+    expect(notes.data).toHaveLength(0);
   });
 
   test("POST /notes creates a purchase debit note (vendorId + referenced vendor bill) -> 201, DEBIT_NOTE", async () => {
@@ -366,6 +393,19 @@ describe("notes integration", () => {
       return createInvoicingKit({ adapter: repos, auth: {} as never, hooks });
     }
 
+    async function issuedInvoice(k: ReturnType<typeof makeKit>, clientId: string) {
+      const draft = await k.services.invoices.create(
+        {
+          clientId,
+          issueDate: "2026-01-01",
+          paymentMethodIds: [],
+          lineItems: [{ source: { type: "experience", id: "exp1", name: "Tour" }, quantity: "1", price: "100000", taxIds: [] }],
+        },
+        ctx,
+      );
+      return k.services.invoices.issue(draft.id, ctx);
+    }
+
     const noteBody = (clientId: string, referencedDocumentId: string) => ({
       noteType: "CREDIT" as const,
       referencedDocumentId,
@@ -378,14 +418,7 @@ describe("notes integration", () => {
       const recorded: Array<{ organizationId: string; noteId: string }> = [];
       const k = makeKit({ onNoteRecorded: (c) => void recorded.push(c) });
       const client = await k.services.clients.create({ name: "Cliente" }, ctx);
-      const inv = await k.services.invoices.create(
-        {
-          clientId: client.id,
-          issueDate: "2026-01-01",
-          lineItems: [{ source: { type: "experience", id: "exp1", name: "Tour" }, quantity: "1", price: "100000", taxIds: [] }],
-        } as any,
-        ctx,
-      );
+      const inv = await issuedInvoice(k, client.id);
       const note = await k.services.notes.create(
         { ...noteBody(client.id, inv.documentId), status: "issued" },
         ctx,
@@ -393,18 +426,11 @@ describe("notes integration", () => {
       expect(recorded).toEqual([{ organizationId: "org1", noteId: note.id }]);
     });
 
-    test("create draft then PATCH->issued fires once on the transition", async () => {
+    test("create draft then PATCH->issued fires once; an issued note takes no further update", async () => {
       const recorded: Array<{ organizationId: string; noteId: string }> = [];
       const k = makeKit({ onNoteRecorded: (c) => void recorded.push(c) });
       const client = await k.services.clients.create({ name: "Cliente" }, ctx);
-      const inv = await k.services.invoices.create(
-        {
-          clientId: client.id,
-          issueDate: "2026-01-01",
-          lineItems: [{ source: { type: "experience", id: "exp1", name: "Tour" }, quantity: "1", price: "100000", taxIds: [] }],
-        } as any,
-        ctx,
-      );
+      const inv = await issuedInvoice(k, client.id);
       const note = await k.services.notes.create(
         { ...noteBody(client.id, inv.documentId), status: "draft" },
         ctx,
@@ -412,8 +438,9 @@ describe("notes integration", () => {
       expect(recorded).toEqual([]);
       await k.services.notes.update(note.id, { status: "issued" }, ctx);
       expect(recorded).toEqual([{ organizationId: "org1", noteId: note.id }]);
-      // A no-op subsequent update does not re-fire.
-      await k.services.notes.update(note.id, { status: "issued" }, ctx);
+      await expect(k.services.notes.update(note.id, { status: "issued" }, ctx)).rejects.toMatchObject({
+        status: 409,
+      });
       expect(recorded).toEqual([{ organizationId: "org1", noteId: note.id }]);
     });
 
@@ -421,14 +448,7 @@ describe("notes integration", () => {
       const recorded: unknown[] = [];
       const k = makeKit({ onNoteRecorded: (c) => void recorded.push(c) });
       const client = await k.services.clients.create({ name: "Cliente" }, ctx);
-      const inv = await k.services.invoices.create(
-        {
-          clientId: client.id,
-          issueDate: "2026-01-01",
-          lineItems: [{ source: { type: "experience", id: "exp1", name: "Tour" }, quantity: "1", price: "100000", taxIds: [] }],
-        } as any,
-        ctx,
-      );
+      const inv = await issuedInvoice(k, client.id);
       const note = await k.services.notes.create(
         { ...noteBody(client.id, inv.documentId), status: "draft" },
         ctx,
@@ -440,14 +460,7 @@ describe("notes integration", () => {
     test("a throwing handler does not fail create (note still persisted)", async () => {
       const k = makeKit({ onNoteRecorded: () => { throw new Error("boom"); } });
       const client = await k.services.clients.create({ name: "Cliente" }, ctx);
-      const inv = await k.services.invoices.create(
-        {
-          clientId: client.id,
-          issueDate: "2026-01-01",
-          lineItems: [{ source: { type: "experience", id: "exp1", name: "Tour" }, quantity: "1", price: "100000", taxIds: [] }],
-        } as any,
-        ctx,
-      );
+      const inv = await issuedInvoice(k, client.id);
       const note = await k.services.notes.create(
         { ...noteBody(client.id, inv.documentId), status: "issued" },
         ctx,

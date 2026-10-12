@@ -3,11 +3,35 @@ import { inMemoryAdapter } from "../../src/adapters/memory";
 import { buildServices, type Services } from "../../src/services";
 import { buildMoneySettings } from "../../src/lib/money/settings";
 import { RECOMMENDED_MONEY_POLICY } from "../../src/lib/money";
-import { ExchangeRateSource, InvoiceStatus, NoteStatus, NoteType } from "../../src/types";
+import { ExchangeRateSource, NoteStatus, NoteType, VendorBillStatus } from "../../src/types";
 import type { AuthContext } from "../../src/auth/types";
 
 const ctx: AuthContext = { userId: "u", organizationId: "org", role: null };
 let rate = "59.347";
+
+const fuel = { source: { type: "expense", id: "fuel", name: "Fuel" }, quantity: "1", price: "100000", taxIds: [] };
+
+async function setupDraftVendorBill(money: Parameters<typeof buildMoneySettings>[0]) {
+  const repos = inMemoryAdapter();
+  const services = buildServices(repos, undefined, buildMoneySettings(money));
+  const vendor = await repos.vendors.create({ organizationId: "org", name: "Fuel Co" });
+  const bill = await services.vendorBills.create(
+    { vendorId: vendor.id, issueDate: "2026-09-01", currency: "usd", status: VendorBillStatus.Draft, lineItems: [fuel] },
+    ctx,
+  );
+  const billDoc = (await services.vendorBills.findById(bill.id, ctx)).document;
+  const note = (overrides: Record<string, unknown> = {}) =>
+    ({
+      noteType: NoteType.Credit,
+      referencedDocumentId: billDoc.id,
+      vendorId: vendor.id,
+      issueDate: "2026-09-25",
+      status: NoteStatus.Draft,
+      lineItems: [{ ...fuel, price: "20000" }],
+      ...overrides,
+    }) as any;
+  return { services, bill, note };
+}
 
 async function setup() {
   const repos = inMemoryAdapter();
@@ -22,10 +46,10 @@ async function setup() {
   const client = await repos.clients.create({ organizationId: "org", name: "Hotel" });
   const tour = { source: { type: "experience", id: "tour", name: "Tour" }, quantity: "1", price: "100000", taxIds: [] };
   const invoice = await services.invoices.create(
-    { clientId: client.id, issueDate: "2026-09-01", currency: "usd", status: InvoiceStatus.Sent, paymentMethodIds: [], lineItems: [tour] } as any,
+    { clientId: client.id, issueDate: "2026-09-01", currency: "usd", paymentMethodIds: [], lineItems: [tour] },
     ctx,
   );
-  const invoiceDoc = (await services.invoices.findById(invoice.id, ctx)).document;
+  const invoiceDoc = (await services.invoices.issue(invoice.id, ctx)).document;
   const note = (overrides: Record<string, unknown> = {}) =>
     ({
       noteType: NoteType.Credit,
@@ -79,7 +103,7 @@ describe("notes and exchange rates", () => {
     expect(doc.exchangeRate).toBeNull();
   });
 
-  test("a manual rate is allowed when the referenced document carries no exchange (draft reference)", async () => {
+  test("a note cannot reference a draft invoice", async () => {
     const repos = inMemoryAdapter();
     const services = buildServices(
       repos,
@@ -91,87 +115,69 @@ describe("notes and exchange rates", () => {
     );
     const client = await repos.clients.create({ organizationId: "org", name: "Hotel" });
     const tour = { source: { type: "experience", id: "tour", name: "Tour" }, quantity: "1", price: "100000", taxIds: [] };
-    // A draft invoice has no frozen exchange (moneyPolicy is null, exchangeRate is null).
     const draftInvoice = await services.invoices.create(
-      { clientId: client.id, issueDate: "2026-09-01", currency: "usd", status: InvoiceStatus.Draft, paymentMethodIds: [], lineItems: [tour] } as any,
+      { clientId: client.id, issueDate: "2026-09-01", currency: "usd", paymentMethodIds: [], lineItems: [tour] },
       ctx,
     );
     const draftInvoiceDoc = (await services.invoices.findById(draftInvoice.id, ctx)).document;
 
-    const created = await services.notes.create(
-      {
-        noteType: NoteType.Credit,
-        referencedDocumentId: draftInvoiceDoc.id,
-        clientId: client.id,
-        issueDate: "2026-09-25",
-        status: NoteStatus.Issued,
-        lineItems: [{ ...tour, price: "20000" }],
-        exchangeRate: "70",
-      } as any,
-      ctx,
-    );
+    await expect(
+      services.notes.create(
+        {
+          noteType: NoteType.Credit,
+          referencedDocumentId: draftInvoiceDoc.id,
+          clientId: client.id,
+          issueDate: "2026-09-25",
+          status: NoteStatus.Draft,
+          lineItems: [{ ...tour, price: "20000" }],
+        },
+        ctx,
+      ),
+    ).rejects.toMatchObject({ status: 409, message: expect.stringContaining("NOTE_REFERENCED_INVOICE_NOT_ISSUED") });
+    expect((await services.notes.list({} as any, ctx)).data).toHaveLength(0);
+  });
+
+  test("a manual rate is allowed when the referenced document carries no exchange (draft vendor bill)", async () => {
+    const { services, note } = await setupDraftVendorBill({
+      moneyPolicy: () => RECOMMENDED_MONEY_POLICY,
+      exchangeRates: { baseCurrency: () => "dop", resolve: async () => rate },
+    });
+
+    const created = await services.notes.create(note({ status: NoteStatus.Issued, exchangeRate: "70" }), ctx);
+
     const doc = (await services.notes.findById(created.id, ctx)).document;
     expect(doc.exchangeRate).toBe("70");
     expect(doc.exchangeRateSource).toBe(ExchangeRateSource.Manual);
   });
 
-  test("a draft note's own rate yields to the reference's rate once the reference is issued", async () => {
+  test("a draft note's own rate yields to the reference's rate once the reference is recorded", async () => {
     rate = "59.347";
-    const repos = inMemoryAdapter();
-    const services = buildServices(
-      repos,
-      undefined,
-      buildMoneySettings({
-        moneyPolicy: () => RECOMMENDED_MONEY_POLICY,
-        exchangeRates: { baseCurrency: () => "dop", resolve: async () => rate },
-      }),
-    );
-    const client = await repos.clients.create({ organizationId: "org", name: "Hotel" });
-    const tour = { source: { type: "experience", id: "tour", name: "Tour" }, quantity: "1", price: "100000", taxIds: [] };
-    const invoice = await services.invoices.create(
-      { clientId: client.id, issueDate: "2026-09-01", currency: "usd", status: InvoiceStatus.Draft, paymentMethodIds: [], lineItems: [tour] } as any,
-      ctx,
-    );
-    const invoiceDoc = (await services.invoices.findById(invoice.id, ctx)).document;
-    const note = await services.notes.create(
-      {
-        noteType: NoteType.Credit,
-        referencedDocumentId: invoiceDoc.id,
-        clientId: client.id,
-        issueDate: "2026-09-25",
-        status: NoteStatus.Draft,
-        lineItems: [{ ...tour, price: "20000" }],
-        exchangeRate: "65",
-      } as any,
-      ctx,
-    );
-    await services.invoices.update(invoice.id, { status: InvoiceStatus.Sent } as any, ctx);
+    const { services, bill, note } = await setupDraftVendorBill({
+      moneyPolicy: () => RECOMMENDED_MONEY_POLICY,
+      exchangeRates: { baseCurrency: () => "dop", resolve: async () => rate },
+    });
+    const draftNote = await services.notes.create(note({ exchangeRate: "65" }), ctx);
+    expect((await services.notes.findById(draftNote.id, ctx)).document.exchangeRate).toBe("65");
+    await services.vendorBills.update(bill.id, { status: VendorBillStatus.Received }, ctx);
 
-    await services.notes.update(note.id, { status: NoteStatus.Issued } as any, ctx);
+    await services.notes.update(draftNote.id, { status: NoteStatus.Issued }, ctx);
 
-    const doc = (await services.notes.findById(note.id, ctx)).document;
+    const doc = (await services.notes.findById(draftNote.id, ctx)).document;
     expect(doc.exchangeRate).toBe("59.347");
     expect(doc.exchangeRateSource).toBe(ExchangeRateSource.Referenced);
     expect(doc.baseSubtotal).toBe(1_186_940n);
   });
 
-  test("race: updating lines on what looks like a draft note doesn't null out a rate frozen by a concurrent issue", async () => {
-    // The referenced invoice is left as a DRAFT (no frozen exchange), so the note's
-    // own plan must go through `policyFor` (the injection point below) rather than
-    // short-circuiting on the reference's policy.
+  test("race: a line edit planned on a draft note is refused once a concurrent issue froze the note", async () => {
     const rates: Record<string, string | null> = { "2026-09-25": "59.347" };
-    const repos = inMemoryAdapter();
     let noteId = "";
-    let sideEffectDone = false;
+    let concurrentIssueDone = false;
     let services!: Services;
-    const money = buildMoneySettings({
+    const setupResult = await setupDraftVendorBill({
       moneyPolicy: async () => {
-        // Fires while `update()` below is planning its (line-item-only) write, which
-        // still believes the note is an unrecorded draft. A concurrent process issues
-        // the SAME note first, before this pre-transaction plan is applied.
-        if (noteId !== "" && !sideEffectDone) {
-          sideEffectDone = true;
-          await services.notes.update(noteId, { status: NoteStatus.Issued } as any, ctx);
+        if (noteId !== "" && !concurrentIssueDone) {
+          concurrentIssueDone = true;
+          await services.notes.update(noteId, { status: NoteStatus.Issued }, ctx);
         }
         return RECOMMENDED_MONEY_POLICY;
       },
@@ -180,44 +186,19 @@ describe("notes and exchange rates", () => {
         resolve: async ({ date }) => rates[date.toISOString().slice(0, 10)] ?? null,
       },
     });
-    services = buildServices(repos, undefined, money);
-    const client = await repos.clients.create({ organizationId: "org", name: "Hotel" });
-    const tour = { source: { type: "experience", id: "tour", name: "Tour" }, quantity: "1", price: "100000", taxIds: [] };
-    const invoice = await services.invoices.create(
-      { clientId: client.id, issueDate: "2026-09-01", currency: "usd", status: InvoiceStatus.Draft, paymentMethodIds: [], lineItems: [tour] } as any,
-      ctx,
-    );
-    const invoiceDoc = (await services.invoices.findById(invoice.id, ctx)).document;
-
-    const draft = await services.notes.create(
-      {
-        noteType: NoteType.Credit,
-        referencedDocumentId: invoiceDoc.id,
-        clientId: client.id,
-        issueDate: "2026-09-25",
-        status: NoteStatus.Draft,
-        lineItems: [{ ...tour, price: "20000" }],
-      } as any,
-      ctx,
-    );
+    services = setupResult.services;
+    const draft = await services.notes.create(setupResult.note(), ctx);
     noteId = draft.id;
 
-    await services.notes.update(
-      draft.id,
-      { lineItems: [{ ...tour, price: "30000" }] } as any,
-      ctx,
-    );
+    await expect(
+      services.notes.update(draft.id, { lineItems: [{ ...fuel, price: "30000" }] }, ctx),
+    ).rejects.toMatchObject({ status: 409, message: expect.stringContaining("NOTE_NOT_DRAFT") });
 
     const found = await services.notes.findById(draft.id, ctx);
     expect(found.status).toBe(NoteStatus.Issued);
     expect(found.document.exchangeRate).toBe("59.347");
-    // The reference (a draft invoice) carries no frozen exchange, so the note's own
-    // rate was provider-resolved directly (not inherited) — but the important thing
-    // this test pins is that it survived the race, frozen, unchanged by the re-plan.
     expect(found.document.exchangeRateSource).toBe(ExchangeRateSource.Provider);
-    expect(found.document.baseSubtotal).not.toBeNull();
-    // The line edit landed (recomputed under the frozen rate), it didn't just vanish.
-    expect(found.document.total).toBe(30_000n);
-    expect(found.document.baseSubtotal).toBe(1_780_410n);
+    expect(found.document.total).toBe(20_000n);
+    expect(found.document.baseSubtotal).toBe(1_186_940n);
   });
 });

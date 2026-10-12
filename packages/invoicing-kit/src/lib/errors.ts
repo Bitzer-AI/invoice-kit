@@ -18,6 +18,7 @@ export const ErrorCode = {
   LineItemCurrencyMismatch: "LINE_ITEM_CURRENCY_MISMATCH",
   ProductNotSellable: "PRODUCT_NOT_SELLABLE",
   ProductNotPurchasable: "PRODUCT_NOT_PURCHASABLE",
+  ProductPricePrecisionInvalid: "PRODUCT_PRICE_PRECISION_INVALID",
 
   // Tax
   TaxNotFound: "TAX_NOT_FOUND",

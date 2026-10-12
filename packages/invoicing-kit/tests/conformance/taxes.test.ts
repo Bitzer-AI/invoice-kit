@@ -14,7 +14,7 @@ describeForEachAdapter("TaxRepository", allFactories, (ctx) => {
       rate: "0.2100",
     });
     expect(tax.type).toBe("PERCENTAGE");
-    expect(tax.rate).toBe("0.2100");
+    expect(tax.rate).toBe("0.210000");
     expect(tax.isActive).toBe(true);  // defaulted
     expect(tax.isDefault).toBe(false); // defaulted
   });

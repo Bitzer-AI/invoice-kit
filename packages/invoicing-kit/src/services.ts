@@ -36,7 +36,7 @@ export function buildServices(
   repos: Repositories,
   hooks?: InvoicingKitHooks,
   money?: MoneySettings,
-  invoicing?: { creditNotePrefix: string | null; issueGuard?: InvoiceIssueGuard },
+  invoicing?: { issueGuard?: InvoiceIssueGuard },
 ): Services {
   const settings = money ?? buildMoneySettings();
   return {
@@ -49,7 +49,6 @@ export function buildServices(
     invoices: new InvoiceService(repos, {
       hooks,
       money: settings,
-      creditNotePrefix: invoicing?.creditNotePrefix ?? null,
       issueGuard: invoicing?.issueGuard,
     }),
     vendorBills: new VendorBillService(repos, { hooks, money: settings }),

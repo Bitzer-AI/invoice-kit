@@ -34,6 +34,7 @@ async function createQuote(
   clientId: string,
   productId: string,
   taxId: string,
+  status: "draft" | "accepted",
 ) {
   const res = await request("/api/bills/quotes", {
     method: "POST",
@@ -41,10 +42,23 @@ async function createQuote(
     body: JSON.stringify({
       clientId,
       issueDate: "2025-01-01",
+      status,
       lineItems: [{ productId, quantity: "1", price: "10000", taxIds: [taxId] }],
     }),
   });
   return res.json();
+}
+
+function postJson(
+  request: (input: string, init?: RequestInit) => Promise<Response>,
+  path: string,
+  body: unknown,
+) {
+  return request(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
 }
 
 describe("invoices integration", () => {
@@ -106,7 +120,6 @@ describe("invoices integration", () => {
         clientId,
         issueDate: "2025-01-01",
         currency: "DOP",
-        status: "draft",
         paymentMethodIds: [],
         lineItems: [{ productId: pesoProduct.id, quantity: "1", price: "10000", taxIds: [taxId] }],
       },
@@ -128,7 +141,6 @@ describe("invoices integration", () => {
           clientId,
           issueDate: "2025-01-01",
           currency: "DOP",
-          status: "draft",
           paymentMethodIds: [],
           lineItems: [{ productId, quantity: "1", price: "10000", taxIds: [taxId] }],
         },
@@ -175,7 +187,6 @@ describe("invoices integration", () => {
       {
         clientId,
         issueDate: "2025-01-01",
-        status: "draft",
         paymentMethodIds: [],
         lineItems: [
           { productId, quantity: "1", price: "10000", taxIds: [taxId], metadata: bookingMetadata },
@@ -233,38 +244,49 @@ describe("invoices integration", () => {
     expect(fetched.document.lineItems[0].metadata).toEqual(bookingMetadata);
   });
 
-  test("POST /invoices honors a one-off documentNumber override without advancing the series", async () => {
+  test("POST /invoices refuses a number or a status: a new invoice is an unnumbered draft", async () => {
     const { request } = await buildHarness(createInvoicingKit);
     const { clientId, productId, taxId } = await createPrereqs(request);
+    const draft = {
+      clientId,
+      issueDate: "2025-01-01",
+      lineItems: [{ productId, quantity: "1", price: "10000", taxIds: [taxId] }],
+    };
 
-    const overridden = await (
-      await request("/api/bills/invoices", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          clientId,
-          documentNumber: 5000,
-          issueDate: "2025-01-01",
-          lineItems: [{ productId, quantity: "1", price: "10000", taxIds: [taxId] }],
-        }),
-      })
-    ).json();
-    expect(overridden.document.documentNumber).toBe(5000);
+    const numbered = await postJson(request, "/api/bills/invoices", { ...draft, documentNumber: 5000 });
+    expect(numbered.status).toBe(400);
+    const sent = await postJson(request, "/api/bills/invoices", { ...draft, status: "sent" });
+    expect(sent.status).toBe(400);
 
-    // A subsequent auto-numbered invoice uses the series counter (starts at 1),
-    // unaffected by the one-off override above.
-    const auto = await (
-      await request("/api/bills/invoices", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          clientId,
-          issueDate: "2025-01-02",
-          lineItems: [{ productId, quantity: "1", price: "10000", taxIds: [taxId] }],
-        }),
-      })
-    ).json();
-    expect(auto.document.documentNumber).toBe(1);
+    const created = await (await postJson(request, "/api/bills/invoices", draft)).json();
+    expect(created.status).toBe("draft");
+    expect(created.document.documentNumber).toBeNull();
+    expect(created.document.documentNumberPadWidth).toBeNull();
+  });
+
+  test("POST /invoices/{id}/issue numbers the invoice from its series and is idempotent", async () => {
+    const { request } = await buildHarness(createInvoicingKit);
+    const { clientId, productId, taxId } = await createPrereqs(request);
+    const draft = {
+      clientId,
+      issueDate: "2025-01-01",
+      lineItems: [{ productId, quantity: "1", price: "10000", taxIds: [taxId] }],
+    };
+    const first = await (await postJson(request, "/api/bills/invoices", draft)).json();
+    const second = await (await postJson(request, "/api/bills/invoices", draft)).json();
+
+    const issuedSecond = await request(`/api/bills/invoices/${second.id}/issue`, { method: "POST" });
+    expect(issuedSecond.status).toBe(200);
+    expect(await issuedSecond.json()).toMatchObject({
+      status: "issued",
+      document: { documentNumber: 1, documentNumberPadWidth: 8 },
+    });
+
+    const issuedFirst = await (await request(`/api/bills/invoices/${first.id}/issue`, { method: "POST" })).json();
+    expect(issuedFirst.document.documentNumber).toBe(2);
+
+    const again = await (await request(`/api/bills/invoices/${first.id}/issue`, { method: "POST" })).json();
+    expect(again.document.documentNumber).toBe(2);
   });
 
   test("GET /invoices/{id} returns the full joined document with line items", async () => {
@@ -293,76 +315,62 @@ describe("invoices integration", () => {
     expect(body.document.lineItems[0].quantity).toBe("2");
   });
 
-  test("PATCH /invoices/{id} with status 'paid' auto-sets paidDate", async () => {
+  test("PATCH /invoices/{id} edits a draft only and takes no status", async () => {
     const { request } = await buildHarness(createInvoicingKit);
     const { clientId, productId } = await createPrereqs(request);
 
     const created = await (
-      await request("/api/bills/invoices", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          clientId,
-          issueDate: "2025-03-01",
-          lineItems: [{ productId, quantity: "1", price: "5000", taxIds: [] }],
-        }),
+      await postJson(request, "/api/bills/invoices", {
+        clientId,
+        issueDate: "2025-03-01",
+        lineItems: [{ productId, quantity: "1", price: "5000", taxIds: [] }],
       })
     ).json();
+    const patch = (body: unknown) =>
+      request(`/api/bills/invoices/${created.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
 
-    expect(created.status).toBe("draft");
-    expect(created.paidDate).toBeNull();
+    expect((await patch({ status: "paid" })).status).toBe(400);
 
-    const res = await request(`/api/bills/invoices/${created.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "paid" }),
-    });
-    expect(res.status).toBe(200);
-    const updated = await res.json();
-    expect(updated.status).toBe("paid");
-    expect(updated.paidDate).not.toBeNull();
-    // paidDate should be a valid YYYY-MM-DD string
-    expect(updated.paidDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    const edited = await patch({ notes: "Net 30" });
+    expect(edited.status).toBe(200);
+    expect(await edited.json()).toMatchObject({ status: "draft", paidDate: null, document: { notes: "Net 30" } });
+
+    await request(`/api/bills/invoices/${created.id}/issue`, { method: "POST" });
+    const afterIssue = await patch({ notes: "Net 60" });
+    expect(afterIssue.status).toBe(409);
+    expect(await afterIssue.text()).toContain("INVOICE_STATUS_TRANSITION_INVALID");
   });
 
   test("GET /invoices lists filtered by status (comma-separated)", async () => {
     const { request } = await buildHarness(createInvoicingKit);
     const { clientId, productId } = await createPrereqs(request);
 
-    // Create a draft invoice
-    await request("/api/bills/invoices", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        clientId,
-        issueDate: "2025-04-01",
-        status: "draft",
-        lineItems: [{ productId, quantity: "1", price: "1000", taxIds: [] }],
-      }),
+    await postJson(request, "/api/bills/invoices", {
+      clientId,
+      issueDate: "2025-04-01",
+      lineItems: [{ productId, quantity: "1", price: "1000", taxIds: [] }],
     });
-
-    // Create a sent invoice
-    await request("/api/bills/invoices", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+    const toIssue = await (
+      await postJson(request, "/api/bills/invoices", {
         clientId,
         issueDate: "2025-04-02",
-        status: "sent",
         lineItems: [{ productId, quantity: "1", price: "2000", taxIds: [] }],
-      }),
-    });
+      })
+    ).json();
+    await request(`/api/bills/invoices/${toIssue.id}/issue`, { method: "POST" });
 
-    // Filter by draft only
-    const res = await request("/api/bills/invoices?status=draft");
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body.data.every((i: any) => i.status === "draft")).toBe(true);
+    const drafts = await (await request("/api/bills/invoices?status=draft")).json();
+    expect(drafts.data.map((invoice: { status: string }) => invoice.status)).toEqual(["draft"]);
 
-    // Filter by both draft and sent
-    const res2 = await request("/api/bills/invoices?status=draft,sent");
-    const body2 = await res2.json();
-    expect(body2.data.length).toBeGreaterThanOrEqual(2);
+    const issued = await (await request("/api/bills/invoices?status=issued")).json();
+    expect(issued.data.map((invoice: { id: string }) => invoice.id)).toEqual([toIssue.id]);
+
+    const both = await (await request("/api/bills/invoices?status=draft,issued")).json();
+    expect(both.data).toHaveLength(2);
   });
 
   test("GET /invoices lists filtered by clientId", async () => {
@@ -433,8 +441,8 @@ describe("invoices integration", () => {
     const { request } = await buildHarness(createInvoicingKit);
     const { clientId, productId, taxId } = await createPrereqs(request);
 
-    const quote = await createQuote(request, clientId, productId, taxId);
-    expect(quote.status).toBe("draft");
+    const quote = await createQuote(request, clientId, productId, taxId, "accepted");
+    expect(quote.status).toBe("accepted");
 
     const res = await request(`/api/bills/invoices/from-quote/${quote.id}`, {
       method: "POST",
@@ -465,7 +473,7 @@ describe("invoices integration", () => {
     const { request } = await buildHarness(createInvoicingKit);
     const { clientId, productId, taxId } = await createPrereqs(request);
 
-    const quote = await createQuote(request, clientId, productId, taxId);
+    const quote = await createQuote(request, clientId, productId, taxId, "accepted");
 
     // First conversion succeeds
     const first = await request(`/api/bills/invoices/from-quote/${quote.id}`, {
@@ -484,46 +492,54 @@ describe("invoices integration", () => {
     expect(second.status).toBe(409);
   });
 
-  test("bulk-status then bulk-delete act on many invoices at once", async () => {
+  test("POST /invoices/from-quote/{quoteId} returns 409 for a quote that is not accepted", async () => {
+    const { request } = await buildHarness(createInvoicingKit);
+    const { clientId, productId, taxId } = await createPrereqs(request);
+
+    const quote = await createQuote(request, clientId, productId, taxId, "draft");
+
+    const res = await postJson(request, `/api/bills/invoices/from-quote/${quote.id}`, {});
+    expect(res.status).toBe(409);
+    expect(await res.text()).toContain("QUOTE_NOT_ACCEPTED");
+
+    const unchanged = await (await request(`/api/bills/quotes/${quote.id}`)).json();
+    expect(unchanged.status).toBe("draft");
+  });
+
+  test("bulk-delete removes drafts and refuses an issued invoice", async () => {
     const { request } = await buildHarness(createInvoicingKit);
     const { clientId, productId } = await createPrereqs(request);
 
     const ids: string[] = [];
     for (let n = 0; n < 3; n++) {
       const created = await (
-        await request("/api/bills/invoices", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            clientId,
-            issueDate: "2025-07-01",
-            lineItems: [{ productId, quantity: "1", price: "1000", taxIds: [] }],
-          }),
+        await postJson(request, "/api/bills/invoices", {
+          clientId,
+          issueDate: "2025-07-01",
+          lineItems: [{ productId, quantity: "1", price: "1000", taxIds: [] }],
         })
       ).json();
       ids.push(created.id);
     }
+    const [firstDraft, secondDraft, issued] = ids;
+    await request(`/api/bills/invoices/${issued}/issue`, { method: "POST" });
 
-    const statusRes = await request("/api/bills/invoices/bulk-status", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ids, status: "sent" }),
-    });
-    expect(statusRes.status).toBe(200);
-    expect((await statusRes.json()).count).toBe(3);
+    const mixed = await postJson(request, "/api/bills/invoices/bulk-delete", { ids: [firstDraft, issued] });
+    expect(mixed.status).toBe(409);
+    expect((await (await request("/api/bills/invoices")).json()).data).toHaveLength(3);
 
-    const sent = await (await request("/api/bills/invoices?status=sent")).json();
-    expect(sent.data.length).toBe(3);
-
-    const delRes = await request("/api/bills/invoices/bulk-delete", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ids: ids.slice(0, 2) }),
-    });
-    expect(delRes.status).toBe(200);
-    expect((await delRes.json()).count).toBe(2);
+    const drafts = await postJson(request, "/api/bills/invoices/bulk-delete", { ids: [firstDraft, secondDraft] });
+    expect(drafts.status).toBe(200);
+    expect((await drafts.json()).count).toBe(2);
 
     const remaining = await (await request("/api/bills/invoices")).json();
-    expect(remaining.data.length).toBe(1);
+    expect(remaining.data.map((invoice: { id: string }) => invoice.id)).toEqual([issued]);
+  });
+
+  test("the bulk status route is gone", async () => {
+    const { request } = await buildHarness(createInvoicingKit);
+
+    const res = await postJson(request, "/api/bills/invoices/bulk-status", { ids: ["any"], status: "sent" });
+    expect(res.status).toBe(404);
   });
 });

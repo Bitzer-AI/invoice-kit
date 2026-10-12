@@ -21,9 +21,7 @@ async function createPrereqs(request: (input: string, init?: RequestInit) => Pro
   return { clientId: client.id as string, productId: product.id as string };
 }
 
-// Helper: create an invoice with a single line item of the given price (no tax).
-// Returns the parsed invoice body.
-async function createInvoice(
+async function createDraftInvoice(
   request: (input: string, init?: RequestInit) => Promise<Response>,
   clientId: string,
   productId: string,
@@ -35,11 +33,21 @@ async function createInvoice(
     body: JSON.stringify({
       clientId,
       issueDate: "2025-01-01",
-      status: "sent",
       lineItems: [{ productId, quantity: "1", price, taxIds: [] }],
     }),
   });
   return res.json();
+}
+
+async function createInvoice(
+  request: (input: string, init?: RequestInit) => Promise<Response>,
+  clientId: string,
+  productId: string,
+  price: string,
+) {
+  const draft = await createDraftInvoice(request, clientId, productId, price);
+  const issued = await request(`/api/bills/invoices/${draft.id}/issue`, { method: "POST" });
+  return issued.json();
 }
 
 describe("payments integration", () => {
@@ -180,7 +188,27 @@ describe("payments integration", () => {
     expect(body.data.every((p: any) => p.invoiceId === invoice.id)).toBe(true);
   });
 
-  test("DELETE /payments/{id} recalculates invoice status back to 'sent'", async () => {
+  test("a payment on a draft invoice is refused with PAYMENT_INVOICE_NOT_ISSUED", async () => {
+    const { request } = await buildHarness(createInvoicingKit);
+    const { clientId, productId } = await createPrereqs(request);
+
+    const draft = await createDraftInvoice(request, clientId, productId, "10000");
+
+    const res = await request(`/api/bills/invoices/${draft.id}/payments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ amount: "10000", currency: "USD", provider: "MANUAL" }),
+    });
+
+    expect(res.status).toBe(409);
+    expect(await res.text()).toContain("PAYMENT_INVOICE_NOT_ISSUED");
+    const payments = await (await request(`/api/bills/invoices/${draft.id}/payments`)).json();
+    expect(payments.data).toHaveLength(0);
+    const unchanged = await (await request(`/api/bills/invoices/${draft.id}`)).json();
+    expect(unchanged.status).toBe("draft");
+  });
+
+  test("DELETE /payments/{id} recalculates invoice status back to 'issued'", async () => {
     const { request } = await buildHarness(createInvoicingKit);
     const { clientId, productId } = await createPrereqs(request);
 
@@ -202,9 +230,8 @@ describe("payments integration", () => {
     const delRes = await request(`/api/bills/payments/${payment.id}`, { method: "DELETE" });
     expect(delRes.status).toBe(204);
 
-    // Invoice should recalculate to 'sent' (no remaining payments)
     const after = await (await request(`/api/bills/invoices/${invoice.id}`)).json();
-    expect(after.status).toBe("sent");
+    expect(after.status).toBe("issued");
     expect(after.paidDate).toBeNull();
   });
 });

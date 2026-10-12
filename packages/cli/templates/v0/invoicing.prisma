@@ -60,7 +60,7 @@ model Tax {
   name           String   @db.VarChar(100)
   description    String?  @db.Text
   type           TaxType  @default(PERCENTAGE)
-  rate           Decimal  @db.Decimal(10, 4)
+  rate           Decimal  @db.Decimal(19, 6)
   isActive       Boolean  @default(true) @map("is_active")
   isDefault      Boolean  @default(false) @map("is_default")
   fiscalCategory String?  @map("fiscal_category")

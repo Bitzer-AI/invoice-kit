@@ -1,6 +1,6 @@
 import { test, expect, describe } from "vitest";
 import { inMemoryAdapter } from "../../src/adapters/memory";
-import { DocumentNumberingService } from "../../src/lib/numbering";
+import { DEFAULT_DOCUMENT_NUMBER_PAD_WIDTH, DocumentNumberingService } from "../../src/lib/numbering";
 
 describe("DocumentNumberingService", () => {
   test("next() ensures sequence exists then returns sequential numbers", async () => {
@@ -8,8 +8,8 @@ describe("DocumentNumberingService", () => {
     const numbering = new DocumentNumberingService();
     const a = await numbering.next(repos, "org-1", "INVOICE", null);
     const b = await numbering.next(repos, "org-1", "INVOICE", null);
-    expect(a).toBe(1);
-    expect(b).toBe(2);
+    expect(a).toEqual({ number: 1, padWidth: DEFAULT_DOCUMENT_NUMBER_PAD_WIDTH });
+    expect(b).toEqual({ number: 2, padWidth: DEFAULT_DOCUMENT_NUMBER_PAD_WIDTH });
   });
 
   test("next() is per (org, type)", async () => {
@@ -17,7 +17,7 @@ describe("DocumentNumberingService", () => {
     const numbering = new DocumentNumberingService();
     const inv = await numbering.next(repos, "org-1", "INVOICE", null);
     const q = await numbering.next(repos, "org-1", "QUOTE", null);
-    expect(inv).toBe(1);
-    expect(q).toBe(1);
+    expect(inv.number).toBe(1);
+    expect(q.number).toBe(1);
   });
 });

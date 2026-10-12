@@ -21,7 +21,7 @@ describeForEachAdapter("cross-adapter end-to-end", allFactories, (ctx) => {
         organizationId,
         documentType: "INVOICE",
       });
-      const number = await tx.documentSequences.incrementAndGet({
+      const assigned = await tx.documentSequences.incrementAndGet({
         organizationId,
         documentType: "INVOICE",
       });
@@ -29,7 +29,8 @@ describeForEachAdapter("cross-adapter end-to-end", allFactories, (ctx) => {
         type: "INVOICE",
         organizationId,
         clientId: client.id,
-        documentNumber: number,
+        documentNumber: assigned.number,
+        documentNumberPadWidth: assigned.padWidth,
         issueDate: new Date(),
         subtotal: 20000n,
         tax: 0n,

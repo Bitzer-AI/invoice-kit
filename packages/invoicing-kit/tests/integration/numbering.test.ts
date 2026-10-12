@@ -22,6 +22,26 @@ async function createPrereqs(request: (input: string, init?: RequestInit) => Pro
   return { clientId: client.id as string, productId: product.id as string };
 }
 
+async function issueInvoiceInSeries(
+  request: (input: string, init?: RequestInit) => Promise<Response>,
+  prereqs: { clientId: string; productId: string },
+  prefix: string,
+) {
+  const draft = await (
+    await request("/api/bills/invoices", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId: prereqs.clientId,
+        documentNumberPrefix: prefix,
+        issueDate: "2025-01-01",
+        lineItems: [{ productId: prereqs.productId, quantity: "1", price: "10000", taxIds: [] }],
+      }),
+    })
+  ).json();
+  return request(`/api/bills/invoices/${draft.id}/issue`, { method: "POST" });
+}
+
 describe("numbering integration", () => {
   test("GET suggests nextNumber=1 when empty, POST upserts, GET reflects it", async () => {
     const { request } = await buildHarness(createInvoicingKit);
@@ -64,17 +84,7 @@ describe("numbering integration", () => {
     const { request } = await buildHarness(createInvoicingKit);
     const { clientId, productId } = await createPrereqs(request);
 
-    const issue = (prefix: string) =>
-      request("/api/bills/invoices", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          clientId,
-          documentNumberPrefix: prefix,
-          issueDate: "2025-01-01",
-          lineItems: [{ productId, quantity: "1", price: "10000", taxIds: [] }],
-        }),
-      });
+    const issue = (prefix: string) => issueInvoiceInSeries(request, { clientId, productId }, prefix);
 
     const b01a = await (await issue("B01")).json();
     const b02a = await (await issue("B02")).json();
@@ -119,17 +129,8 @@ describe("numbering integration", () => {
     });
 
     // 2) issue an invoice on series B01 → assigns number 1000
-    const created = await request("/api/bills/invoices", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        clientId,
-        documentNumberPrefix: "B01",
-        issueDate: "2025-01-01",
-        lineItems: [{ productId, quantity: "1", price: "10000", taxIds: [] }],
-      }),
-    });
-    expect(created.status).toBe(201);
+    const created = await issueInvoiceInSeries(request, { clientId, productId }, "B01");
+    expect(created.status).toBe(200);
     const createdBody = await created.json();
     expect(createdBody.document.documentNumberPrefix).toBe("B01");
     expect(createdBody.document.documentNumber).toBe(1000);

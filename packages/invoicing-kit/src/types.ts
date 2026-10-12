@@ -258,7 +258,6 @@ export interface Document {
   organizationId: string;
   clientId: string | null;
   vendorId: string | null;
-  /** Received supplier NCF / e-CF number (vendor bills). Null for invoices/quotes. */
   externalDocumentNumber: string | null;
   /** For notes: the Document this note modifies (an INVOICE or VENDOR_BILL). Null otherwise. */
   referencedDocumentId: string | null;

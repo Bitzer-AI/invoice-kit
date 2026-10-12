@@ -11,6 +11,8 @@ import {
 import { productToResponse } from "./mappers";
 import type { AuthVariables } from "../../auth/types";
 
+const PRICE_PRECISION_RESPONSE = "A price or cost has more decimals than the currency of the product";
+
 export function buildProductsRouter(service: ProductService, auth: BetterAuthLike) {
   const app = new OpenAPIHono<{ Variables: AuthVariables }>();
   app.use("*", authMiddleware(auth));
@@ -24,6 +26,7 @@ export function buildProductsRouter(service: ProductService, auth: BetterAuthLik
       responses: {
         201: { content: { "application/json": { schema: productResponse } }, description: "Created" },
         401: { description: "Unauthorized" },
+        422: { description: PRICE_PRECISION_RESPONSE },
       },
     }),
     async (c) => {
@@ -83,6 +86,7 @@ export function buildProductsRouter(service: ProductService, auth: BetterAuthLik
       responses: {
         200: { content: { "application/json": { schema: productResponse } }, description: "Updated" },
         404: { description: "Not found" },
+        422: { description: PRICE_PRECISION_RESPONSE },
       },
     }),
     async (c) => {

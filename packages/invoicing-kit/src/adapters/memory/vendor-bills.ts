@@ -54,8 +54,6 @@ export function createInMemoryVendorBillRepository(
         if (args.vendorId && document.vendorId !== args.vendorId) continue;
         if (args.issueDateFrom && document.issueDate < args.issueDateFrom) continue;
         if (args.issueDateTo && document.issueDate > args.issueDateTo) continue;
-        // Search is intentionally limited to externalDocumentNumber for vendor
-        // bills (the supplier NCF is the natural search key); not vendor name/taxId.
         if (
           args.query &&
           !(document.externalDocumentNumber ?? "")

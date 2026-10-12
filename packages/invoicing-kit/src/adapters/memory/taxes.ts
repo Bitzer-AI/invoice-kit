@@ -7,6 +7,7 @@ import type {
   TaxUpdate,
 } from "../types";
 import type { MemoryStore } from "./store";
+import { TAX_RATE_SCALE, atScale } from "../../lib/money/decimal";
 
 export function createInMemoryTaxRepository(store: MemoryStore): TaxRepository {
   const rows = store.taxes;
@@ -20,7 +21,7 @@ export function createInMemoryTaxRepository(store: MemoryStore): TaxRepository {
         name: data.name,
         description: data.description ?? null,
         type: data.type,
-        rate: data.rate,
+        rate: atScale(data.rate, TAX_RATE_SCALE),
         isActive: data.isActive ?? true,
         isDefault: data.isDefault ?? false,
         fiscalCategory: data.fiscalCategory ?? null,
@@ -54,9 +55,10 @@ export function createInMemoryTaxRepository(store: MemoryStore): TaxRepository {
     async update(id: string, organizationId: string, patch: TaxUpdate): Promise<Tax> {
       const existing = await repo.findById(id, organizationId);
       if (!existing) throw new Error("tax not found");
+      const merged: Tax = { ...existing, ...patch };
       const updated: Tax = {
-        ...existing,
-        ...patch,
+        ...merged,
+        rate: atScale(merged.rate, TAX_RATE_SCALE),
         updatedAt: new Date(),
       };
       rows.set(id, updated);

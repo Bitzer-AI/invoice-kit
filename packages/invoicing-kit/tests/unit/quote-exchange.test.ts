@@ -25,7 +25,7 @@ describe("quotes carry an agreed rate into the invoice draft", () => {
         clientId: client.id,
         issueDate: "2026-09-25",
         currency: "usd",
-        status: QuoteStatus.Sent,
+        status: QuoteStatus.Accepted,
         exchangeRate: "60",
         paymentMethodIds: [],
         lineItems: [{ source: { type: "experience", id: "tour", name: "Tour" }, quantity: "1", price: "5000", taxIds: [] }],
@@ -40,6 +40,30 @@ describe("quotes carry an agreed rate into the invoice draft", () => {
     const invoiceDoc = (await services.invoices.findById(invoice.id, ctx)).document;
     expect(invoiceDoc.exchangeRate).toBe("60");
     expect(invoiceDoc.exchangeRateSource).toBe(ExchangeRateSource.Manual);
+    expect(invoiceDoc.moneyPolicy).toBeNull();
+    expect((await services.quotes.findById(quote.id, ctx)).status).toBe(QuoteStatus.Converted);
+  });
+
+  test("a quote that is not accepted does not convert and stays as it is", async () => {
+    const repos = inMemoryAdapter();
+    const services = buildServices(repos, undefined, buildMoneySettings({ moneyPolicy: () => RECOMMENDED_MONEY_POLICY }));
+    const client = await repos.clients.create({ organizationId: "org", name: "Agency" });
+    const quote = await services.quotes.create(
+      {
+        clientId: client.id,
+        issueDate: "2026-09-25",
+        currency: "usd",
+        status: QuoteStatus.Sent,
+        paymentMethodIds: [],
+        lineItems: [{ source: { type: "experience", id: "tour", name: "Tour" }, quantity: "1", price: "5000", taxIds: [] }],
+      },
+      ctx,
+    );
+
+    await expect(services.invoices.convertFromQuote(quote.id, {}, ctx)).rejects.toThrow(/QUOTE_NOT_ACCEPTED/);
+
+    expect((await services.quotes.findById(quote.id, ctx)).status).toBe(QuoteStatus.Sent);
+    expect((await services.invoices.list({}, ctx)).data).toHaveLength(0);
   });
 
   test("a base-currency quote cannot carry a manual rate", async () => {

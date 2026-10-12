@@ -25,6 +25,7 @@ const NOTE_WITH_DOCUMENT_INCLUDE = {
           type: true,
           documentNumber: true,
           documentNumberPrefix: true,
+          documentNumberPadWidth: true,
           externalDocumentNumber: true,
           total: true,
           currency: true,

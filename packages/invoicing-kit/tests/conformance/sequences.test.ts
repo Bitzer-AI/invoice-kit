@@ -3,6 +3,7 @@ import { expect, test } from "vitest";
 import { describeForEachAdapter } from "./harness";
 import { allFactories } from "./adapters";
 import { seed } from "./seed";
+import { DEFAULT_DOCUMENT_NUMBER_PAD_WIDTH } from "../../src/lib/numbering";
 
 describeForEachAdapter("DocumentSequenceRepository", allFactories, (ctx) => {
   test("ensure creates row at nextNumber=1, second call no-ops", async () => {
@@ -37,8 +38,8 @@ describeForEachAdapter("DocumentSequenceRepository", allFactories, (ctx) => {
       organizationId,
       documentType: "INVOICE",
     });
-    expect(n1).toBe(1);
-    expect(n2).toBe(2);
+    expect(n1).toEqual({ number: 1, padWidth: DEFAULT_DOCUMENT_NUMBER_PAD_WIDTH });
+    expect(n2).toEqual({ number: 2, padWidth: DEFAULT_DOCUMENT_NUMBER_PAD_WIDTH });
   });
 
   test("incrementAndGet is per-(org, type)", async () => {
@@ -59,8 +60,8 @@ describeForEachAdapter("DocumentSequenceRepository", allFactories, (ctx) => {
       organizationId,
       documentType: "QUOTE",
     });
-    expect(i1).toBe(1);
-    expect(q1).toBe(1);
+    expect(i1.number).toBe(1);
+    expect(q1.number).toBe(1);
   });
 
   test("concurrent incrementAndGet yields distinct numbers", async () => {
@@ -77,7 +78,7 @@ describeForEachAdapter("DocumentSequenceRepository", allFactories, (ctx) => {
         }),
       ),
     );
-    const sorted = [...results].sort((a, b) => a - b);
+    const sorted = results.map((assigned) => assigned.number).sort((a, b) => a - b);
     expect(sorted).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
   });
 });

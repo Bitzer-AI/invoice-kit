@@ -34,7 +34,6 @@ import { requirePaymentMethods, requireSalesClient } from "../../lib/sales-assoc
 import { ClientNotFoundException } from "../clients/exceptions";
 
 interface InvoiceServiceOptions extends DocumentServiceOptions {
-  creditNotePrefix?: string | null;
   issueGuard?: InvoiceIssueGuard;
 }
 
@@ -42,7 +41,6 @@ export class InvoiceService {
   private readonly hooks?: InvoicingKitHooks;
   private readonly money: MoneySettings;
   private readonly numbering: DocumentNumberingService;
-  private readonly creditNotePrefix: string | null;
   private readonly issueGuard?: InvoiceIssueGuard;
 
   constructor(
@@ -52,7 +50,6 @@ export class InvoiceService {
     this.hooks = options.hooks;
     this.money = options.money ?? buildMoneySettings();
     this.numbering = options.numbering ?? new DocumentNumberingService();
-    this.creditNotePrefix = options.creditNotePrefix ?? null;
     this.issueGuard = options.issueGuard;
   }
 
@@ -227,14 +224,14 @@ export class InvoiceService {
         tx,
         ctx.organizationId,
         DocumentType.CreditNote,
-        this.creditNotePrefix,
+        body.documentNumberPrefix,
       );
       const creditNote = await tx.documents.create({
         type: DocumentType.CreditNote,
         organizationId: ctx.organizationId,
         clientId: source.clientId,
         referencedDocumentId: source.id,
-        documentNumberPrefix: this.creditNotePrefix,
+        documentNumberPrefix: body.documentNumberPrefix,
         documentNumber: assigned.number,
         documentNumberPadWidth: assigned.padWidth,
         issueDate: new Date(),

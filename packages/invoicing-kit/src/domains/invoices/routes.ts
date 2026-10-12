@@ -16,6 +16,7 @@ import { invoiceToResponse } from "./mappers";
 import { noteResponse } from "../notes/validation";
 import { noteToResponse } from "../notes/mappers";
 import type { AuthVariables } from "../../auth/types";
+import { DOCUMENT_NUMBER_PREFIX_MAX_LENGTH } from "../../lib/numbering";
 
 export function buildInvoicesRouter(service: InvoiceService, auth: BetterAuthLike) {
   const app = new OpenAPIHono<{ Variables: AuthVariables }>();
@@ -170,10 +171,13 @@ export function buildInvoicesRouter(service: InvoiceService, auth: BetterAuthLik
       responses: {
         200: {
           content: { "application/json": { schema: z.object({ invoice: invoiceResponse, creditNote: noteResponse }) } },
-          description: "Invoice voided and full credit note issued",
+          description: "Invoice voided and a full credit note issued in the series the request names",
+        },
+        400: {
+          description: `The body lacks documentNumberPrefix, or it is empty or longer than ${DOCUMENT_NUMBER_PREFIX_MAX_LENGTH} characters`,
         },
         404: { description: "Invoice not found" },
-        409: { description: "Invoice cannot be voided" },
+        409: { description: "Invoice is not sent, has payments, or already has a credit note" },
       },
     }),
     async (c) => {

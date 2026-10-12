@@ -1,11 +1,12 @@
 import { z } from "zod";
+import { taxIdSchema, taxIdTypeSchema } from "../../lib/tax-identification";
 
 export const createClientBody = z.object({
   name: z.string().min(1).max(255),
   email: z.string().email().optional().nullable(),
   phone: z.string().optional().nullable(),
-  taxId: z.string().max(20).optional().nullable(),
-  taxIdType: z.enum(["RNC", "CEDULA", "FOREIGN"]).optional().nullable(),
+  taxId: taxIdSchema.optional().nullable(),
+  taxIdType: taxIdTypeSchema.optional().nullable(),
   country: z.string().length(2).optional().nullable(),
   addressLine1: z.string().optional().nullable(),
   city: z.string().optional().nullable(),

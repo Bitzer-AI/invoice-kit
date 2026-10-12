@@ -37,8 +37,8 @@ import type {
   ExchangeRateSource,
 } from "../../types";
 import { ProductUsage } from "../../types";
-import { DEFAULT_CURRENCY } from "../../lib/currency";
-import { parseMoneyPolicy, canonicalDecimal } from "../../lib/money";
+import { currencyMinorUnitDigits } from "../../lib/currency";
+import { TAX_RATE_SCALE, parseMoneyPolicy, canonicalDecimal } from "../../lib/money";
 import type {
   DocumentWithRelations,
   InvoiceWithDocument,
@@ -72,12 +72,12 @@ export function productRowToDomain(row: any): Product {
     organizationId: row.organizationId,
     name: row.name,
     description: row.description ?? null,
-    price: row.price.toFixed(2), // Prisma Decimal -> string, preserve 2dp from Decimal(10,2) column
+    price: row.price.toFixed(currencyMinorUnitDigits(row.currency)),
     currency: row.currency,
     sourceType: row.sourceType ?? null,
     sourceId: row.sourceId ?? null,
     usage: row.usage ?? ProductUsage.Both,
-    cost: row.cost != null ? row.cost.toFixed(2) : null,
+    cost: row.cost != null ? row.cost.toFixed(currencyMinorUnitDigits(row.currency)) : null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -90,7 +90,7 @@ export function taxRowToDomain(row: any): Tax {
     name: row.name,
     description: row.description ?? null,
     type: row.type as TaxType,
-    rate: row.rate.toFixed(4), // Decimal(10,4); preserve trailing zeros
+    rate: row.rate.toFixed(TAX_RATE_SCALE),
     isActive: row.isActive,
     isDefault: row.isDefault,
     fiscalCategory: row.fiscalCategory ?? null,
@@ -236,7 +236,7 @@ export function documentWithRelationsRowToDomain(row: any): DocumentWithRelation
         ? {
             name: lineItemRow.product.name,
             description: lineItemRow.product.description ?? null,
-            price: lineItemRow.product.price.toFixed(2),
+            price: lineItemRow.product.price.toFixed(currencyMinorUnitDigits(lineItemRow.product.currency)),
             currency: lineItemRow.product.currency,
             sourceType: lineItemRow.product.sourceType ?? null,
             sourceId: lineItemRow.product.sourceId ?? null,

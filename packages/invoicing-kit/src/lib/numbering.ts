@@ -3,6 +3,7 @@ import type { AssignedDocumentNumber, DocumentType } from "../types";
 import { BillingDocumentInvariantError } from "./errors";
 
 export const DEFAULT_DOCUMENT_NUMBER_PAD_WIDTH = 8;
+export const DOCUMENT_NUMBER_PREFIX_MAX_LENGTH = 20;
 
 export function requireDocumentNumber(number: number | null): number {
   if (number === null) {

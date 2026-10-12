@@ -1,11 +1,19 @@
 import { z } from "zod";
 import { TaxType } from "../../types";
+import { TAX_RATE_PRECISION, TAX_RATE_SCALE } from "../../lib/money/decimal";
+
+const TAX_RATE_INTEGER_DIGITS = TAX_RATE_PRECISION - TAX_RATE_SCALE;
+const TAX_RATE_PATTERN = new RegExp(`^\\d{1,${TAX_RATE_INTEGER_DIGITS}}(\\.\\d{1,${TAX_RATE_SCALE}})?$`);
+const FISCAL_CATEGORY_MAX_LENGTH = 40;
 
 const rateSchema = z
   .string()
-  .regex(/^\d+(\.\d{1,4})?$/, "Invalid decimal rate")
+  .regex(
+    TAX_RATE_PATTERN,
+    `A rate has at most ${TAX_RATE_INTEGER_DIGITS} integer digits and ${TAX_RATE_SCALE} decimals`,
+  )
   .describe(
-    'PERCENTAGE: a fraction — "0.1800" means 18% (NOT "18", which is 1800%). FIXED: minor units — "50" means 50 cents.',
+    `PERCENTAGE: a fraction with at most ${TAX_RATE_SCALE} decimals. "0.18" means 18% and "0.08875" means 8.875%. A value of 1 or more is refused. FIXED: minor units per unit of quantity. "50" means 50 minor units.`,
   );
 
 const baseTaxBody = z.object({
@@ -15,7 +23,7 @@ const baseTaxBody = z.object({
   rate: rateSchema,
   isActive: z.boolean().optional(),
   isDefault: z.boolean().optional(),
-  fiscalCategory: z.enum(["ITBIS18", "ITBIS16", "ITBIS0", "EXEMPT"]).optional().nullable(),
+  fiscalCategory: z.string().trim().min(1).max(FISCAL_CATEGORY_MAX_LENGTH).optional().nullable(),
 });
 
 // A PERCENTAGE rate is a fraction (0.1800 = 18%), so a value >= 1 is almost certainly a

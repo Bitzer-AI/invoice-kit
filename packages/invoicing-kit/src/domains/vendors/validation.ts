@@ -1,11 +1,12 @@
 import { z } from "zod";
+import { taxIdSchema, taxIdTypeSchema } from "../../lib/tax-identification";
 
 export const createVendorBody = z.object({
   name: z.string().min(1).max(255),
   email: z.string().email().optional().nullable(),
   phone: z.string().optional().nullable(),
-  taxId: z.string().max(20).optional().nullable(),
-  taxIdType: z.enum(["RNC", "CEDULA", "FOREIGN"]).optional().nullable(),
+  taxId: taxIdSchema.optional().nullable(),
+  taxIdType: taxIdTypeSchema.optional().nullable(),
   isActive: z.boolean().optional(),
 });
 export type CreateVendorBody = z.infer<typeof createVendorBody>;

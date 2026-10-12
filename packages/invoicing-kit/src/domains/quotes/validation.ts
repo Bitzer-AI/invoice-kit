@@ -3,6 +3,7 @@ import { QuoteStatus } from "../../types";
 import { currencyCodeSchema } from "../../lib/currency";
 import { lineItemSchema } from "../../lib/line-item";
 import { exchangeRateSchema } from "../../lib/exchange";
+import { DOCUMENT_NUMBER_PREFIX_MAX_LENGTH } from "../../lib/numbering";
 import {
   documentMoneyResponseFields,
   lineItemBaseResponseFields,
@@ -19,7 +20,7 @@ const editableQuoteStatusSchema = z.enum([
 export const createQuoteBody = z.object({
   clientId: z.string().min(1),
   subject: z.string().trim().min(1).max(255).optional().nullable(),
-  documentNumberPrefix: z.string().max(20).optional().nullable(),
+  documentNumberPrefix: z.string().max(DOCUMENT_NUMBER_PREFIX_MAX_LENGTH).optional().nullable(),
   /** One-off override of the assigned number for THIS document. When omitted, the series counter assigns it. */
   documentNumber: z.number().int().positive().optional(),
   issueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "YYYY-MM-DD"),
@@ -36,7 +37,7 @@ export type CreateQuoteBody = z.infer<typeof createQuoteBody>;
 export const updateQuoteBody = z.object({
   clientId: z.string().min(1).optional(),
   subject: z.string().trim().min(1).max(255).optional().nullable(),
-  documentNumberPrefix: z.string().max(20).optional().nullable(),
+  documentNumberPrefix: z.string().max(DOCUMENT_NUMBER_PREFIX_MAX_LENGTH).optional().nullable(),
   documentNumber: z.number().int().positive().optional(),
   issueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   validUntil: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),

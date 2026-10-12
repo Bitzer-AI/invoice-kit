@@ -16,10 +16,11 @@
 
 import { z } from "zod";
 import type { Repositories } from "../adapters/types";
-import type { Product } from "../types";
+import type { DecimalString, Product } from "../types";
 import { DocumentSide, DocumentType, ProductUsage } from "../types";
-import { normalizeCurrency } from "./currency";
+import { currencyMinorUnitDigits, normalizeCurrency } from "./currency";
 import { httpError, ErrorCode } from "./errors";
+import { formatScaled } from "./money/decimal";
 import { ProductNotFoundException } from "../domains/products/exceptions";
 
 export const lineItemSourceSchema = z.object({
@@ -84,14 +85,8 @@ export const ProductNotPurchasableException = (productId: string) =>
     message: `Product ${productId} is not purchasable; its usage excludes purchase documents`,
   });
 
-/** Converts integer minor units (e.g. cents) to a Decimal(10,2) string: 5000n -> "50.00". */
-export function minorUnitsToDecimalString(minor: bigint): string {
-  const negative = minor < 0n;
-  const abs = negative ? -minor : minor;
-  const whole = abs / 100n;
-  const frac = abs % 100n;
-  const s = `${whole.toString()}.${frac.toString().padStart(2, "0")}`;
-  return negative ? `-${s}` : s;
+export function minorUnitsToDecimalString(minor: bigint, currency: string): DecimalString {
+  return formatScaled(minor, currencyMinorUnitDigits(currency));
 }
 
 /**
@@ -149,7 +144,7 @@ export async function resolveLineItemProduct(
     organizationId,
     name,
     description: null,
-    price: minorUnitsToDecimalString(BigInt(lineItem.price)),
+    price: minorUnitsToDecimalString(BigInt(lineItem.price), currency),
     currency,
     sourceType: type,
     sourceId: id,

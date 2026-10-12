@@ -71,6 +71,8 @@ Mounted under `basePath`:
 | Payment methods | `POST/GET/GET/PATCH/DELETE /payment-methods[/:id]`                   |
 | Quotes          | `POST/GET/GET/PATCH/DELETE /quotes[/:id]`                            |
 | Invoices        | `POST/GET/GET/PATCH/DELETE /invoices[/:id]`                          |
+| Issue           | `POST /invoices/:id/issue`                                           |
+| Void            | `POST /invoices/:id/void`                                            |
 | Convert         | `POST /invoices/from-quote/:quoteId`                                 |
 | Payments        | `POST/GET /invoices/:invoiceId/payments`, `GET/DELETE /payments/:id` |
 
@@ -78,10 +80,33 @@ Mounted under `basePath`:
 
 Values cross the API boundary as strings to avoid floating-point drift:
 
-- **Amounts** (`price`, `amount`, invoice totals) — integer **minor units** (cents), e.g. `"5000"` for $50.00.
-- **Rates / quantities** — canonical decimal strings, e.g. `"1.5"`, `"18"`.
+- **Amounts** (line `price`, payment `amount`, document totals) are integer **minor units** of the document currency. `"5000"` is $50.00 in USD, ¥5000 in JPY and 5.000 in KWD.
+- **Quantities** are decimal strings with at most 4 decimals, for example `"1.5"`.
+- **Tax rates** are decimal strings with at most 6 decimals. A `PERCENTAGE` rate is a fraction: `"0.18"` is 18% and `"0.08875"` is 8.875%. A value of 1 or more is refused, so `"18"` is an error. A `FIXED` rate is minor units for each unit of quantity, with at most 13 integer digits: `"5000000"` is 50,000.00 in COP. The API returns a rate with six decimals, for example `"0.180000"`.
+- **Catalog prices** (`price` and `cost` of a product) are decimal strings in units of the product currency. They hold at most the minor unit digits of that currency: `"50.00"` in USD, `"1500"` in JPY, `"1.500"` in KWD. A price with more decimals is refused with `422 PRODUCT_PRICE_PRECISION_INVALID`.
 
-Your application converts to/from display units at its own edge.
+`currencyMinorUnitDigits(currency)` returns the digit count of a currency: 2 for USD, 0 for JPY, 3 for KWD. It reads `Intl.NumberFormat`, and the kit keeps no currency table. Use it to convert between a shown amount and minor units.
+
+```ts
+import { currencyMinorUnitDigits } from "invoicing-kit";
+
+const digits = currencyMinorUnitDigits(invoice.document.currency);
+```
+
+## Voiding an invoice
+
+`POST /invoices/:id/void` voids a sent invoice that has no payment and no credit note. It issues a credit note for the full amount and returns `{ invoice, creditNote }`.
+
+```jsonc
+{ "reason": "Issued to the wrong client", "documentNumberPrefix": "NC" }
+```
+
+| Field                  | Type             | Rule                                                                                      |
+| ---------------------- | ---------------- | ----------------------------------------------------------------------------------------- |
+| `reason`               | `string`         | Required, 1 to 500 characters. Stored as the notes of the credit note.                      |
+| `documentNumberPrefix` | `string \| null` | Required. Names the `CREDIT_NOTE` series that numbers the credit note. `null` is the series with no prefix. A text is trimmed and holds 1 to 20 characters. |
+
+The body is strict. A request with no `documentNumberPrefix`, with an empty text, or with an unknown field gets `400`. A series that does not exist yet starts at 1 with a pad width of 8. Set the next number and the pad width of a series with `POST /document-number-sequence` and `documentType: "CREDIT_NOTE"`. A credit note from `POST /notes` uses the series with no prefix, so a void with `null` shares that counter.
 
 ## Money policy & exchange rates
 
@@ -173,6 +198,32 @@ POST /api/bills/documents/calculate
 ```
 
 `exchange` and `base` are `null` when no `exchangeRates` provider is configured, or when the provider has no rate for `issueDate` (`null` or a rate ≤ 0) — a missing rate is **never an error** on this endpoint, unlike issuing a document. A malformed provider rate is an error: the same `RangeError` as at issue.
+
+### Upgrading to 0.19.0
+
+Migrate two columns before you install the new package. The bundled CLI templates have these types.
+
+```sql
+ALTER TABLE "taxes" ALTER COLUMN "rate" TYPE numeric(19, 6);
+
+ALTER TABLE "products"
+  ALTER COLUMN "price" TYPE numeric(19, 4),
+  ALTER COLUMN "cost" TYPE numeric(19, 4);
+```
+
+No stored value changes. Both columns get wider, so the statements cannot fail on stored data. The rate column holds a fraction for a `PERCENTAGE` tax and minor units for a `FIXED` tax: 13 integer digits and 6 decimals.
+
+Changes that need work in the host application:
+
+- **Void names the credit note series.** `POST /invoices/{id}/void` takes `{ reason, documentNumberPrefix }`. `documentNumberPrefix` is required: a text of 1 to 20 characters, or `null` for the series with no prefix. A body with `reason` only gets `400`. See [Voiding an invoice](#voiding-an-invoice).
+- **`creditNotePrefix` is removed** from `createInvoicingKit`. Send the prefix with each void request. To keep the series the option named, send that same text as `documentNumberPrefix`.
+- **`taxIdType` is free text** on clients and vendors: 1 to 20 characters, trimmed, or `null`. The values `RNC`, `CEDULA` and `FOREIGN` stay valid. `taxId` holds 40 characters.
+- **`fiscalCategory` is free text** on taxes: 1 to 40 characters, trimmed, or `null`.
+- **A tax rate holds 6 decimals**, so `"0.08875"` is valid. Rates are returned with six decimals: a rate stored as `0.1800` is now read as `"0.180000"`. Compare rates as numbers.
+- **Catalog prices follow the currency.** `price` and `cost` are returned with the minor unit digits of the product currency: `"50.00"` in USD, `"1500"` in JPY, `"1.500"` in KWD. A value with more decimals than the currency has gets `422 PRODUCT_PRICE_PRECISION_INVALID`. A product created from a `source` line converts the line price with the digits of the document currency.
+- **New export:** `currencyMinorUnitDigits`.
+
+Both `invoicing-kit` and `@invoicing-kit/cli` must be upgraded together.
 
 ### Upgrading to 0.18.0
 

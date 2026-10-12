@@ -25,7 +25,6 @@ async function setup() {
       clientId: client.id,
       issueDate: "2026-09-25",
       currency: "usd",
-      status: InvoiceStatus.Draft,
       paymentMethodIds: [],
       lineItems: [{ source: { type: "experience", id: "tour", name: "Tour" }, quantity: "1", price: "100000", taxIds: [tax.id] }],
       ...overrides,
@@ -55,29 +54,36 @@ describe("recomputing stored lines never re-resolves their products", () => {
     const draft = await services.invoices.create(body(), ctx);
     await stopSelling((await services.invoices.findById(draft.id, ctx)).document.lineItems[0]!.productId);
 
-    await services.invoices.update(draft.id, { status: InvoiceStatus.Sent } as any, ctx);
+    const issued = await services.invoices.issue(draft.id, ctx);
 
-    const issued = await services.invoices.findById(draft.id, ctx);
-    expect(issued.status).toBe(InvoiceStatus.Sent);
+    expect(issued.status).toBe(InvoiceStatus.Issued);
     expect(issued.document.exchangeRate).toBe("59.347");
+    expect(issued.document.total).toBe(118_000n);
   });
 
-  test("bulk status and a payment issue drafts whose product stopped being sellable", async () => {
-    const { services, body, stopSelling } = await setup();
-    const bulk = await services.invoices.create(body(), ctx);
-    const paid = await services.invoices.create(body(), ctx);
-    await stopSelling((await services.invoices.findById(bulk.id, ctx)).document.lineItems[0]!.productId);
+  test("a void copies the stored lines to the credit note after the product stops being sellable", async () => {
+    const { repos, services, body, stopSelling } = await setup();
+    const draft = await services.invoices.create(body(), ctx);
+    const issued = await services.invoices.issue(draft.id, ctx);
+    await repos.invoices.transitionStatus(draft.id, ctx.organizationId, InvoiceStatus.Issued, InvoiceStatus.Sent);
+    const productId = issued.document.lineItems[0]!.productId!;
+    await stopSelling(productId);
 
-    await services.invoices.bulkUpdateStatus([bulk.id], InvoiceStatus.Sent, ctx);
-    await services.payments.recordManualPayment(paid.id, { amount: "118000", currency: "usd", provider: "manual" } as any, ctx);
+    const { invoice, creditNote } = await services.invoices.void(
+      draft.id,
+      { reason: "Duplicate", documentNumberPrefix: null },
+      ctx,
+    );
 
-    expect((await services.invoices.findById(bulk.id, ctx)).status).toBe(InvoiceStatus.Sent);
-    expect((await services.invoices.findById(paid.id, ctx)).status).toBe(InvoiceStatus.Paid);
+    expect(invoice.status).toBe(InvoiceStatus.Voided);
+    expect(creditNote.document.lineItems.map((lineItem) => lineItem.productId)).toEqual([productId]);
+    expect(creditNote.document.total).toBe(118_000n);
+    expect(creditNote.document.exchangeRate).toBe("59.347");
   });
 
   test("a quote converts after its product stops being sellable", async () => {
     const { services, body, stopSelling } = await setup();
-    const quote = await services.quotes.create(body({ status: QuoteStatus.Sent }), ctx);
+    const quote = await services.quotes.create(body({ status: QuoteStatus.Accepted }), ctx);
     const quoteDoc = (await services.quotes.findById(quote.id, ctx)).document;
     await stopSelling(quoteDoc.lineItems[0]!.productId);
 

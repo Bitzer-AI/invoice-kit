@@ -1,18 +1,19 @@
 import { z } from "zod";
 import { DocumentType } from "../../types";
+import { DOCUMENT_NUMBER_PREFIX_MAX_LENGTH } from "../../lib/numbering";
 
 export const documentTypeParam = z.nativeEnum(DocumentType);
 
 export const getSequenceQuery = z.object({
   documentType: documentTypeParam,
-  prefix: z.string().max(20).optional(),
+  prefix: z.string().max(DOCUMENT_NUMBER_PREFIX_MAX_LENGTH).optional(),
 });
 
 export const listSequencesQuery = z.object({ documentType: documentTypeParam });
 
 export const upsertSequenceBody = z.object({
   documentType: documentTypeParam,
-  prefix: z.string().max(20).nullable().optional(),
+  prefix: z.string().max(DOCUMENT_NUMBER_PREFIX_MAX_LENGTH).nullable().optional(),
   label: z.string().max(100).nullable().optional(),
   nextNumber: z.number().int().positive(),
   padWidth: z.number().int().min(1).max(12).nullable().optional(),

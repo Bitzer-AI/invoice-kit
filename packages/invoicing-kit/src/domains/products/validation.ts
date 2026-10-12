@@ -1,8 +1,22 @@
 import { z } from "zod";
 import { ProductUsage } from "../../types";
 import { currencyCodeSchema } from "../../lib/currency";
+import { CATALOG_PRICE_PRECISION, CATALOG_PRICE_SCALE } from "./catalog-price";
 
-const priceSchema = z.string().regex(/^\d+(\.\d{1,2})?$/, "Invalid decimal price");
+const CATALOG_PRICE_INTEGER_DIGITS = CATALOG_PRICE_PRECISION - CATALOG_PRICE_SCALE;
+const CATALOG_PRICE_PATTERN = new RegExp(
+  `^\\d{1,${CATALOG_PRICE_INTEGER_DIGITS}}(\\.\\d{1,${CATALOG_PRICE_SCALE}})?$`,
+);
+
+const priceSchema = z
+  .string()
+  .regex(
+    CATALOG_PRICE_PATTERN,
+    `A price has at most ${CATALOG_PRICE_INTEGER_DIGITS} integer digits and ${CATALOG_PRICE_SCALE} decimals`,
+  )
+  .describe(
+    'Decimal amount in units of the product currency, with at most the minor unit digits of that currency: "50.00" in usd, "1500" in jpy, "1.500" in kwd.',
+  );
 
 export const productUsageSchema = z.nativeEnum(ProductUsage);
 

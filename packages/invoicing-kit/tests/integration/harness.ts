@@ -1,40 +1,11 @@
 import { Hono } from "hono";
 import type { Repositories } from "../../src/adapters/types";
 import { prismaAdapter } from "../../src/adapters/prisma";
-import type { BetterAuthLike } from "../../src/auth/middleware";
 import type { AuthContext } from "../../src/auth/types";
 import type { InvoicingKitConfig } from "../../src/config";
 import { randomUUID } from "node:crypto";
-
-interface StubSession {
-  user: { id: string; role?: string | null };
-  session: { activeOrganizationId?: string | null };
-}
-
-export function stubAuth(session: StubSession | null): BetterAuthLike {
-  return {
-    api: {
-      async getSession() {
-        return session;
-      },
-    },
-  };
-}
-
-let sharedPrisma: any;
-
-async function getSharedPrisma(): Promise<any> {
-  if (sharedPrisma) return sharedPrisma;
-  // @ts-expect-error generated at test setup
-  const { PrismaClient } = await import("../../src/generated/test-prisma/client.ts");
-  // @ts-expect-error driver adapter
-  const { PrismaPg } = await import("@prisma/adapter-pg");
-  const connectionString =
-    process.env.INVOICING_KIT_TEST_DATABASE_URL ??
-    "postgresql://test:test@localhost:5544/invoicing_kit_test";
-  sharedPrisma = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
-  return sharedPrisma;
-}
+import { emptyTestDatabase } from "../support/test-database";
+import { stubAuth, type StubSession } from "../support/stub-auth";
 
 export interface HarnessOptions {
   basePath?: string;
@@ -47,37 +18,8 @@ export async function buildHarness(
   createInvoicingKit: (config: InvoicingKitConfig) => { router: any; services?: any; repos?: any },
   opts: HarnessOptions = {},
 ) {
-  const prisma = await getSharedPrisma();
+  const prisma = await emptyTestDatabase();
   const adapter = prismaAdapter(prisma);
-
-  await (prisma as any).$executeRawUnsafe(`
-    TRUNCATE TABLE
-      "notes",
-      "fiscal_documents",
-      "document_line_item_taxes",
-      "document_line_items",
-      "document_payment_methods",
-      "vendor_bill_payments",
-      "vendor_bills",
-      "payments",
-      "payment_methods",
-      "invoices",
-      "quotes",
-      "documents",
-      "taxes",
-      "products",
-      "clients",
-      "vendors",
-      "document_number_sequences",
-      "invitation",
-      "member",
-      "organization",
-      "session",
-      "account",
-      "verification",
-      "user"
-    RESTART IDENTITY CASCADE
-  `);
 
   const userId = opts.session?.user.id ?? randomUUID();
   const organizationId =

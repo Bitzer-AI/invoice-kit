@@ -160,9 +160,9 @@ describeForEachAdapter("DocumentSequenceRepository", allFactories, (ctx) => {
     const b02a = await numbering.next(ctx.repos, organizationId, "INVOICE", "B02");
     const b01b = await numbering.next(ctx.repos, organizationId, "INVOICE", "B01");
 
-    expect(b01a).toBe(1);
-    expect(b02a).toBe(1);
-    expect(b01b).toBe(2);
+    expect(b01a.number).toBe(1);
+    expect(b02a.number).toBe(1);
+    expect(b01b.number).toBe(2);
   });
 
   test("null and \"\" address the same default series counter", async () => {
@@ -172,8 +172,8 @@ describeForEachAdapter("DocumentSequenceRepository", allFactories, (ctx) => {
     const first = await numbering.next(ctx.repos, organizationId, "QUOTE", null);
     const second = await numbering.next(ctx.repos, organizationId, "QUOTE", "");
 
-    expect(first).toBe(1);
-    expect(second).toBe(2);
+    expect(first.number).toBe(1);
+    expect(second.number).toBe(2);
   });
 
   test("service.list returns all series for a type, excluding other types", async () => {

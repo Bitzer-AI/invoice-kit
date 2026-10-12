@@ -3,6 +3,8 @@ import { createInvoicingKit } from "../../src/create";
 import { inMemoryAdapter } from "../../src/adapters/memory";
 import type { InvoicingKitHooks } from "../../src/config";
 import type { AuthContext } from "../../src/auth/types";
+import { InvoiceStatus } from "../../src/types";
+import { DEFAULT_CURRENCY } from "../../src/lib/currency";
 
 const ctx: AuthContext = { userId: "u1", organizationId: "org1", role: "owner" };
 
@@ -25,98 +27,81 @@ const baseInvoice = (clientId: string, productId: string) => ({
   clientId,
   documentNumberPrefix: null,
   issueDate: "2025-01-01",
-  paidDate: null,
   notes: null,
   lineItems: [line(productId)],
   paymentMethodIds: [] as string[],
 });
 
 describe("onInvoiceIssued hook", () => {
-  it("fires when an invoice is created non-draft (status 'sent')", async () => {
+  it("fires when a draft invoice is issued", async () => {
     const issued: string[] = [];
     const k = makeKit({ onInvoiceIssued: ({ invoiceId }) => void issued.push(invoiceId) });
     const { clientId, productId } = await seedClientAndProduct(k);
+    const inv = await k.services.invoices.create(baseInvoice(clientId, productId), ctx);
 
-    const inv = await k.services.invoices.create(
-      { ...baseInvoice(clientId, productId), status: "sent" },
-      ctx,
-    );
+    await k.services.invoices.issue(inv.id, ctx);
 
     expect(issued).toEqual([inv.id]);
   });
 
-  it("does NOT fire when created as 'draft'", async () => {
+  it("does NOT fire when a draft is created or edited", async () => {
     const issued: string[] = [];
     const k = makeKit({ onInvoiceIssued: ({ invoiceId }) => void issued.push(invoiceId) });
     const { clientId, productId } = await seedClientAndProduct(k);
 
-    await k.services.invoices.create(
-      { ...baseInvoice(clientId, productId), status: "draft" },
-      ctx,
-    );
+    const inv = await k.services.invoices.create(baseInvoice(clientId, productId), ctx);
+    await k.services.invoices.update(inv.id, { notes: "edited" }, ctx);
 
     expect(issued).toEqual([]);
   });
 
-  it("fires once on draft->sent via update; does NOT fire again on sent->paid", async () => {
+  it("fires once: issuing again and paying the invoice do NOT fire it again", async () => {
     const issued: string[] = [];
     const k = makeKit({ onInvoiceIssued: ({ invoiceId }) => void issued.push(invoiceId) });
     const { clientId, productId } = await seedClientAndProduct(k);
+    const inv = await k.services.invoices.create(baseInvoice(clientId, productId), ctx);
 
-    const inv = await k.services.invoices.create(
-      { ...baseInvoice(clientId, productId), status: "draft" },
-      ctx,
-    );
-    expect(issued).toEqual([]);
-
-    await k.services.invoices.update(inv.id, { status: "sent" }, ctx);
+    await k.services.invoices.issue(inv.id, ctx);
+    await k.services.invoices.issue(inv.id, ctx);
     expect(issued).toEqual([inv.id]);
 
-    await k.services.invoices.update(inv.id, { status: "paid" }, ctx);
+    await k.services.payments.recordManualPayment(
+      inv.id,
+      { amount: "10000", currency: DEFAULT_CURRENCY, provider: "manual" },
+      ctx,
+    );
+    expect((await k.services.invoices.findById(inv.id, ctx)).status).toBe(InvoiceStatus.Paid);
     expect(issued).toEqual([inv.id]);
   });
 
-  it("a throwing handler does not fail create (invoice still persisted)", async () => {
+  it("a throwing handler does not fail the issue (invoice is still issued)", async () => {
     const k = makeKit({
       onInvoiceIssued: () => {
         throw new Error("boom");
       },
     });
     const { clientId, productId } = await seedClientAndProduct(k);
+    const inv = await k.services.invoices.create(baseInvoice(clientId, productId), ctx);
 
-    const inv = await k.services.invoices.create(
-      { ...baseInvoice(clientId, productId), status: "sent" },
-      ctx,
-    );
+    const issuedInvoice = await k.services.invoices.issue(inv.id, ctx);
 
-    expect(inv.id).toBeTruthy();
+    expect(issuedInvoice.status).toBe(InvoiceStatus.Issued);
     const found = await k.services.invoices.findById(inv.id, ctx);
-    expect(found.id).toBe(inv.id);
+    expect(found.document.documentNumber).toBe(1);
   });
 
-  it("bulkUpdateStatus fires once per invoice moved draft->non-draft", async () => {
+  it("fires once per issued invoice and never for one left as a draft", async () => {
     const issued: string[] = [];
     const k = makeKit({ onInvoiceIssued: ({ invoiceId }) => void issued.push(invoiceId) });
     const { clientId, productId } = await seedClientAndProduct(k);
 
-    const draftA = await k.services.invoices.create(
-      { ...baseInvoice(clientId, productId), status: "draft" },
-      ctx,
-    );
-    const draftB = await k.services.invoices.create(
-      { ...baseInvoice(clientId, productId), status: "draft" },
-      ctx,
-    );
-    const alreadySent = await k.services.invoices.create(
-      { ...baseInvoice(clientId, productId), status: "sent" },
-      ctx,
-    );
-    expect(issued).toEqual([alreadySent.id]);
-    issued.length = 0;
+    const draftA = await k.services.invoices.create(baseInvoice(clientId, productId), ctx);
+    const draftB = await k.services.invoices.create(baseInvoice(clientId, productId), ctx);
+    await k.services.invoices.create(baseInvoice(clientId, productId), ctx);
 
-    await k.services.invoices.bulkUpdateStatus([draftA.id, draftB.id, alreadySent.id], "sent", ctx);
+    await k.services.invoices.issue(draftA.id, ctx);
+    await k.services.invoices.issue(draftB.id, ctx);
 
-    // draftA and draftB transition out of draft; alreadySent was already sent.
-    expect(issued.sort()).toEqual([draftA.id, draftB.id].sort());
+    expect(issued).toEqual([draftA.id, draftB.id]);
   });
 });

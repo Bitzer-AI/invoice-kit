@@ -74,6 +74,4 @@ export interface InvoicingKitConfig {
   exchangeRates?: ExchangeRateProvider;
   /** Optional host-app validation before a draft invoice is issued. */
   issueGuard?: InvoiceIssueGuard;
-  /** Jurisdiction-specific series used for a full credit note when voiding an invoice. */
-  creditNotePrefix?: string | null;
 }

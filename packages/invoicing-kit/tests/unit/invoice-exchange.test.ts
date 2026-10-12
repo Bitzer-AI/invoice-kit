@@ -32,7 +32,6 @@ async function setup(options: { provider?: boolean } = { provider: true }) {
       clientId: client.id,
       issueDate: "2026-09-25",
       currency: "usd",
-      status: InvoiceStatus.Draft,
       paymentMethodIds: [],
       lineItems: [{ source: { type: "experience", id: "tour", name: "Tour" }, quantity: "1", price: "100000", taxIds: [tax.id] }],
       ...overrides,
@@ -59,8 +58,10 @@ describe("invoice exchange lifecycle", () => {
 
   test("issuing freezes the provider rate, the policy and the base amounts", async () => {
     const { services, body } = await setup();
-    const invoice = await services.invoices.create(body({ status: InvoiceStatus.Sent }), ctx);
-    const doc = (await services.invoices.findById(invoice.id, ctx)).document;
+    const invoice = await services.invoices.create(body(), ctx);
+    const issued = await services.invoices.issue(invoice.id, ctx);
+    const doc = issued.document;
+    expect(issued.status).toBe(InvoiceStatus.Issued);
     expect(doc.exchangeRate).toBe("59.347");
     expect(doc.exchangeRateSource).toBe(ExchangeRateSource.Provider);
     expect(doc.baseCurrency).toBe("dop");
@@ -69,90 +70,112 @@ describe("invoice exchange lifecycle", () => {
     expect(doc.lineItems[0]!.baseSubtotal).toBe(5_934_700n);
   });
 
-  test("issuing without a rate is 422 and the invoice stays a draft", async () => {
+  test("issuing without a rate is 422 and the invoice stays an unnumbered draft", async () => {
     rates = {};
     const { services, body } = await setup();
-    await expect(services.invoices.create(body({ status: InvoiceStatus.Sent }), ctx)).rejects.toThrow(/EXCHANGE_RATE_REQUIRED/);
     const draft = await services.invoices.create(body(), ctx);
-    await expect(services.invoices.update(draft.id, { status: InvoiceStatus.Sent } as any, ctx)).rejects.toThrow(/EXCHANGE_RATE_REQUIRED/);
-    expect((await services.invoices.findById(draft.id, ctx)).status).toBe(InvoiceStatus.Draft);
+    await expect(services.invoices.issue(draft.id, ctx)).rejects.toThrow(/EXCHANGE_RATE_REQUIRED/);
+    const full = await services.invoices.findById(draft.id, ctx);
+    expect(full.status).toBe(InvoiceStatus.Draft);
+    expect(full.document.documentNumber).toBeNull();
+    expect(full.document.moneyPolicy).toBeNull();
   });
 
   test("a partner's own rate on the draft wins at issue", async () => {
     const { services, body } = await setup();
     const draft = await services.invoices.create(body({ exchangeRate: "60.5" }), ctx);
-    expect((await services.invoices.findById(draft.id, ctx)).document.exchangeRateSource).toBe(ExchangeRateSource.Manual);
-    await services.invoices.update(draft.id, { status: InvoiceStatus.Sent } as any, ctx);
-    const doc = (await services.invoices.findById(draft.id, ctx)).document;
+    const stored = (await services.invoices.findById(draft.id, ctx)).document;
+    expect(stored.exchangeRateSource).toBe(ExchangeRateSource.Manual);
+    expect(stored.baseTotal).toBeNull();
+    const doc = (await services.invoices.issue(draft.id, ctx)).document;
     expect(doc.exchangeRate).toBe("60.5");
     expect(doc.exchangeRateSource).toBe(ExchangeRateSource.Manual);
+    expect(doc.baseSubtotal).toBe(6_050_000n);
     expect(providerCalls).toBe(0);
   });
 
   test("clearing the draft's rate falls back to the provider", async () => {
     const { services, body } = await setup();
     const draft = await services.invoices.create(body({ exchangeRate: "60.5" }), ctx);
-    await services.invoices.update(draft.id, { exchangeRate: null, status: InvoiceStatus.Sent } as any, ctx);
-    expect((await services.invoices.findById(draft.id, ctx)).document.exchangeRate).toBe("59.347");
+    await services.invoices.update(draft.id, { exchangeRate: null }, ctx);
+    const doc = (await services.invoices.issue(draft.id, ctx)).document;
+    expect(doc.exchangeRate).toBe("59.347");
+    expect(doc.exchangeRateSource).toBe(ExchangeRateSource.Provider);
   });
 
   test("base-currency invoices get the identity rate; manual rates are not applicable", async () => {
     const { services, body } = await setup();
-    const dop = await services.invoices.create(body({ currency: "dop", status: InvoiceStatus.Sent }), ctx);
-    const doc = (await services.invoices.findById(dop.id, ctx)).document;
+    const dop = await services.invoices.create(body({ currency: "dop" }), ctx);
+    const doc = (await services.invoices.issue(dop.id, ctx)).document;
     expect(doc.exchangeRate).toBe("1");
+    expect(doc.exchangeRateSource).toBe(ExchangeRateSource.Identity);
     expect(doc.baseTotal).toBe(doc.total);
     await expect(services.invoices.create(body({ currency: "dop", exchangeRate: "2" }), ctx)).rejects.toThrow(/EXCHANGE_RATE_NOT_APPLICABLE/);
   });
 
-  test("after issue the rate is frozen: edits are rejected, line changes reuse it", async () => {
+  test("after issue the invoice takes no edit: its rate and its lines stay", async () => {
     const { services, body } = await setup();
-    const invoice = await services.invoices.create(body({ status: InvoiceStatus.Sent }), ctx);
-    await expect(services.invoices.update(invoice.id, { exchangeRate: "61" } as any, ctx)).rejects.toThrow(/EXCHANGE_RATE_FROZEN/);
+    const invoice = await services.invoices.create(body(), ctx);
+    await services.invoices.issue(invoice.id, ctx);
     rates["2026-09-25"] = "70";
-    await services.invoices.update(
-      invoice.id,
-      { lineItems: [{ source: { type: "experience", id: "tour", name: "Tour" }, quantity: "2", price: "100000", taxIds: [] }] } as any,
-      ctx,
+    await expect(services.invoices.update(invoice.id, { exchangeRate: "61" }, ctx)).rejects.toThrow(
+      /INVOICE_STATUS_TRANSITION_INVALID/,
     );
+    await expect(
+      services.invoices.update(
+        invoice.id,
+        { lineItems: [{ source: { type: "experience", id: "tour", name: "Tour" }, quantity: "2", price: "100000", taxIds: [] }] },
+        ctx,
+      ),
+    ).rejects.toThrow(/INVOICE_STATUS_TRANSITION_INVALID/);
     const doc = (await services.invoices.findById(invoice.id, ctx)).document;
     expect(doc.exchangeRate).toBe("59.347");
-    expect(doc.baseSubtotal).toBe(11_869_400n);
+    expect(doc.baseSubtotal).toBe(5_934_700n);
+    expect(doc.lineItems).toHaveLength(1);
   });
 
-  test("an issued invoice set back to draft and re-issued keeps its frozen rate", async () => {
+  test("issuing an issued invoice again keeps its frozen rate and its number", async () => {
     const { services, body } = await setup();
-    const invoice = await services.invoices.create(body({ status: InvoiceStatus.Sent }), ctx);
-    await services.invoices.update(invoice.id, { status: InvoiceStatus.Draft } as any, ctx);
+    const invoice = await services.invoices.create(body(), ctx);
+    const first = await services.invoices.issue(invoice.id, ctx);
+    const callsAfterFirstIssue = providerCalls;
     rates["2026-09-25"] = "70";
-    await services.invoices.update(invoice.id, { status: InvoiceStatus.Sent } as any, ctx);
-    expect((await services.invoices.findById(invoice.id, ctx)).document.exchangeRate).toBe("59.347");
+    const second = await services.invoices.issue(invoice.id, ctx);
+    expect(second.document.exchangeRate).toBe("59.347");
+    expect(second.document.documentNumber).toBe(first.document.documentNumber);
+    expect(providerCalls).toBe(callsAfterFirstIssue);
   });
 
   test("a provider rate with trailing zeros is stored canonical; one with 9 decimals fails and keeps the draft", async () => {
     rates["2026-09-25"] = "59.34700000";
     const { services, body } = await setup();
-    const ok = await services.invoices.create(body({ status: InvoiceStatus.Sent }), ctx);
-    expect((await services.invoices.findById(ok.id, ctx)).document.exchangeRate).toBe("59.347");
+    const ok = await services.invoices.create(body(), ctx);
+    expect((await services.invoices.issue(ok.id, ctx)).document.exchangeRate).toBe("59.347");
     rates["2026-09-25"] = "59.123456789";
     const draft = await services.invoices.create(body(), ctx);
-    await expect(services.invoices.update(draft.id, { status: InvoiceStatus.Sent } as any, ctx)).rejects.toThrow(RangeError);
+    await expect(services.invoices.issue(draft.id, ctx)).rejects.toThrow(RangeError);
     expect((await services.invoices.findById(draft.id, ctx)).status).toBe(InvoiceStatus.Draft);
   });
 
-  test("bulk issue with one missing rate changes nothing", async () => {
+  test("an issue that fails for a missing rate takes no number from the series", async () => {
     const { services, body } = await setup();
-    const a = await services.invoices.create(body(), ctx);
-    const b = await services.invoices.create(body({ issueDate: "2026-09-26" }), ctx);
-    await expect(services.invoices.bulkUpdateStatus([a.id, b.id], InvoiceStatus.Sent, ctx)).rejects.toThrow(/EXCHANGE_RATE_REQUIRED/);
-    expect((await services.invoices.findById(a.id, ctx)).status).toBe(InvoiceStatus.Draft);
-    expect((await services.invoices.findById(b.id, ctx)).status).toBe(InvoiceStatus.Draft);
+    const rated = await services.invoices.create(body(), ctx);
+    const unrated = await services.invoices.create(body({ issueDate: "2026-09-26" }), ctx);
+    const alsoRated = await services.invoices.create(body(), ctx);
+
+    expect((await services.invoices.issue(rated.id, ctx)).document.documentNumber).toBe(1);
+    await expect(services.invoices.issue(unrated.id, ctx)).rejects.toThrow(/EXCHANGE_RATE_REQUIRED/);
+    expect((await services.invoices.issue(alsoRated.id, ctx)).document.documentNumber).toBe(2);
+
+    const stillDraft = await services.invoices.findById(unrated.id, ctx);
+    expect(stillDraft.status).toBe(InvoiceStatus.Draft);
+    expect(stillDraft.document.documentNumber).toBeNull();
   });
 
   test("without a provider, issuing works and carries no rate (backward compatible)", async () => {
     const { services, body } = await setup({ provider: false });
-    const invoice = await services.invoices.create(body({ status: InvoiceStatus.Sent }), ctx);
-    const doc = (await services.invoices.findById(invoice.id, ctx)).document;
+    const invoice = await services.invoices.create(body(), ctx);
+    const doc = (await services.invoices.issue(invoice.id, ctx)).document;
     expect(doc.exchangeRate).toBeNull();
     expect(doc.moneyPolicy).toEqual(RECOMMENDED_MONEY_POLICY);
     await expect(services.invoices.create(body({ exchangeRate: "59" }), ctx)).rejects.toThrow(/EXCHANGE_RATE_NOT_APPLICABLE/);

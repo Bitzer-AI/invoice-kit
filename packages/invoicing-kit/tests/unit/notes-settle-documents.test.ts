@@ -25,10 +25,10 @@ async function setup() {
   const fuel = (price: string) => [{ source: { type: "expense", id: "fuel", name: "Fuel" }, quantity: "1", price, taxIds: [] }];
 
   const invoice = await services.invoices.create(
-    { clientId: client.id, issueDate: "2026-09-25", currency: "usd", status: InvoiceStatus.Sent, paymentMethodIds: [], lineItems: tour("100000") } as any,
+    { clientId: client.id, issueDate: "2026-09-25", currency: "usd", paymentMethodIds: [], lineItems: tour("100000") },
     ctx,
   );
-  const invoiceDocId = (await services.invoices.findById(invoice.id, ctx)).document.id;
+  const invoiceDocId = (await services.invoices.issue(invoice.id, ctx)).document.id;
   const bill = await services.vendorBills.create(
     { vendorId: vendor.id, issueDate: "2026-09-25", currency: "usd", status: VendorBillStatus.Received, lineItems: fuel("50000") } as any,
     ctx,
@@ -82,11 +82,11 @@ describe("issued notes settle the document they reference", () => {
     expect(await invoiceStatus()).toBe(InvoiceStatus.Paid);
   });
 
-  test("a partial credit note with nothing paid leaves the invoice sent", async () => {
+  test("a partial credit note with nothing paid leaves the invoice issued", async () => {
     const { saleNote, invoiceStatus } = await setup();
     await saleNote(NoteType.Credit, "20000");
 
-    expect(await invoiceStatus()).toBe(InvoiceStatus.Sent);
+    expect(await invoiceStatus()).toBe(InvoiceStatus.Issued);
   });
 
   test("a credit note for the unpaid rest settles a partly paid invoice", async () => {
@@ -117,26 +117,38 @@ describe("issued notes settle the document they reference", () => {
 
     await services.payments.delete(payment.id, ctx);
 
-    expect(await invoiceStatus()).toBe(InvoiceStatus.Sent);
+    expect(await invoiceStatus()).toBe(InvoiceStatus.Issued);
   });
 
   test("issuing a draft note settles the invoice", async () => {
     const { services, saleNote, invoiceStatus } = await setup();
     const draft = await saleNote(NoteType.Credit, "100000", NoteStatus.Draft);
-    expect(await invoiceStatus()).toBe(InvoiceStatus.Sent);
+    expect(await invoiceStatus()).toBe(InvoiceStatus.Issued);
 
     await services.notes.update(draft.id, { status: NoteStatus.Issued } as any, ctx);
 
     expect(await invoiceStatus()).toBe(InvoiceStatus.Paid);
   });
 
-  test("deleting an issued note recomputes the status", async () => {
+  test("an issued note cannot be deleted, so its settlement stays", async () => {
     const { services, saleNote, pay, invoiceStatus } = await setup();
     const credit = await saleNote(NoteType.Credit, "20000");
     await pay("80000");
     expect(await invoiceStatus()).toBe(InvoiceStatus.Paid);
 
-    await services.notes.delete(credit.id, ctx);
+    await expect(services.notes.delete(credit.id, ctx)).rejects.toThrow(ErrorCode.NoteNotDraft);
+
+    expect(await invoiceStatus()).toBe(InvoiceStatus.Paid);
+    expect((await services.notes.findById(credit.id, ctx)).status).toBe(NoteStatus.Issued);
+  });
+
+  test("deleting a draft note leaves the status as it is", async () => {
+    const { services, saleNote, pay, invoiceStatus } = await setup();
+    const draft = await saleNote(NoteType.Credit, "20000", NoteStatus.Draft);
+    await pay("80000");
+    expect(await invoiceStatus()).toBe(InvoiceStatus.PartiallyPaid);
+
+    await services.notes.delete(draft.id, ctx);
 
     expect(await invoiceStatus()).toBe(InvoiceStatus.PartiallyPaid);
   });

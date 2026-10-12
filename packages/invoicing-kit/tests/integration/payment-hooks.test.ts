@@ -28,25 +28,21 @@ const baseInvoice = (clientId: string, productId: string) => ({
   clientId,
   documentNumberPrefix: null,
   issueDate: "2025-01-01",
-  paidDate: null,
   notes: null,
-  currency: "DOP",
+  currency: "dop",
   lineItems: [line(productId)],
   paymentMethodIds: [] as string[],
 });
 
-async function seedSentInvoice(k: ReturnType<typeof makeKit>) {
+async function seedIssuedInvoice(k: ReturnType<typeof makeKit>) {
   const { clientId, productId } = await seedClientAndProduct(k);
-  const inv = await k.services.invoices.create(
-    { ...baseInvoice(clientId, productId), status: "sent" },
-    ctx,
-  );
-  return inv;
+  const draft = await k.services.invoices.create(baseInvoice(clientId, productId), ctx);
+  return k.services.invoices.issue(draft.id, ctx);
 }
 
 const payment = {
   amount: "10000",
-  currency: "DOP",
+  currency: "dop",
   provider: "manual",
 };
 
@@ -54,7 +50,7 @@ describe("onPaymentSucceeded hook", () => {
   it("fires after a manual payment is recorded (handler sees the new payment id once)", async () => {
     const succeeded: string[] = [];
     const k = makeKit({ onPaymentSucceeded: ({ paymentId }) => void succeeded.push(paymentId) });
-    const inv = await seedSentInvoice(k);
+    const inv = await seedIssuedInvoice(k);
 
     const result = await k.services.payments.recordManualPayment(inv.id, payment, ctx);
 
@@ -67,7 +63,7 @@ describe("onPaymentSucceeded hook", () => {
         throw new Error("boom");
       },
     });
-    const inv = await seedSentInvoice(k);
+    const inv = await seedIssuedInvoice(k);
 
     const result = await k.services.payments.recordManualPayment(inv.id, payment, ctx);
 

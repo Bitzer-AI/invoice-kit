@@ -6,7 +6,6 @@ import { buildMoneySettings } from "./lib/money/settings";
 export function createInvoicingKit(config: InvoicingKitConfig) {
   const repos = config.adapter;
   const services = buildServices(repos, config.hooks, buildMoneySettings(config), {
-    creditNotePrefix: config.creditNotePrefix ?? null,
     issueGuard: config.issueGuard,
   });
   const router = buildRouter({

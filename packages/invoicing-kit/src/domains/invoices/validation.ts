@@ -3,6 +3,7 @@ import { InvoiceStatus } from "../../types";
 import { currencyCodeSchema } from "../../lib/currency";
 import { lineItemSchema } from "../../lib/line-item";
 import { exchangeRateSchema } from "../../lib/exchange";
+import { DOCUMENT_NUMBER_PREFIX_MAX_LENGTH } from "../../lib/numbering";
 import {
   documentMoneyResponseFields,
   lineItemBaseResponseFields,
@@ -12,7 +13,7 @@ import {
 export const createInvoiceBody = z.strictObject({
   clientId: z.string().min(1),
   subject: z.string().trim().min(1).nullable().optional(),
-  documentNumberPrefix: z.string().max(20).optional().nullable(),
+  documentNumberPrefix: z.string().max(DOCUMENT_NUMBER_PREFIX_MAX_LENGTH).optional().nullable(),
   issueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "YYYY-MM-DD"),
   dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "YYYY-MM-DD").optional().nullable(),
   notes: z.string().optional().nullable(),
@@ -26,7 +27,7 @@ export type CreateInvoiceBody = z.infer<typeof createInvoiceBody>;
 export const updateInvoiceBody = z.strictObject({
   clientId: z.string().min(1).optional(),
   subject: z.string().trim().min(1).nullable().optional(),
-  documentNumberPrefix: z.string().max(20).optional().nullable(),
+  documentNumberPrefix: z.string().max(DOCUMENT_NUMBER_PREFIX_MAX_LENGTH).optional().nullable(),
   issueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
   notes: z.string().optional().nullable(),
@@ -68,6 +69,13 @@ export type ConvertFromQuoteBody = z.infer<typeof convertFromQuoteBody>;
 
 export const voidInvoiceBody = z.strictObject({
   reason: z.string().trim().min(1).max(500),
+  documentNumberPrefix: z
+    .string()
+    .trim()
+    .min(1)
+    .max(DOCUMENT_NUMBER_PREFIX_MAX_LENGTH)
+    .nullable()
+    .describe("Series that numbers the credit note. null is the series with no prefix."),
 });
 export type VoidInvoiceBody = z.infer<typeof voidInvoiceBody>;
 

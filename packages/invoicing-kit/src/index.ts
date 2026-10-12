@@ -37,7 +37,7 @@ export {
   ExchangeRateSource,
 } from "./types";
 export type { MoneyPolicy } from "./types";
-export { DEFAULT_CURRENCY } from "./lib/currency";
+export { DEFAULT_CURRENCY, currencyMinorUnitDigits } from "./lib/currency";
 export { listInvoicesQuery, invoiceListResponse } from "./domains/invoices/validation";
 export { invoiceToResponse } from "./domains/invoices/mappers";
 export { listQuotesQuery } from "./domains/quotes/validation";

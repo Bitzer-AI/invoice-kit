@@ -21,18 +21,18 @@ async function setup(hooks?: InvoicingKitHooks) {
   );
   const client = await repos.clients.create({ organizationId: "org", name: "Hotel" });
   const vendor = await repos.vendors.create({ organizationId: "org", name: "Fuel Co" });
-  const invoice = (status: InvoiceStatus) =>
+  const draftInvoice = () =>
     services.invoices.create(
       {
         clientId: client.id,
         issueDate: "2026-09-25",
         currency: "usd",
-        status,
         paymentMethodIds: [],
         lineItems: [{ source: { type: "experience", id: "tour", name: "Tour" }, quantity: "1", price: "100000", taxIds: [] }],
-      } as any,
+      },
       ctx,
     );
+  const issuedInvoice = async () => services.invoices.issue((await draftInvoice()).id, ctx);
   const bill = (status: VendorBillStatus) =>
     services.vendorBills.create(
       {
@@ -44,25 +44,44 @@ async function setup(hooks?: InvoicingKitHooks) {
       } as any,
       ctx,
     );
-  return { services, invoice, bill };
+  return { services, draftInvoice, issuedInvoice, bill };
 }
 
 const pay = (amount: string) => ({ amount, currency: "usd", provider: "manual" }) as any;
 
-describe("deleting a payment on a draft leaves it a draft", () => {
-  test("invoice: a $0 payment on a draft, deleted, keeps the draft unfrozen", async () => {
-    const { services, invoice } = await setup();
-    const draft = await invoice(InvoiceStatus.Draft);
-    const payment = await services.payments.recordManualPayment(draft.id, pay("0"), ctx);
-    expect((await services.invoices.findById(draft.id, ctx)).status).toBe(InvoiceStatus.Draft);
+describe("an invoice takes a payment only once it is issued", () => {
+  test("a payment on a draft invoice is refused and the draft stays unfrozen", async () => {
+    const { services, draftInvoice } = await setup();
+    const draft = await draftInvoice();
 
-    await services.payments.delete(payment.id, ctx);
+    await expect(services.payments.recordManualPayment(draft.id, pay("100000"), ctx)).rejects.toMatchObject({
+      status: 409,
+      message: expect.stringContaining("PAYMENT_INVOICE_NOT_ISSUED"),
+    });
 
     const after = await services.invoices.findById(draft.id, ctx);
     expect(after.status).toBe(InvoiceStatus.Draft);
     expect(after.document.moneyPolicy).toBeNull();
+    expect((await services.payments.listForInvoice(draft.id, ctx)).data).toHaveLength(0);
   });
 
+  test("deleting the only payment of an issued invoice returns it to issued and keeps it frozen", async () => {
+    const { services, issuedInvoice } = await setup();
+    const issued = await issuedInvoice();
+    const payment = await services.payments.recordManualPayment(issued.id, pay("100"), ctx);
+    expect((await services.invoices.findById(issued.id, ctx)).status).toBe(InvoiceStatus.PartiallyPaid);
+
+    await services.payments.delete(payment.id, ctx);
+
+    const after = await services.invoices.findById(issued.id, ctx);
+    expect(after.status).toBe(InvoiceStatus.Issued);
+    expect(after.paidDate).toBeNull();
+    expect(after.document.moneyPolicy).toEqual(RECOMMENDED_MONEY_POLICY);
+    expect(after.document.exchangeRate).toBe("59.347");
+  });
+});
+
+describe("deleting a payment on a draft vendor bill leaves it a draft", () => {
   test("vendor bill: a $0 payment on a draft, deleted, keeps the draft unfrozen", async () => {
     const { services, bill } = await setup();
     const draft = await bill(VendorBillStatus.Draft);
@@ -77,7 +96,7 @@ describe("deleting a payment on a draft leaves it a draft", () => {
   });
 });
 
-describe("a payment that issues a draft fires the issue hook before the payment hook", () => {
+describe("issue hooks and payment hooks", () => {
   function recorder() {
     const calls: string[] = [];
     const hooks: InvoicingKitHooks = {
@@ -89,35 +108,35 @@ describe("a payment that issues a draft fires the issue hook before the payment 
     return { calls, hooks };
   }
 
-  test("invoice: full and partial payments on drafts", async () => {
+  test("invoice: the issue hook fires at issue, and a full or a partial payment fires the payment hook only", async () => {
     const { calls, hooks } = recorder();
-    const { services, invoice } = await setup(hooks);
-    const full = await invoice(InvoiceStatus.Draft);
-    const partial = await invoice(InvoiceStatus.Draft);
+    const { services, issuedInvoice } = await setup(hooks);
+    const full = await issuedInvoice();
+    const partial = await issuedInvoice();
+    expect(calls).toEqual([`issued:${full.id}`, `issued:${partial.id}`]);
+    calls.length = 0;
 
     const fullPayment = await services.payments.recordManualPayment(full.id, pay("100000"), ctx);
     const partialPayment = await services.payments.recordManualPayment(partial.id, pay("100"), ctx);
+    const secondPartialPayment = await services.payments.recordManualPayment(partial.id, pay("100"), ctx);
 
     expect(calls).toEqual([
-      `issued:${full.id}`,
       `payment:${fullPayment.id}`,
-      `issued:${partial.id}`,
       `payment:${partialPayment.id}`,
+      `payment:${secondPartialPayment.id}`,
     ]);
   });
 
-  test("invoice: no issue hook for a payment on an already-issued invoice or one that leaves a draft", async () => {
+  test("invoice: a refused payment on a draft fires no hook", async () => {
     const { calls, hooks } = recorder();
-    const { services, invoice } = await setup(hooks);
-    const sent = await invoice(InvoiceStatus.Sent);
-    const draft = await invoice(InvoiceStatus.Draft);
-    calls.length = 0;
+    const { services, draftInvoice } = await setup(hooks);
+    const draft = await draftInvoice();
 
-    const first = await services.payments.recordManualPayment(sent.id, pay("100"), ctx);
-    const second = await services.payments.recordManualPayment(sent.id, pay("100"), ctx);
-    const zero = await services.payments.recordManualPayment(draft.id, pay("0"), ctx);
+    await expect(services.payments.recordManualPayment(draft.id, pay("100000"), ctx)).rejects.toThrow(
+      /PAYMENT_INVOICE_NOT_ISSUED/,
+    );
 
-    expect(calls).toEqual([`payment:${first.id}`, `payment:${second.id}`, `payment:${zero.id}`]);
+    expect(calls).toEqual([]);
   });
 
   test("vendor bill: a payment on a draft fires recorded, then the payment hook; none on a received bill", async () => {
@@ -133,19 +152,20 @@ describe("a payment that issues a draft fires the issue hook before the payment 
     expect(calls).toEqual([`recorded:${draft.id}`, `payment:${onDraft.id}`, `payment:${onReceived.id}`]);
   });
 
-  test("a throwing issue hook never fails the payment and the payment hook still fires", async () => {
+  test("a throwing issue hook never fails the issue, and the payment hook of a later payment still fires", async () => {
     const calls: string[] = [];
-    const { services, invoice } = await setup({
+    const { services, issuedInvoice } = await setup({
       onInvoiceIssued: () => {
         throw new Error("ledger down");
       },
       onPaymentSucceeded: ({ paymentId }) => void calls.push(paymentId),
     });
-    const draft = await invoice(InvoiceStatus.Draft);
+    const issued = await issuedInvoice();
+    expect(issued.status).toBe(InvoiceStatus.Issued);
 
-    const payment = await services.payments.recordManualPayment(draft.id, pay("100000"), ctx);
+    const payment = await services.payments.recordManualPayment(issued.id, pay("100000"), ctx);
 
     expect(calls).toEqual([payment.id]);
-    expect((await services.invoices.findById(draft.id, ctx)).status).toBe(InvoiceStatus.Paid);
+    expect((await services.invoices.findById(issued.id, ctx)).status).toBe(InvoiceStatus.Paid);
   });
 });

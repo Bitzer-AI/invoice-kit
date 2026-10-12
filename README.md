@@ -46,8 +46,8 @@ export default app;
 
 Tax `rate` is a **decimal string**, and its meaning depends on `type`:
 
-- `PERCENTAGE` — a **fraction**: `"0.1800"` = 18%. Passing `"18"` means **1800%**. The API rejects a `PERCENTAGE` rate `>= 1` as a likely mistake.
-- `FIXED` — **minor units**: `"50"` = 50 cents per unit.
+- `PERCENTAGE` is a **fraction** with at most 6 decimals: `"0.18"` is 18% and `"0.08875"` is 8.875%. The API refuses a `PERCENTAGE` rate of 1 or more, so `"18"` is an error.
+- `FIXED` is **minor units** for each unit of quantity: `"50"` is 50 minor units of the document currency.
 
 ## Design docs
 

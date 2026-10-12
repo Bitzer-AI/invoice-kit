@@ -1,25 +1,27 @@
-import type { Repositories, ListProductsArgs } from "../../adapters/types";
+import type { Repositories, ListProductsArgs, ProductUpdate } from "../../adapters/types";
 import type { AuthContext } from "../../auth/types";
 import type { Product } from "../../types";
 import { ProductUsage } from "../../types";
 import { DEFAULT_CURRENCY } from "../../lib/currency";
 import type { CreateProductBody, UpdateProductBody, ListProductsQuery } from "./validation";
 import { ProductNotFoundException } from "./exceptions";
+import { catalogCostInCurrency, catalogPriceInCurrency } from "./catalog-price";
 
 export class ProductService {
   constructor(private readonly repos: Repositories) {}
 
   async create(body: CreateProductBody, ctx: AuthContext): Promise<Product> {
+    const currency = body.currency ?? DEFAULT_CURRENCY;
     return this.repos.products.create({
       organizationId: ctx.organizationId,
       name: body.name,
       description: body.description ?? null,
-      price: body.price,
-      currency: body.currency ?? DEFAULT_CURRENCY,
+      price: catalogPriceInCurrency(body.price, currency),
+      currency,
       sourceType: body.sourceType ?? null,
       sourceId: body.sourceId ?? null,
       usage: body.usage ?? ProductUsage.Both,
-      cost: body.cost ?? null,
+      cost: catalogCostInCurrency(body.cost ?? null, currency),
     });
   }
 
@@ -41,9 +43,16 @@ export class ProductService {
   }
 
   async update(id: string, body: UpdateProductBody, ctx: AuthContext): Promise<Product> {
-    // Verify existence (and throw typed 404 instead of a generic Prisma error).
-    await this.findById(id, ctx);
-    return this.repos.products.update(id, ctx.organizationId, body);
+    const existing = await this.findById(id, ctx);
+    const patch: ProductUpdate = { ...body };
+    const currency = body.currency ?? existing.currency;
+    if (body.price !== undefined || body.currency !== undefined) {
+      patch.price = catalogPriceInCurrency(body.price ?? existing.price, currency);
+    }
+    if (body.cost !== undefined || body.currency !== undefined) {
+      patch.cost = catalogCostInCurrency(body.cost === undefined ? existing.cost : body.cost, currency);
+    }
+    return this.repos.products.update(id, ctx.organizationId, patch);
   }
 
   async delete(id: string, ctx: AuthContext): Promise<void> {

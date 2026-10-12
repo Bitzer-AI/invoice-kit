@@ -51,13 +51,21 @@ When you add a value to a domain enum, add it to the `const` object in `src/type
 every schema and comparison that derives from it updates for free.
 
 **Scope:** this rule covers the domain enums listed above. Purely local schema vocabularies
-that are not domain enums — sort fields, `"asc"`/`"desc"`, `"true"`/`"false"`, `taxIdType`,
-`fiscalCategory`, the note `party` filter — may remain inline `z.enum([...])`. If one of those
-grows into a reused domain concept, promote it to a `src/types.ts` const-enum first.
+that are not domain enums — sort fields, `"asc"`/`"desc"`, `"true"`/`"false"`, the note `party`
+filter — may remain inline `z.enum([...])`. If one of those grows into a reused domain concept,
+promote it to a `src/types.ts` const-enum first.
+
+`taxIdType` (clients, vendors) and `fiscalCategory` (taxes) are free text, never an enum. The host
+application owns their values, because they depend on the country of the firm. Do not add a
+country, a tax name or a tax id name to the kit.
 
 ## Other conventions
 
 - Currency codes are stored/compared lowercase; always route through `normalizeCurrency`.
+- The minor unit digits of a currency come from `currencyMinorUnitDigits` in `src/lib/currency.ts`.
+  Never write `100`, `toFixed(2)` or a two-decimal pattern in money code.
+- A tax rate holds `TAX_RATE_SCALE` decimals (`src/lib/money/decimal.ts`). The Zod pattern, the
+  calculation, the stored format and the column type follow that constant.
 - A line item references exactly one of `productId` or `source` (enforced by `lineItemSchema`).
 - Adapters mirror behavior: the in-memory adapter filters arrays, the Prisma adapter filters
   in SQL — keep both in sync when changing query semantics.
