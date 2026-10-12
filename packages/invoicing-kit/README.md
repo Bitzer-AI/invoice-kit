@@ -85,7 +85,7 @@ Values cross the API boundary as strings to avoid floating-point drift:
 - **Tax rates** are decimal strings with at most 6 decimals. A `PERCENTAGE` rate is a fraction: `"0.18"` is 18% and `"0.08875"` is 8.875%. A value of 1 or more is refused, so `"18"` is an error. A `FIXED` rate is minor units for each unit of quantity, with at most 13 integer digits: `"5000000"` is 50,000.00 in COP. The API returns a rate with six decimals, for example `"0.180000"`.
 - **Catalog prices** (`price` and `cost` of a product) are decimal strings in units of the product currency. They hold at most the minor unit digits of that currency: `"50.00"` in USD, `"1500"` in JPY, `"1.500"` in KWD. A price with more decimals is refused with `422 PRODUCT_PRICE_PRECISION_INVALID`.
 
-`currencyMinorUnitDigits(currency)` returns the digit count of a currency: 2 for USD, 0 for JPY, 3 for KWD. It reads `Intl.NumberFormat`, and the kit keeps no currency table. Use it to convert between a shown amount and minor units.
+`currencyMinorUnitDigits(currency)` returns the digit count of a currency: 2 for USD, 0 for JPY, 3 for KWD. The count is ISO 4217 data that the kit holds, so it is the same on every JavaScript engine. Use it to convert between a shown amount and minor units, and pass it to every formatter as `minimumFractionDigits` and `maximumFractionDigits`.
 
 ```ts
 import { currencyMinorUnitDigits } from "invoicing-kit";
@@ -221,7 +221,9 @@ Changes that need work in the host application:
 - **`fiscalCategory` is free text** on taxes: 1 to 40 characters, trimmed, or `null`.
 - **A tax rate holds 6 decimals**, so `"0.08875"` is valid. Rates are returned with six decimals: a rate stored as `0.1800` is now read as `"0.180000"`. Compare rates as numbers.
 - **Catalog prices follow the currency.** `price` and `cost` are returned with the minor unit digits of the product currency: `"50.00"` in USD, `"1500"` in JPY, `"1.500"` in KWD. A value with more decimals than the currency has gets `422 PRODUCT_PRICE_PRECISION_INVALID`. A product created from a `source` line converts the line price with the digits of the document currency.
-- **New export:** `currencyMinorUnitDigits`.
+- **New exports:** `currencyMinorUnitDigits`, `DEFAULT_CURRENCY_MINOR_UNIT_DIGITS` and `NON_DEFAULT_CURRENCY_MINOR_UNIT_DIGITS`.
+
+**The minor unit of a currency is ISO 4217 data.** The kit holds the 26 currencies whose minor unit is not 2: 17 with no decimals (CLP, ISK, JPY, KRW, PYG, VND and others), 7 with three (BHD, IQD, JOD, KWD, LYD, OMR, TND) and 2 with four (CLF, UYW). Every other code has 2 digits, so a currency that ISO adds later needs no release. `NON_DEFAULT_CURRENCY_MINOR_UNIT_DIGITS` is that table with lower case codes, and `DEFAULT_CURRENCY_MINOR_UNIT_DIGITS` is the 2. Never read the digit count from `Intl.NumberFormat`: its value is data of the JavaScript engine, and engines disagree on COP, IDR, PKR, HUF, LBP, IQD, UYW and more. A browser and a server that disagree read one stored amount 100 times apart. Send the two exports to your client, and pass the digits to every `Intl.NumberFormat` as `minimumFractionDigits` and `maximumFractionDigits`.
 
 Both `invoicing-kit` and `@invoicing-kit/cli` must be upgraded together.
 

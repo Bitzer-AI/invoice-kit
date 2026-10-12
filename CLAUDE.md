@@ -64,6 +64,10 @@ country, a tax name or a tax id name to the kit.
 - Currency codes are stored/compared lowercase; always route through `normalizeCurrency`.
 - The minor unit digits of a currency come from `currencyMinorUnitDigits` in `src/lib/currency.ts`.
   Never write `100`, `toFixed(2)` or a two-decimal pattern in money code.
+- The digits are ISO 4217 data in `NON_DEFAULT_CURRENCY_MINOR_UNIT_DIGITS`, with the default
+  `DEFAULT_CURRENCY_MINOR_UNIT_DIGITS` for every other code. Never read a digit count, or any other
+  value that is stored, sent or compared, from `Intl`: it is data of the engine and differs between
+  engines.
 - A tax rate holds `TAX_RATE_SCALE` decimals (`src/lib/money/decimal.ts`). The Zod pattern, the
   calculation, the stored format and the column type follow that constant.
 - A line item references exactly one of `productId` or `source` (enforced by `lineItemSchema`).
