@@ -243,6 +243,11 @@ export interface NewDocumentLineItem {
   baseSubtotal?: BigintMinor | null;
 }
 
+/** A line for `replaceLineItems`: `id` names a stored line of the document, which keeps its row and position, or is null for a new row. */
+export interface ReplacementLineItem extends NewDocumentLineItem {
+  id: string | null;
+}
+
 export interface NewDocument {
   type: DocumentType;
   organizationId: string;
@@ -350,11 +355,11 @@ export interface DocumentRepository {
   create(data: NewDocument): Promise<DocumentWithRelations>;
   findById(id: string, organizationId: string): Promise<DocumentWithRelations | null>;
   update(id: string, organizationId: string, patch: DocumentUpdate): Promise<Document>;
-  /** Replaces line items + per-line taxes wholesale. */
+  /** Writes the document's lines: a line with a stored id updates that row in place, a line with a null id is inserted, and stored lines not listed are deleted with their taxes. */
   replaceLineItems(
     documentId: string,
     organizationId: string,
-    lineItems: NewDocumentLineItem[],
+    lineItems: ReplacementLineItem[],
   ): Promise<void>;
   /** Sets the linked payment-method ids (replaces the set). */
   setPaymentMethods(

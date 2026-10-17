@@ -133,6 +133,7 @@ export type {
   QuoteRepository,
   QuoteUpdate,
   QuoteWithDocument,
+  ReplacementLineItem,
   Repositories,
   TaxRepository,
   TaxUpdate,

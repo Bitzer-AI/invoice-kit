@@ -12,7 +12,13 @@ import {
   resolveIssueExchange,
   type DocumentExchange,
 } from "./exchange";
-import type { DocumentUpdate, DocumentWithRelations, NewDocumentLineItem, Repositories } from "../adapters/types";
+import type {
+  DocumentUpdate,
+  DocumentWithRelations,
+  NewDocumentLineItem,
+  ReplacementLineItem,
+  Repositories,
+} from "../adapters/types";
 import { buildDocumentLines, lineInputsOf, type DocumentLineInput } from "./document-lines";
 
 export interface DocumentServiceOptions {
@@ -148,7 +154,8 @@ export interface ApplyDocumentPlanArgs {
 }
 
 export interface DocumentPlanBuild {
-  lineItems: NewDocumentLineItem[];
+  /** A recompute of the stored lines keeps their ids, so hosts that reference a line keep the reference. */
+  lineItems: ReplacementLineItem[];
   /** Totals + money fields the caller writes with `tx.documents.update`. */
   patch: DocumentUpdate;
 }
@@ -159,7 +166,15 @@ export interface DocumentPlanBuild {
  * total (e.g. to decide whether a write should happen at all) before committing
  * to it. Pair with `writeDocumentPlan` to actually store the result.
  */
+function replacementLines(
+  lineItems: readonly NewDocumentLineItem[],
+  keptRows: DocumentWithRelations["lineItems"] | null,
+): ReplacementLineItem[] {
+  return lineItems.map((lineItem, index) => ({ ...lineItem, id: keptRows === null ? null : keptRows[index]!.id }));
+}
+
 export async function buildDocumentPlan(tx: Repositories, args: ApplyDocumentPlanArgs): Promise<DocumentPlanBuild> {
+  const keptRows = args.lineItems === undefined ? args.document.lineItems : null;
   const built = await buildDocumentLines({
     repos: tx,
     organizationId: args.organizationId,
@@ -169,7 +184,10 @@ export async function buildDocumentPlan(tx: Repositories, args: ApplyDocumentPla
     policy: args.plan.policy,
     exchangeRate: args.plan.exchange?.rate ?? null,
   });
-  return { lineItems: built.lineItems, patch: { ...built.totals, ...documentMoneyFields(args.plan, built.base) } };
+  return {
+    lineItems: replacementLines(built.lineItems, keptRows),
+    patch: { ...built.totals, ...documentMoneyFields(args.plan, built.base) },
+  };
 }
 
 /** Writes a `buildDocumentPlan` result: replaces the line items and patches the document. */

@@ -13,6 +13,7 @@ import type {
   DocumentWithRelations,
   NewDocument,
   NewDocumentLineItem,
+  ReplacementLineItem,
 } from "../types";
 import type { MemoryStore } from "./store";
 
@@ -88,61 +89,79 @@ export function createInMemoryDocumentRepository(store: MemoryStore): DocumentRe
     };
   }
 
+  function lineItemFields(item: NewDocumentLineItem) {
+    return {
+      productId: item.productId,
+      quantity: item.quantity,
+      price: item.price,
+      currency: item.currency,
+      taxAmount: item.taxAmount,
+      total: item.total,
+      baseSubtotal: item.baseSubtotal ?? null,
+      description: item.description ?? null,
+      metadata: item.metadata ?? null,
+    };
+  }
+
+  function insertLineItemTaxes(lineItemId: string, item: NewDocumentLineItem, now: Date): void {
+    for (const tax of item.taxes) {
+      const taxRowId = randomUUID();
+      const taxRow: DocumentLineItemTax = {
+        id: taxRowId,
+        lineItemId,
+        taxId: tax.taxId,
+        taxAmount: tax.taxAmount,
+        baseTaxAmount: tax.baseTaxAmount ?? null,
+        createdAt: now,
+        updatedAt: now,
+      };
+      lineItemTaxes.set(taxRowId, taxRow);
+    }
+  }
+
+  function deleteLineItemTaxes(lineItemId: string): void {
+    for (const [taxRowId, taxRow] of lineItemTaxes) {
+      if (taxRow.lineItemId === lineItemId) {
+        lineItemTaxes.delete(taxRowId);
+      }
+    }
+  }
+
+  function insertLineItem(documentId: string, item: NewDocumentLineItem, now: Date): void {
+    const lineItemId = randomUUID();
+    const lineItem: DocumentLineItem = {
+      id: lineItemId,
+      documentId,
+      ...lineItemFields(item),
+      createdAt: now,
+      updatedAt: now,
+    };
+    lineItems.set(lineItemId, lineItem);
+    insertLineItemTaxes(lineItemId, item, now);
+  }
+
   function insertLineItems(
     documentId: string,
     items: NewDocumentLineItem[],
   ): void {
     const now = new Date();
-    for (const item of items) {
-      const lineItemId = randomUUID();
-      const lineItem: DocumentLineItem = {
-        id: lineItemId,
-        documentId,
-        productId: item.productId,
-        quantity: item.quantity,
-        price: item.price,
-        currency: item.currency,
-        taxAmount: item.taxAmount,
-        total: item.total,
-        baseSubtotal: item.baseSubtotal ?? null,
-        description: item.description ?? null,
-        metadata: item.metadata ?? null,
-        createdAt: now,
-        updatedAt: now,
-      };
-      lineItems.set(lineItemId, lineItem);
+    for (const item of items) insertLineItem(documentId, item, now);
+  }
 
-      for (const tax of item.taxes) {
-        const taxRowId = randomUUID();
-        const taxRow: DocumentLineItemTax = {
-          id: taxRowId,
-          lineItemId,
-          taxId: tax.taxId,
-          taxAmount: tax.taxAmount,
-          baseTaxAmount: tax.baseTaxAmount ?? null,
-          createdAt: now,
-          updatedAt: now,
-        };
-        lineItemTaxes.set(taxRowId, taxRow);
-      }
-    }
+  function rewriteLineItem(stored: DocumentLineItem, item: NewDocumentLineItem, now: Date): void {
+    lineItems.set(stored.id, { ...stored, ...lineItemFields(item), updatedAt: now });
+    deleteLineItemTaxes(stored.id);
+    insertLineItemTaxes(stored.id, item, now);
+  }
+
+  function lineItemsOfDoc(documentId: string): DocumentLineItem[] {
+    return [...lineItems.values()].filter((lineItem) => lineItem.documentId === documentId);
   }
 
   function deleteLineItemsForDoc(documentId: string): void {
-    const docLineItemIds: string[] = [];
-    for (const [id, li] of lineItems) {
-      if (li.documentId === documentId) {
-        docLineItemIds.push(id);
-      }
-    }
-    for (const id of docLineItemIds) {
-      lineItems.delete(id);
-      // Cascade: delete all taxes for this line item
-      for (const [taxRowId, taxRow] of lineItemTaxes) {
-        if (taxRow.lineItemId === id) {
-          lineItemTaxes.delete(taxRowId);
-        }
-      }
+    for (const lineItem of lineItemsOfDoc(documentId)) {
+      lineItems.delete(lineItem.id);
+      deleteLineItemTaxes(lineItem.id);
     }
   }
 
@@ -233,14 +252,26 @@ export function createInMemoryDocumentRepository(store: MemoryStore): DocumentRe
     async replaceLineItems(
       documentId: string,
       organizationId: string,
-      items: NewDocumentLineItem[],
+      items: ReplacementLineItem[],
     ): Promise<void> {
       const doc = docs.get(documentId);
       if (!doc || doc.organizationId !== organizationId) {
         throw new Error("document not found");
       }
-      deleteLineItemsForDoc(documentId);
-      insertLineItems(documentId, items);
+      const storedById = new Map(lineItemsOfDoc(documentId).map((lineItem) => [lineItem.id, lineItem]));
+      const keptIds = new Set(items.flatMap((item) => (item.id === null ? [] : [item.id])));
+      if ([...keptIds].some((id) => !storedById.has(id))) throw new Error("line item not found");
+      for (const stored of storedById.values()) {
+        if (keptIds.has(stored.id)) continue;
+        lineItems.delete(stored.id);
+        deleteLineItemTaxes(stored.id);
+      }
+      const now = new Date();
+      for (const item of items) {
+        const stored = item.id === null ? undefined : storedById.get(item.id);
+        if (stored === undefined) insertLineItem(documentId, item, now);
+        else rewriteLineItem(stored, item, now);
+      }
     },
 
     async setPaymentMethods(

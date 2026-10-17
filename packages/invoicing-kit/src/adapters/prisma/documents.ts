@@ -4,6 +4,7 @@ import type {
   DocumentWithRelations,
   NewDocument,
   NewDocumentLineItem,
+  ReplacementLineItem,
 } from "../types";
 import type { Document } from "../../types";
 import { DEFAULT_CURRENCY } from "../../lib/currency";
@@ -71,6 +72,28 @@ export const WITH_DOCUMENT_INCLUDE = {
 
 const FULL_INCLUDE = DOCUMENT_RELATIONS_INCLUDE;
 
+function lineItemColumns(lineItem: NewDocumentLineItem) {
+  return {
+    productId: lineItem.productId,
+    quantity: lineItem.quantity,
+    price: lineItem.price,
+    currency: lineItem.currency,
+    taxAmount: lineItem.taxAmount,
+    total: lineItem.total,
+    baseSubtotal: lineItem.baseSubtotal ?? null,
+    description: lineItem.description ?? null,
+    metadata: lineItem.metadata ?? null,
+  };
+}
+
+function lineItemTaxRows(lineItem: NewDocumentLineItem) {
+  return lineItem.taxes.map((tax) => ({
+    taxId: tax.taxId,
+    taxAmount: tax.taxAmount,
+    baseTaxAmount: tax.baseTaxAmount ?? null,
+  }));
+}
+
 export function createPrismaDocumentRepository(
   prisma: AnyPrismaClient,
   modelNames: PrismaModelNames,
@@ -108,22 +131,8 @@ export function createPrismaDocumentRepository(
           baseTotal: data.baseTotal ?? null,
           lineItems: {
             create: data.lineItems.map((lineItem: NewDocumentLineItem) => ({
-              productId: lineItem.productId,
-              quantity: lineItem.quantity,
-              price: lineItem.price,
-              currency: lineItem.currency,
-              taxAmount: lineItem.taxAmount,
-              total: lineItem.total,
-              baseSubtotal: lineItem.baseSubtotal ?? null,
-              description: lineItem.description ?? null,
-              metadata: lineItem.metadata ?? null,
-              taxes: {
-                create: lineItem.taxes.map((tax) => ({
-                  taxId: tax.taxId,
-                  taxAmount: tax.taxAmount,
-                  baseTaxAmount: tax.baseTaxAmount ?? null,
-                })),
-              },
+              ...lineItemColumns(lineItem),
+              taxes: { create: lineItemTaxRows(lineItem) },
             })),
           },
           paymentMethods:
@@ -168,36 +177,32 @@ export function createPrismaDocumentRepository(
     async replaceLineItems(
       documentId: string,
       organizationId: string,
-      lineItems: NewDocumentLineItem[],
+      lineItems: ReplacementLineItem[],
     ): Promise<void> {
       const owns = await documentDb.findFirst({
         where: { id: documentId, organizationId },
         select: { id: true },
       });
       if (!owns) throw new Error("document not found");
-      await lineItemDb.deleteMany({ where: { documentId } });
+      const storedRows: Array<{ id: string }> = await lineItemDb.findMany({
+        where: { documentId },
+        select: { id: true },
+      });
+      const storedIds = new Set(storedRows.map((row) => row.id));
+      const keptIds = lineItems.flatMap((lineItem) => (lineItem.id === null ? [] : [lineItem.id]));
+      if (keptIds.some((id) => !storedIds.has(id))) throw new Error("line item not found");
+      await lineItemDb.deleteMany({ where: { documentId, id: { notIn: keptIds } } });
       for (const lineItem of lineItems) {
-        await lineItemDb.create({
-          data: {
-            documentId,
-            productId: lineItem.productId,
-            quantity: lineItem.quantity,
-            price: lineItem.price,
-            currency: lineItem.currency,
-            taxAmount: lineItem.taxAmount,
-            total: lineItem.total,
-            baseSubtotal: lineItem.baseSubtotal ?? null,
-            description: lineItem.description ?? null,
-            metadata: lineItem.metadata ?? null,
-            taxes: {
-              create: lineItem.taxes.map((tax) => ({
-                taxId: tax.taxId,
-                taxAmount: tax.taxAmount,
-                baseTaxAmount: tax.baseTaxAmount ?? null,
-              })),
-            },
-          },
-        });
+        if (lineItem.id === null) {
+          await lineItemDb.create({
+            data: { documentId, ...lineItemColumns(lineItem), taxes: { create: lineItemTaxRows(lineItem) } },
+          });
+        } else {
+          await lineItemDb.update({
+            where: { id: lineItem.id },
+            data: { ...lineItemColumns(lineItem), taxes: { deleteMany: {}, create: lineItemTaxRows(lineItem) } },
+          });
+        }
       }
     },
 
